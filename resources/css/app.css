@@ -1,0 +1,23 @@
+@import url('https://fonts.bunny.net');
+@import url('https://fonts.bunny.net/css?family=inter:400,500,600&display=swap" rel="stylesheet');
+@import 'tailwindcss';
+@import '../../vendor/livewire/flux/dist/flux.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: Inter, sans-serif;
+    --color-primary: #181E74;
+    --color-secondary: #000000;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+}
