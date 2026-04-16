@@ -20,10 +20,9 @@ Route::controller(PublicController::class)->group(function () {
 
 //Session Controller
 Route::controller(SessionUserController::class)->group(function () {
-    Route::get('/login', 'index')->name('login');
-    Route::get('/login/{type}', 'create');
-    Route::post('/login/{type}', 'store');
-    Route::post('/logout/{type}', 'destroy');
+    Route::get('/login', 'create')->name('login');
+    Route::post('/login', 'store')->name('login.store');
+    Route::post('/logout', 'destroy')->name('logout');
 }); 
 
 //Users Dashboard

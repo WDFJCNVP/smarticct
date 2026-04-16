@@ -1,5 +1,5 @@
 <x-public.layout>
-    <div class="relative w-full h-full">
+    <div class="relative w-full h-full mt-1">
 
         <x-public.image-overlay />
 
