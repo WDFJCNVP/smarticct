@@ -8,15 +8,14 @@ use Illuminate\Validation\ValidationException;
 
 new #[Layout('layouts::login_layout')] class extends Component
 {
-    #[Validate('required|string|max:255')]
+    #[Validate('required|string')]
     public $email = '';
 
-    #[Validate('required|string|max:255')]
+    #[Validate('required|string')]
     public $password = '';
 
     public function login() {
 
-        //Call validate
         $validated_attributes = $this->validate();
 
         // Attempt to login
@@ -45,12 +44,12 @@ new #[Layout('layouts::login_layout')] class extends Component
     <flux:field class="mt-5">
         <flux:label>Email</flux:label>
 
-        <flux:input 
-            type="text" 
-            wire:model="email" 
-            name="email" 
-            placeholder="Enter your email"
-            />
+    <flux:input 
+        type="text" 
+        wire:model.blur.live="email"
+        name="email" 
+        placeholder="Enter your email"
+    />
 
         <flux:error name="email" />
 
@@ -61,9 +60,10 @@ new #[Layout('layouts::login_layout')] class extends Component
 
         <flux:input 
             type="password" 
-            wire:model="password" 
+            wire:model.blur="password" 
             name="password" 
             viewable
+            required
             />
 
         <flux:error name="password" />

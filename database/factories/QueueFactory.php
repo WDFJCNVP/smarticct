@@ -31,7 +31,7 @@ class QueueFactory extends Factory
             'seat_capacity' => fake()->numberBetween(10, 60),
             'seat_count' => 0,
             'time_queued' => now(),
-            'departs_at' => now()->addMinutes(fake()->numberBetween(5, 90)),
+            'departs_at' => now()->addMinute(),
             'time_departed' => null,
         ];
     }

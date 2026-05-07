@@ -108,7 +108,7 @@ class CardController extends Controller
                 'time_departed' => null,
                 'destination'   => $destination,
                 'status'        => 'loading',
-                'departs_at'    => Carbon::now()->addMinutes(20),
+                'departs_at'    => Carbon::now()->addMinute(),
             ]);
 
             ProcessAfterDepart::dispatch($queue->id)

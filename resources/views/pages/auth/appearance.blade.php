@@ -1,3 +1,3 @@
 <x-dashboard.operator-dashboard>
-  Hello world
+    <livewire:pages::settings.appearance />
 </x-dashboard.operator-dashboard>

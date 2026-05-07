@@ -1,5 +1,4 @@
 <x-public.layout>
-  <x-public.main-container class="w-full">
     <div class="w-full min-h-[calc(100vh-64px)] flex flex-col items-center justify-center px-4">
       
       <div class="mb-4">
@@ -17,7 +16,9 @@
       <div class="flex flex-col justify-center items-center w-full">
 
       <div class="w-full max-w-sm">
-        <livewire:auth.login />
+
+        {{ $slot }}
+        
       </div>
 
       <div class="py-10 text-sm text-zinc-500 dark:text-zinc-400">
@@ -26,5 +27,4 @@
       </div>
 
     </div>
-  </x-public.main-container>
 </x-public.layout>

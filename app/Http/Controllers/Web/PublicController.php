@@ -21,9 +21,8 @@ class PublicController extends Controller
     }
 
     public function queue() {
-        $group_vehicles = $this->groupVehicles();
-
-        return view('queue', compact('group_vehicles'));
+        
+        return view('queue');
     }
 
     public function queuePartial() {

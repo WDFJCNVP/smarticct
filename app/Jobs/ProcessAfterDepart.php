@@ -54,7 +54,7 @@ class ProcessAfterDepart implements ShouldQueue
 
             $next_queue->update([
                 'status'     => 'loading',
-                'departs_at' => Carbon::now()->addMinutes(20),
+                'departs_at' => Carbon::now()->addMinute(),
             ]);
 
             Log::info("Queue [{$next_queue->id}] promoted to loading.");

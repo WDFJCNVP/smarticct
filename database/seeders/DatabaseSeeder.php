@@ -19,13 +19,15 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        Terminal::factory(10)->create();
+        // Terminal::factory(10)->create();
 
-        User::factory(100)
-            ->has(Card::factory())
-            ->has(Vehicle::factory()
-                ->has(Route::factory()))
-            ->create();
+        // User::factory(100)
+        //     ->has(Card::factory())
+        //     ->has(Vehicle::factory()
+        //         ->has(Route::factory()))
+        //     ->create();
+
+        User::factory()->create();
 
     }
 }

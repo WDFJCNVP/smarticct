@@ -2,7 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Web\PublicController;
-use App\Http\Controllers\Web\Auth\SessionUserController;
+use App\Http\Controllers\Web\Auth\{
+    SessionUserController,
+    UserSettingController,
+};
+
 use App\Http\Controllers\Web\User\{
     AdminDashboardController,
     OperatorDashboardController,
@@ -15,15 +19,17 @@ Route::controller(PublicController::class)->group(function () {
     Route::get('/routes', 'routes');
     Route::get('/fares', 'fare');
     Route::get('/queue', 'queue');
-    Route::get('/queue/partial', 'queuePartial')->name('queue.partial');
+    // Route::get('/queue/partial', 'queuePartial')->name('queue.partial');
 });
 
 //Session Controller
 Route::controller(SessionUserController::class)->group(function () {
-    Route::get('/login', 'create')->name('login');
-    Route::post('/login', 'store')->name('login.store');
+    // Route::get('/login', 'create')->name('login');
+    // Route::post('/login', 'store')->name('login.store');
     Route::post('/logout', 'destroy')->name('logout');
 }); 
+
+Route::livewire('/login', 'pages::auth.login')->name('login');
 
 //Users Dashboard
 Route::middleware('auth')->group(function () {
@@ -39,3 +45,11 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:passenger')
         ->name('passenger.dashboard');
 });
+
+//Settings
+Route::controller(UserSettingController::class)->group(function () {
+    Route::get('/setting/profile', 'profile')->name('profile.edit');
+    Route::get('/setting/appearance', 'appearance')->name('appearance.edit');
+    Route::get('/setting/security', 'security')->name('security.edit');
+});
+
