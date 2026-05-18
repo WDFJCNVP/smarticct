@@ -12,6 +12,7 @@ class Queue extends Model
     ];
 
     protected $fillable = [
+        'card_id',
         'vehicle_type',
         'status',
         'destination',

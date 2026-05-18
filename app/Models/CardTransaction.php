@@ -11,7 +11,7 @@ class CardTransaction extends Model
     use HasFactory;
 
 protected $fillable = [
-    'uid',
+    'card_id',
     'transaction_type',
     'amount',
     'balance_before',
@@ -21,6 +21,7 @@ protected $fillable = [
     'status',
     'message',
     'transaction_time',
+    'points_deduct',
 ];
 
     public function card() {

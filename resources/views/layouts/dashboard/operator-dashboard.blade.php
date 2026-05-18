@@ -3,6 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title>
             {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
@@ -13,6 +14,8 @@
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+                @livewireStyles
+
         @fluxAppearance
         
     </head>
@@ -26,10 +29,9 @@
 
             <flux:sidebar.nav>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/dashboard" icon=""> Payments </x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/balance" icon=""> Balance </x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/dashboard" icon="home"> Payment </x-dashboard.sidebar-menu.sidebar-item>
+                {{-- <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home"> Notifaction </x-dashboard.sidebar-menu.sidebar-item>
 
-                {{-- 
                 <x-dashboard.sidebar-menu.sidebar-group heading="Routes">
                     <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Local</x-dashboard.sidebar-menu.sidebar-item>
                     <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Provincial</x-dashboard.sidebar-menu.sidebar-item>
@@ -118,5 +120,6 @@
         </flux:main>
 
         @fluxScripts
+         @livewireScripts
     </body>
 </html>

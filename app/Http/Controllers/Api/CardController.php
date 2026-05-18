@@ -21,13 +21,19 @@ use App\Jobs\ProcessAfterDepart;
 class CardController extends Controller
 {
 
-    private function getUserVehicle($userId) {
-        $userVehicle = Vehicle::with('route.terminal')->where('user_id', $userId)->first(); 
-        return $userVehicle;
+    private function getUserVehicle($card, $validated) {
+        $vehicle = Vehicle::where('user_id', $card->user_id)->where('vehicle_type', $validated['vehicle_type'])->first(); 
+
+        if (!$vehicle) {
+            throw new \Exception('Vehicle Not Found');
+        }
+
+        return $vehicle;
     }
 
-    private function isVehicleAlreadyQueued($userId) {
-        $vehicle = $this->getUserVehicle($userId);
+    private function isVehicleAlreadyQueued($card, $validated) {
+
+        $vehicle = $this->getUserVehicle($card, $validated);
 
         if (!$vehicle) {
             throw new \Exception('Vehicle Not Found');
@@ -62,51 +68,49 @@ class CardController extends Controller
         }
     }
 
-    private function queueOperatorVehicle($card) {
+    private function queueOperatorVehicle($card, $validated) {
 
-        $vehicle = $this->getUserVehicle($card->user_id);
-        $destination = $vehicle->route->terminal->municipality;
+        $card_id = $card->id;
 
-        $queue = Queue::where('status', 'loading')->where('destination', $destination)->where('vehicle_type', $vehicle->vehicle_type)->exists();
+        $vehicle = $this->getUserVehicle($card, $validated);
+
+        if (!$vehicle) {
+            throw new \Exception('Vehicle Not Found');
+        }
+
+        $queue = Queue::where('status', 'loading')->where('destination', $validated['destination'])->where('vehicle_type', $vehicle->vehicle_type)->exists();
 
         if ($queue) {
-
-            if (!$vehicle) {
-                throw new \Exception('Vehicle Not Found');
-            }
-
-            $driver_full_name = $vehicle->user->first_name . ' ' . $vehicle->user->last_name;
-
             Queue::create([
+                'card_id'       => $card->id,
                 'vehicle_type'  => $vehicle->vehicle_type,
                 'plate_number'  => $vehicle->plate_number,
-                'driver_name'   => $driver_full_name,
+                'driver_name'   => $vehicle->user->name,
                 'seat_capacity' => $vehicle->total_seats,
                 'seat_count'    => 0,
                 'time_queued'   => now(),
                 'time_departed' => null,
-                'destination'   => $destination,
+                'destination'   => $validated['destination'],
                 'status'        => 'staging',
                 'departs_at'    => null,
             ]);
         } else {
-            $vehicle = $this->getUserVehicle($card->user_id);
+            $vehicle = $this->getUserVehicle($card, $validated);
 
             if (!$vehicle) {
                 throw new \Exception('Vehicle Not Found');
             }
 
-            $driver_full_name = $vehicle->user->first_name . ' ' . $vehicle->user->last_name;
-
             $queue = Queue::create([
+                'card_id'       => $card->id,
                 'vehicle_type'  => $vehicle->vehicle_type,
                 'plate_number'  => $vehicle->plate_number,
-                'driver_name'   => $driver_full_name,
+                'driver_name'   => $vehicle->user->name,
                 'seat_capacity' => $vehicle->total_seats,
                 'seat_count'    => 0,
                 'time_queued'   => now(),
                 'time_departed' => null,
-                'destination'   => $destination,
+                'destination'   =>  $validated['destination'],
                 'status'        => 'loading',
                 'departs_at'    => Carbon::now()->addMinute(),
             ]);
@@ -121,12 +125,12 @@ class CardController extends Controller
             // Validate request
             $validated = $request->validate([
                 'uid' => 'required|string|max:50',
+                'name' => 'required|string|max:50',
                 'transaction_type' => 'required|string|max:50',
                 'amount' => 'nullable|numeric|min:0',
-                'device_id' => 'nullable|string|max:50',
-                'location' => 'nullable|string|max:255',
                 'destination' => 'nullable|string',
                 'vehicle_type' => 'nullable|string',
+                'plate_number' => 'nullable|string',
             ]);
 
             // Log incoming request
@@ -179,18 +183,23 @@ class CardController extends Controller
 
             }
             
-            if ($validated['transaction_type'] === 'operator_payment') {
+            if ($validated['transaction_type'] === 'operator_payment'){
                 
-                if ($this->isVehicleAlreadyQueued($card->user_id)) {
-                    $status       = 'failed';
-                    $balanceAfter = $balanceBefore;
-                    $message      = 'Vehicle is already in queue.';
+                $alreadyInQueue = $this->isVehicleAlreadyQueued($card, $validated);
+
+                if ($alreadyInQueue) {
+                    return response()->json([
+                        'status' => 'failed',
+                        'balanceAfter' => $balanceBefore,
+                        'message'       => 'Vehicle is already in queue'
+                    ]);
                     
                 } else {
                     $result = $this->deductUserCard($validated, $amount, $balanceBefore, $balanceAfter, $message);
 
                     if ($result['status'] === 'success') {
-                        $this->queueOperatorVehicle($card);
+
+                        $this->queueOperatorVehicle($card, $validated);
                     }
 
                     $status       = $result['status'];
@@ -201,23 +210,20 @@ class CardController extends Controller
 
             // Create Card Transaction
             $transaction = CardTransaction::create([
-                'uid'               => $validated['uid'],
-                'transaction_type'  => $validated['transaction_type'],
+                'card_id'           => $card->id,
                 'amount'            => -$amount,
                 'balance_before'    => $balanceBefore,
                 'balance_after'     => $balanceAfter,
-                'device_id'         => $validated['device_id'] ?? null,
-                'location'          => $validated['location'] ?? null,
                 'status'            => $status,
                 'message'           => $message,
-                'transaction_time'  => now(),
+                'transaction_time' => now(),
             ]);
 
             // Return response
             return response()->json([
                 'status' => $status,
                 'message' => $message,
-                'card_holder' => "{$card->user->first_name} {$card->user->last_name}",
+                'card_holder' => "{$card->user->name}",
                 'card_type' => $card->user->role,
                 'balance_before' => (float) $balanceBefore,
                 'balance_after' => (float) $balanceAfter,

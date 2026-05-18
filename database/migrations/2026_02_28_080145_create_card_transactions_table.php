@@ -13,16 +13,14 @@ return new class extends Migration
     {
         Schema::create('card_transactions', function (Blueprint $table) {
             $table->id();
-            $table->string('uid', 50);
-            $table->string('transaction_type', 50);
+            $table->foreignIdFor(\App\Models\Card::class)->constrained()->onDelete('cascade');
+            $table->decimal('points_deducted', 10, 2)->nullable();
             $table->decimal('amount', 10, 2)->nullable();
             $table->decimal('balance_before', 10, 2)->nullable();
             $table->decimal('balance_after', 10, 2)->nullable();
-            $table->string('device_id', 50)->nullable();
-            $table->string('location', 255)->nullable();
             $table->enum('status', ['success', 'failed', 'insufficient_balance'])->default('success');
             $table->text('message')->nullable();
-            $table->timestamp('transaction_time')->useCurrent();
+            $table->timestamp('transaction_time');
             $table->timestamps();
         });
     }

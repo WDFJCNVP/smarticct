@@ -1,10 +1,12 @@
 <?php
 
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use App\Models\Queue;
 
-new class extends Component {
+
+new #[Layout('components.public.layout')]class extends Component {
 
     public string $search = '';
     public string $vehicleType = '';
@@ -31,23 +33,35 @@ new class extends Component {
 
 }; ?>
 
-<div class="w-full max-w-5xl mx-auto" wire:poll.5s>
+<div class="w-full max-w-5xl mx-auto mt-10" wire:poll.5s>
 
-    <!-- Header -->
+    <!-- Queue Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 class="text-2xl font-bold text-[#181E74]">Queue</h1>
+
+        <flux:heading class="text-sm sm:text-sm lg:text-lg xl:text-xl">
+            Live Queueing
+        </flux:heading>
 
         <div class="flex-1 sm:max-w-xs mx-auto sm:mx-0">
-            <input
+            {{-- <input
                 type="text"
                 placeholder="Search Routes"
                 wire:model.live="search"
                 class="w-full rounded-md border border-[#181E74] px-4 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#181E74]"
-            />
+            /> --}}
+            <flux:field>
+
+                <flux:input 
+                    placeholder="Search Routes" 
+                    wire:model.live="search"
+                    type="text"
+                />
+
+            </flux:field>
         </div>
 
         <div class="relative shrink-0">
-            <select
+            {{-- <select
                 wire:model.live="vehicleType"
                 class="appearance-none rounded-lg border border-gray-200 bg-white px-4 pr-10 py-2.5 text-sm font-medium text-gray-700 shadow-sm focus:outline-none cursor-pointer"
             >
@@ -60,7 +74,15 @@ new class extends Component {
             <svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400"
                 fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-            </svg>
+            </svg> --}}
+
+            <flux:select wire:model.live="vehicleType">
+                <flux:select.option value="" selected>All Vehicles</flux:select.option>
+                <flux:select.option value="Jeep">Jeep</flux:select.option>
+                <flux:select.option value="Bus">Bus</flux:select.option>
+                <flux:select.option value="Multi-cab">Multi-cab</flux:select.option>
+                <flux:select.option value="Van">Van</flux:select.option>
+            </flux:select>
         </div>
     </div>
 

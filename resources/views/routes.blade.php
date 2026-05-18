@@ -1,5 +1,4 @@
 <x-public.layout>
-  <x-public.main-container class='mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8'>
     <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
             x-data="{
                 activeTab: '<%= data.activeTab %>',
@@ -209,5 +208,4 @@
           </div>
         </div>
     </div>
-  </x-public.main-container>
 </x-public.layout>

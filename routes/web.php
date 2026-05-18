@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Web\PublicController;
+use App\Http\Controllers\TopUpTransactionController;
+use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\Web\Auth\{
     SessionUserController,
     UserSettingController,
@@ -18,9 +20,11 @@ Route::controller(PublicController::class)->group(function () {
     Route::get('/', 'index');
     Route::get('/routes', 'routes');
     Route::get('/fares', 'fare');
-    Route::get('/queue', 'queue');
+    // Route::get('/queue', 'queue');
     // Route::get('/queue/partial', 'queuePartial')->name('queue.partial');
 });
+
+Route::livewire('/queue', 'pages::queue-page');
 
 //Session Controller
 Route::controller(SessionUserController::class)->group(function () {
@@ -53,3 +57,16 @@ Route::controller(UserSettingController::class)->group(function () {
     Route::get('/setting/security', 'security')->name('security.edit');
 });
 
+
+Route::livewire('/payment/points', 'pages::load_points.options')->name('points.option');
+Route::livewire('/tap/card', 'pages::tap_card.tap')->name('tap.card');
+
+Route::livewire('/operator/balance', 'pages::load_points.points_balance')->name('operator.balance');
+
+// Top-up routes (auth required)
+Route::middleware('auth')->group(function () {
+    Route::get('/topup/success',   [TopUpTransactionController::class, 'success'])->name('topup.success');
+    Route::get('/topup/cancel',    [TopUpTransactionController::class, 'cancel'])->name('topup.cancel');
+});
+
+Route::post('/webhook/paymongo', [WebhookController::class, 'handle'])->name('webhook.paymongo');

@@ -20,6 +20,10 @@ class Card extends Model
     }
     
     public function cardTransaction() {
-        return $this->hasMany(cardTransaction::class);
+        return $this->hasMany(CardTransaction::class);
+    }
+
+    public function topUpTransaction() {
+        return $this->hasMany(TopUpTransaction::class);
     }
 }

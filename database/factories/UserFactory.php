@@ -34,10 +34,10 @@ class UserFactory extends Factory
 
             'name'              => 'John Doe',
             'email'             => 'jdoe@gmail.com',
-            'role'              => 'operator',
+            'role'              => 'passenger',
             'address'           => fake()->address(),
             'email_verified_at' => now(),
-            'password'          => '123',
+            'password'          => '12345678',
             'remember_token'    => Str::random(10),
         ];
     }
