@@ -8,6 +8,6 @@ use Illuminate\Http\Request;
 class PassengerDashboardController extends Controller
 {
     public function index() {
-        return view('user.passenger.index');
+        return view('user.commuter.index');
     }
 }   

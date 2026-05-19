@@ -1,3 +1,3 @@
-<x-public.layout>
+<x-layouts::dashboard.admin.admin-dashboard>
   Admin Page
-</x-public.layout>
+</x-layouts::dashboard.admin.admin-dashboard>

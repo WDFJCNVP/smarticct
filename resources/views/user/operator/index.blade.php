@@ -1,4 +1,4 @@
-<x-dashboard.operator-dashboard>
+<x-layouts::dashboard.operator.operator-dashboard>
     <div class="flex gap-4">
         <a href="{{ route('tap.card') }}" aria-label="Latest on our blog" class="flex-1">
             <flux:card size="sm" class="hover:bg-zinc-50 dark:hover:bg-zinc-700">
@@ -12,4 +12,4 @@
             </flux:card>
         </a>
     </div>
-</x-dashboard.operator-dashboard>
+</x-layouts::dashboard.operator.operator-dashboard>
