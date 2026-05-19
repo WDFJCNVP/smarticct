@@ -15,16 +15,23 @@
 
       <div class="flex flex-col justify-center items-center w-full">
 
-      <div class="w-full max-w-sm">
+        <div class="w-full max-w-sm">
 
-        {{ $slot }}
-        
-      </div>
+          {{ $slot }}
+          
+        </div>
 
-      <div class="py-10 text-sm text-zinc-500 dark:text-zinc-400">
-        Not a member? 
-        <a href="#" class="text-primary font-medium hover:underline decoration-2 underline-offset-4">Contact admin</a>
-      </div>
+        <div class="py-10 text-sm text-zinc-500 dark:text-zinc-400">
+
+            <flux:text>
+              
+              Not a member?
+
+              <flux:link href="#"> Register</flux:link>
+              
+            </flux:text>
+
+        </div>
 
     </div>
 </x-public.layout>
