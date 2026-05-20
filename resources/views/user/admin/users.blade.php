@@ -1,3 +1,3 @@
 <x-layouts::dashboard.admin.admin-layout>
-  Admin Dashboard
+    Users Section
 </x-layouts::dashboard.admin.admin-layout>

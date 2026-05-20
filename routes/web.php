@@ -10,7 +10,7 @@ use App\Http\Controllers\Web\Auth\{
 };
 
 use App\Http\Controllers\Web\User\{
-    AdminDashboardController,
+    AdminPanelController,
     OperatorDashboardController,
     PassengerDashboardController,
 };
@@ -35,11 +35,19 @@ Route::controller(SessionUserController::class)->group(function () {
 
 Route::livewire('/login', 'pages::auth.login')->name('login');
 
-//Users Dashboard
+//Dashboards
 Route::middleware('auth')->group(function () {
-    Route::get('/admin/dashboard',    [AdminDashboardController::class, 'index'])
+
+    //Admin Section
+
+    Route::get('/admin/dashboard',    [AdminPanelController::class, 'index'])
         ->middleware('role:admin')
         ->name('admin.dashboard');
+
+    Route::get('/admin/users', [AdminPanelController::class, 'users'])
+        ->middleware('role:admin')
+        ->name('admin.users');
+    
 
     Route::get('/operator/dashboard', [OperatorDashboardController::class, 'index'])
         ->middleware('role:operator')
@@ -49,6 +57,7 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:passenger')
         ->name('passenger.dashboard');
 });
+
 
 //Settings
 Route::controller(UserSettingController::class)->group(function () {
@@ -63,7 +72,7 @@ Route::livewire('/tap/card', 'pages::tap_card.tap')->name('tap.card');
 
 Route::livewire('/operator/balance', 'pages::load_points.points_balance')->name('operator.balance');
 
-// Top-up routes (auth required)
+// Top-up routes
 Route::middleware('auth')->group(function () {
     Route::get('/topup/success',   [TopUpTransactionController::class, 'success'])->name('topup.success');
     Route::get('/topup/cancel',    [TopUpTransactionController::class, 'cancel'])->name('topup.cancel');

@@ -15,7 +15,7 @@
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-        
+
         @livewireStyles
         @fluxAppearance
         
@@ -30,23 +30,23 @@
 
             <flux:sidebar.nav>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/dashboard" icon="home"> Payment </x-dashboard.sidebar-menu.sidebar-item>
-                {{-- <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home"> Notifaction </x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home"> Notifaction </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-group heading="Routes">
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Local</x-dashboard.sidebar-menu.sidebar-item>
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Provincial</x-dashboard.sidebar-menu.sidebar-item>
-                </x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-group heading="Routes">
+                  <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Local</x-dashboard.sidebar-menu.sidebar-item>
+                  <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Provincial</x-dashboard.sidebar-menu.sidebar-item>
+              </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-group heading="Queueing">
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Jeep</x-dashboard.sidebar-menu.sidebar-item>
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Bus</x-dashboard.sidebar-menu.sidebar-item>
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Van</x-dashboard.sidebar-menu.sidebar-item>
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Multicab</x-dashboard.sidebar-menu.sidebar-item>
-                </x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-group heading="Queueing">
+                  <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Jeep</x-dashboard.sidebar-menu.sidebar-item>
+                  <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Bus</x-dashboard.sidebar-menu.sidebar-item>
+                  <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Van</x-dashboard.sidebar-menu.sidebar-item>
+                  <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Multicab</x-dashboard.sidebar-menu.sidebar-item>
+              </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Your Card</x-dashboard.sidebar-menu.sidebar-item> --}}
+              <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-item href="/admin/users" icon="home">Users</x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Card</x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>
 
