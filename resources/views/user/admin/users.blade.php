@@ -1,27 +1,21 @@
 <x-layouts::dashboard.admin.admin-layout>
 
-  <div class="flex mb-5 px-4">
+<div class="flex mb-5 px-4">
     <flux:heading size="xl" class="flex-1">Users</flux:heading>
 
     <flux:modal.trigger name="add_user">
-      <flux:button size="sm">Add User</flux:button>
-    </flux:modal.trigger >
+        <flux:button size="sm">Add User</flux:button>
+    </flux:modal.trigger>
 
-      <flux:modal name="add_user" class="md:w-96">
-        <div class="space-y-6">
-            <div>
-                <flux:heading size="lg">Update profile</flux:heading>
-                <flux:text class="mt-2">Make changes to your personal details.</flux:text>
-            </div>
-            <flux:input label="Name" placeholder="Your name" />
-            <flux:input label="Date of birth" type="date" />
-            <div class="flex">
-                <flux:spacer />
-                <flux:button type="submit" variant="primary">Save changes</flux:button>
-            </div>
+    <flux:modal name="add_user" class="md:w-[50rem]">
+        <div class="space-y-12">
+            <flux:heading size="lg">Register New User</flux:heading>
+
+            @livewire('pages::content-by-role.admin.register_new_user', key('register-user'))
+
         </div>
     </flux:modal>
-  </div>
+</div>
 
   <flux:separator />
 

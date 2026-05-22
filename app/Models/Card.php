@@ -10,9 +10,10 @@ class Card extends Model
     /** @use HasFactory<\Database\Factories\CardFactory> */
     use HasFactory;
 
-    protected $fillables = [
+    protected $fillable = [
+        'user_id',
         'uid',
-        'balance'
+        'balance',
     ];
 
     public function user() {
