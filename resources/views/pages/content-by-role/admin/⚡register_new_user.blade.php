@@ -4,26 +4,20 @@ use Livewire\Attributes\Validate;
 use Livewire\Component;
 use App\Models\User;
 use App\Models\Card;
+use App\Models\Vehicle;
+use App\Models\Terminal;
+use App\Models\Route;
 
 new class extends Component
 {
     public int $step = 1;
 
+    // Basic info
     public string $role = '';
-
-    #[Validate('required_if:step,2|min:2')]
     public string $first_name = '';
-
-    #[Validate('required_if:step,2|min:2')]
     public string $last_name = '';
-
-    #[Validate('required_if:step,2|email')]
     public string $email = '';
-
-    #[Validate('required_if:step,2|min:10')]
     public string $mobile = '';
-
-    #[Validate('required_if:step,2|min:8')]
     public string $password = '';
 
     //Passenger details
@@ -39,19 +33,37 @@ new class extends Component
     public string $vehicle_plate = '';
     public string $operator_type = 'Driver';
 
+    public array $validated_attributes = [];
+
+    public array $vehicles = [
+        ['vehicle_type' => '', 'plate_number' => '', 'route' => '']
+    ];
+
     public function selectRole(string $role): void
     {
         $this->role = $role;
     }
 
+    public function getRoute() {
+        $route = Terminal::all();
+
+        return $route;
+    }
+
+    // public function mount() {
+    //     dd($this->getRoute());
+    // }
+
     public function next(): void
     {
         if ($this->step === 1) {
-            $this->validate(['role' => 'required|in:passenger,operator']);
+            $validated = $this->validate(['role' => 'required|in:passenger,operator']);
+
+            $this->validated_attributes[] = $validated;
         }
 
         if ($this->step === 2) {
-            $this->validate([
+            $this->validated_attributes[] = $this->validate([
                 'first_name' => 'required|min:2',
                 'last_name'  => 'required|min:2',
                 'email'      => 'required|email|unique:users,email',
@@ -62,16 +74,18 @@ new class extends Component
 
         if ($this->step === 3) {
             if ($this->role === 'passenger') {
-                $this->validate([
+                $this->validated_attributes[] = $this->validate([
                     'date_of_birth' => 'required|date',
                     'home_address'  => 'required|min:5',
                 ]);
             } else {
-                $this->validate([
-                    'employee_id'     => 'required',
-                    'license_number'  => 'required',
-                    'assigned_route'  => 'required',
-                    'operator_type'   => 'required',
+                $this->validated_attributes[] = $this->validate([
+                    'employee_id'                    => 'required',
+                    'license_number'                 => 'required',
+                    'vehicles'                       => 'required|array|min:1',
+                    'vehicles.*.vehicle_type'        => 'required',
+                    'vehicles.*.plate_number'        => 'required',
+                    'vehicles.*.route'               => 'required',
                 ]);
             }
         }
@@ -88,28 +102,57 @@ new class extends Component
         }
     }
 
+    public function addVehicle(): void
+    {
+        $this->vehicles[] = ['vehicle_type' => '', 'plate_number' => '', 'route' => ''];
+    }
+
+    public function removeVehicle(int $index): void
+    {
+        if (count($this->vehicles) > 1) {
+            array_splice($this->vehicles, $index, 1);
+        }
+    }
+
     public function register(): void
     {
-        $validated_attributes = $this->validate();
 
-        
+        $name = $this->first_name . ' ' . $this->last_name;
 
-        $name = $validated_attributes['first_name'] . ' ' . $validated_attributes['last_name'];
-
-        $user =User::create([
+        $user = User::create([
             'name'     => $name,
-            'email'    => $validated_attributes['email'],
+            'email'    => $this->email,
             'address'  => $this->home_address,
             'role'     => $this->role,
-            'password' => bcrypt($validated_attributes['password'])
+            'password' => bcrypt($this->password)
         ]);
 
         $new_user_id = $user->id;
 
         Card::create([
             'user_id' => $new_user_id,
-            'uid'     => $this->card_number
+            'uid'     => '123456789'
         ]);
+
+        foreach ($this->vehicles as $vehicle) {
+
+            $terminal_id = intval($vehicle['route']);
+
+           $vehicle = Vehicle::create([
+            'user_id'       => $new_user_id,
+            'vehicle_type'  => $vehicle['vehicle_type'],
+            'plate_number'  => $vehicle['plate_number'],
+            'total_seats'  => 10,
+           ]);
+
+           Route::create([
+            'vehicle_id' => $vehicle->id,
+            'terminal_id' => $terminal_id,
+            'first_trip' => '8:00 am',
+            'last_trip' => '9:00 am',
+            'base_fare' => 10.2,
+           ]);
+        }
 
 
         $this->dispatch('user-registered');
@@ -125,6 +168,8 @@ new class extends Component
 ?>
 
 <div x-data>
+
+    <flux:heading size="lg" class="mb-5">{{ $this->role ? 'Registration for ' . ucfirst($this->role): 'Register New User' }}</flux:heading>
 
     <div class="flex items-center gap-1 mb-6 text-xs">
         @foreach([1 => 'Select role', 2 => 'Account info', 3 => 'Details', 4 => 'Confirm'] as $s => $label)
@@ -223,16 +268,16 @@ new class extends Component
                 />
             </div>
             <flux:input
+                wire:model="mobile"
+                label="Mobile number"
+                placeholder="+63 9XX XXX XXXX"
+                size="sm"
+            />
+            <flux:input
                 wire:model="email"
                 type="email"
                 label="Email address"
                 placeholder="user@example.com"
-                size="sm"
-            />
-            <flux:input
-                wire:model="mobile"
-                label="Mobile number"
-                placeholder="+63 9XX XXX XXXX"
                 size="sm"
             />
             <flux:input
@@ -288,14 +333,11 @@ new class extends Component
 
     @if($step === 3 && $role === 'operator')
         <div class="space-y-4">
-            <flux:callout icon="information-circle" color="warning">
-                <flux:callout.text>Operators can be assigned to routes and vehicles, and can scan passenger cards.</flux:callout.text>
-            </flux:callout>
 
             <div class="grid grid-cols-2 gap-3">
                 <flux:input
                     wire:model="employee_id"
-                    label="Employee ID"
+                    label="Franchise No."
                     placeholder="e.g. OPR-2025-001"
                     size="sm"
                 />
@@ -306,33 +348,84 @@ new class extends Component
                     size="sm"
                 />
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <flux:select
-                    wire:model="assigned_route"
-                    label="Assigned route"
-                    size="sm"
-                >
-                    <option value="">— Select route —</option>
-                    <option>Route 1 – Cubao to Fairview</option>
-                    <option>Route 2 – Monumento to SM North</option>
-                    <option>Route 3 – Manila to Quezon City</option>
-                </flux:select>
-                <flux:input
-                    wire:model="vehicle_plate"
-                    label="Vehicle plate"
-                    placeholder="e.g. ABC 1234"
-                    size="sm"
-                />
+
+            <div class="flex items-center justify-between pt-2 pb-1 border-t border-zinc-200 dark:border-zinc-700">
+                <div>
+                    <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Vehicle Registration</p>
+                    <p class="text-xs text-zinc-400 dark:text-zinc-500">{{ count($vehicles) }} vehicle{{ count($vehicles) !== 1 ? 's' : '' }} added</p>
+                </div>
+                <flux:button wire:click="addVehicle" size="sm" icon="plus" variant="primary">
+                    Add Vehicle
+                </flux:button>
             </div>
-            <flux:select
-                wire:model="operator_type"
-                label="Operator type"
-                size="sm"
-            >
-                <option>Driver</option>
-                <option>Conductor</option>
-                <option>Inspector</option>
-            </flux:select>
+
+            @forelse ($vehicles as $index => $vehicle)
+                <div
+                    wire:key="vehicle-{{ $index }}"
+                    class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-4 space-y-3"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                Vehicle {{ $index + 1 }}
+                            </span>
+                        </div>
+
+                        @if(count($vehicles) > 1)
+                            <button
+                                wire:click="removeVehicle({{ $index }})"
+                                type="button"
+                                class="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded-md transition cursor-pointer"
+                            >
+                                <flux:icon.trash class="w-3.5 h-3.5" />
+                                Remove
+                            </button>
+                        @endif
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <flux:label class="mb-3">Vehicle Type</flux:label>
+                            <flux:select
+                                wire:model="vehicles.{{ $index }}.vehicle_type"
+                                placeholder="Choose type..."
+                                size="sm"
+                            >
+                                <flux:select.option>Bus</flux:select.option>
+                                <flux:select.option>Multi-cab</flux:select.option>
+                                <flux:select.option>Van</flux:select.option>
+                                <flux:select.option>Jeep</flux:select.option>
+                            </flux:select>
+                        </div>
+                        <flux:input
+                            wire:model="vehicles.{{ $index }}.plate_number"
+                            label="Plate number"
+                            placeholder="e.g. ABC-123"
+                            size="sm"
+                        />
+                    </div>
+
+                    <div>
+                        <flux:label>Route</flux:label>
+                        <flux:select
+                            wire:model="vehicles.{{ $index }}.route"
+                            placeholder="Select route for this vehicle..."
+                            size="sm"
+                        >
+                         @foreach ($this->getRoute() as $route)
+                            <flux:select.option value="{{$route->id}}">Iriga Terminal to {{$route->municipality}}</flux:select.option>
+                          @endforeach
+                        </flux:select>
+                    </div>
+                </div>
+            @empty
+                <div class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
+                    <flux:icon.truck class="w-8 h-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
+                    <p class="text-sm text-zinc-400">No vehicles added yet.</p>
+                    <p class="text-xs text-zinc-400 mt-1">Click "Add Vehicle" to register one.</p>
+                </div>
+            @endforelse
+
         </div>
     @endif
 
@@ -411,7 +504,7 @@ new class extends Component
         </flux:button>
     @else
         <flux:button size="sm" variant="primary" wire:click="register">
-            Register user
+            Register this {{ ucfirst($this->role) }}
         </flux:button>
     @endif
 </div>

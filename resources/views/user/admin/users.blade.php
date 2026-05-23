@@ -7,10 +7,9 @@
         <flux:button size="sm">Add User</flux:button>
     </flux:modal.trigger>
 
-    <flux:modal name="add_user" class="md:w-[50rem]">
+    <flux:modal name="add_user" class="w-full space-y-6" style="max-width: 672px;">
         <div class="space-y-12">
-            <flux:heading size="lg">Register New User</flux:heading>
-
+            
             @livewire('pages::content-by-role.admin.register_new_user', key('register-user'))
 
         </div>

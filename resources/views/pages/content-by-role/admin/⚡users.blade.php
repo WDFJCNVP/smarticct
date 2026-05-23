@@ -11,10 +11,6 @@ new class extends Component
     public $filtered_role;
     public $search;
 
-    public array $user_name    = [];
-    public array $user_email   = [];
-    public array $user_address = [];
-
     public function getUsers()
     {
         $users = User::with('card')
@@ -32,35 +28,9 @@ new class extends Component
                 })
             )->paginate(10);
 
-        foreach ($users as $user) {
-            $this->user_name[$user->id]    ??= $user->name;
-            $this->user_email[$user->id]   ??= $user->email;
-            $this->user_address[$user->id] ??= $user->address;
-        }
-
         return $users;
     }
 
-    public function saveUser(int $id): void
-    {
-        $user = User::findOrFail($id);
-
-        $user->update([
-            'name'    => $this->user_name[$id]    ?? $user->name,
-            'email'   => $this->user_email[$id]   ?? $user->email,
-            'address' => $this->user_address[$id] ?? $user->address,
-        ]);
-
-        $this->dispatch('close-modal', name: "edit-user-{$id}");
-    }
-
-    public function deleteUser(int $id): void
-    {
-        User::destroy($id);
-
-        $this->dispatch('close-modal', name: "edit-user-{$id}");
-        $this->dispatch('close-modal', name: "delete-profile-{$id}");
-    }
 };
 ?>
 
@@ -96,11 +66,13 @@ new class extends Component
                     <flux:table.cell>{{ $user->email }}</flux:table.cell>
                     <flux:table.cell>{{ $user->address }}</flux:table.cell>
                     <flux:table.cell>
-                        @if ($user->role === 'operator')
-                            <flux:badge color="blue" size="sm" inset="top bottom">operator</flux:badge>
-                        @else
-                            <flux:badge color="yellow" size="sm" inset="top bottom">commuter</flux:badge>
-                        @endif
+
+                    @if ($user->role === 'operator')
+                        <flux:badge color="blue" size="sm" inset="top bottom">operator</flux:badge>
+                    @else
+                        <flux:badge color="yellow" size="sm" inset="top bottom">commuter</flux:badge>
+                    @endif
+                    
                     </flux:table.cell>
                     <flux:table.cell>
                         
