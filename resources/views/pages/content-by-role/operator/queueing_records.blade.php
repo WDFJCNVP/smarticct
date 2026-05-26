@@ -41,7 +41,7 @@ new class extends Component
     <div class="mt-6 flex items-center justify-between">
         <flux:heading class="flex items-center gap-1" size="lg"> All records
             <flux:text class="text-base" variant="subtle">
-                {{ $this->getQueuedRecords()->count()}}
+                {{ $this->getQueuedRecords->count()}}
             </flux:text>
         </flux:heading>    
         <div>
@@ -93,7 +93,17 @@ new class extends Component
                     <flux:table.cell variant="strong">{{$queue->seat_capacity}}</flux:table.cell>
                     <flux:table.cell variant="strong">{{$queue->seat_count}}</flux:table.cell>
                     <flux:table.cell variant="strong">{{$queue->time_queued->format('M d, Y')}}</flux:table.cell>
-                    <flux:table.cell variant="strong">{{$queue->time_departed->format('M d, Y')}}</flux:table.cell>
+
+                    @if (!$queue->time_departed)
+
+                        <flux:table.cell variant="strong">...</flux:table.cell>
+
+                    @else
+
+                        <flux:table.cell variant="strong">{{$queue->time_departed->format('M d, Y')}}</flux:table.cell>
+
+                    @endif
+                    
                 </flux:table.row>
             @empty
                 
@@ -101,6 +111,6 @@ new class extends Component
         </flux:table.rows>
     </flux:table>
     <div class="mt-4">
-        {{ $this->getQueuedRecords()->links() }}
+        {{ $this->getQueuedRecords->links() }}
     </div>
 </div>

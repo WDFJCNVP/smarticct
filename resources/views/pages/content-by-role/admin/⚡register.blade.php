@@ -1,6 +1,7 @@
 <?php
 
 use Livewire\Attributes\Validate;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 use App\Models\User;
 use App\Models\Card;
@@ -44,6 +45,7 @@ new class extends Component
         $this->role = $role;
     }
 
+    #[Computed]
     public function getRoute() {
         $route = Terminal::all();
 
@@ -117,43 +119,46 @@ new class extends Component
     public function register(): void
     {
 
-        $name = $this->first_name . ' ' . $this->last_name;
+    
+        DB::transaction(function () {
 
-        $user = User::create([
-            'name'     => $name,
-            'email'    => $this->email,
-            'address'  => $this->home_address,
-            'role'     => $this->role,
-            'password' => bcrypt($this->password)
-        ]);
+             $name = $this->first_name . ' ' . $this->last_name;
 
-        $new_user_id = $user->id;
+            $user = User::create([
+                'name'     => $name,
+                'email'    => $this->email,
+                'address'  => $this->home_address,
+                'role'     => $this->role,
+                'password' => bcrypt($this->password)
+            ]);
 
-        Card::create([
-            'user_id' => $new_user_id,
-            'uid'     => '123456789'
-        ]);
+            $new_user_id = $user->id;
 
-        foreach ($this->vehicles as $vehicle) {
+            Card::create([
+                'user_id' => $new_user_id,
+                'uid'     => '12345678'
+            ]);
 
-            $terminal_id = intval($vehicle['route']);
+            foreach ($this->vehicles as $vehicle) {
 
-           $vehicle = Vehicle::create([
-            'user_id'       => $new_user_id,
-            'vehicle_type'  => $vehicle['vehicle_type'],
-            'plate_number'  => $vehicle['plate_number'],
-            'total_seats'  => 10,
-           ]);
+                $terminal_id = intval($vehicle['route']);
 
-           Route::create([
-            'vehicle_id' => $vehicle->id,
-            'terminal_id' => $terminal_id,
-            'first_trip' => '8:00 am',
-            'last_trip' => '9:00 am',
-            'base_fare' => 10.2,
-           ]);
-        }
+            $vehicle = Vehicle::create([
+                'user_id'       => $new_user_id,
+                'vehicle_type'  => $vehicle['vehicle_type'],
+                'plate_number'  => $vehicle['plate_number'],
+                'total_seats'  => 10,
+            ]);
 
+            Route::create([
+                'vehicle_id' => $vehicle->id,
+                'terminal_id' => $terminal_id,
+                'first_trip' => '8:00 am',
+                'last_trip' => '9:00 am',
+                'base_fare' => 10.2,
+            ]);
+            }
+        });
 
         $this->dispatch('user-registered');
         $this->reset();
@@ -169,17 +174,23 @@ new class extends Component
 
 <div x-data>
 
-    <flux:heading size="lg" class="mb-5">{{ $this->role ? 'Registration for ' . ucfirst($this->role): 'Register New User' }}</flux:heading>
+    <flux:breadcrumbs>
+        <flux:breadcrumbs.item href="{{ route('admin.users') }}" wire:navigate>Users</flux:breadcrumbs.item>
+        <flux:breadcrumbs.item >Registration</flux:breadcrumbs.item>
+    </flux:breadcrumbs>
+
+    <flux:heading size="lg" class="my-5">{{ $this->role ? 'Registration for ' . ucfirst($this->role): 'Register New User' }}</flux:heading>
 
     <div class="flex items-center gap-1 mb-6 text-xs">
         @foreach([1 => 'Select role', 2 => 'Account info', 3 => 'Details', 4 => 'Confirm'] as $s => $label)
             <div class="flex items-center gap-1 {{ $loop->last ? '' : 'flex-1' }}">
                 <div class="flex items-center gap-1.5">
+
                     <div @class([
-                        'w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium shrink-0 border',
-                        'bg-primary text-white border-primary'         => $step === $s,
-                        'bg-primary/10 text-primary border-primary/30' => $step > $s,
-                        'bg-zinc-100 text-zinc-400 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-500 dark:border-zinc-700' => $step < $s,
+                        'w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium shrink-0 border transition-colors',
+                        'bg-accent text-accent-foreground border-accent'                         => $step === $s,
+                        'bg-accent/20 text-accent border-accent/40'                              => $step > $s,
+                        'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700' => $step < $s,
                     ])>
                         @if($step > $s)
                             <flux:icon.check class="w-3 h-3" />
@@ -187,17 +198,19 @@ new class extends Component
                             {{ $s }}
                         @endif
                     </div>
+
                     <span @class([
-                        'hidden sm:inline whitespace-nowrap',
+                        'hidden sm:inline whitespace-nowrap transition-colors',
                         'text-zinc-900 dark:text-zinc-100 font-medium' => $step === $s,
                         'text-zinc-400 dark:text-zinc-500'             => $step !== $s,
                     ])>{{ $label }}</span>
                 </div>
+
                 @if(!$loop->last)
                     <div @class([
-                        'flex-1 h-px mx-1',
-                        'bg-primary'          => $step > $s,
-                        'bg-zinc-200 dark:bg-zinc-700' => $step <= $s,
+                        'flex-1 h-px mx-1 transition-colors',
+                        'bg-accent'                               => $step > $s,
+                        'bg-zinc-200 dark:bg-zinc-700'            => $step <= $s,
                     ])></div>
                 @endif
             </div>
@@ -205,45 +218,19 @@ new class extends Component
     </div>
 
     @if($step === 1)
-        <div class="grid grid-cols-2 gap-3">
-            <button
-                wire:click="selectRole('passenger')"
-                type="button"
-                @class([
-                    'flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition cursor-pointer',
-                    'border-primary bg-primary/5 ring-1 ring-primary' => $role === 'passenger',
-                    'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800' => $role !== 'passenger',
-                ])
-            >
-                <div @class([
-                    'rounded-md p-2',
-                    'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' => true,
-                ])>
-                    <flux:icon.user class="w-5 h-5" />
-                </div>
-                <div>
-                    <p class="font-medium text-sm text-zinc-900 dark:text-zinc-100">Passenger</p>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">A commuter who rides and tracks transit routes.</p>
-                </div>
-            </button>
-
-            <button
-                wire:click="selectRole('operator')"
-                type="button"
-                @class([
-                    'flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition cursor-pointer',
-                    'border-primary bg-primary/5 ring-1 ring-primary' => $role === 'operator',
-                    'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800' => $role !== 'operator',
-                ])
-            >
-                <div class="rounded-md p-2 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                    <flux:icon.identification class="w-5 h-5" />
-                </div>
-                <div>
-                    <p class="font-medium text-sm text-zinc-900 dark:text-zinc-100">Operator</p>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">A driver or staff assigned to a route or vehicle.</p>
-                </div>
-            </button>
+        <div>
+            <flux:radio.group wire:model="role" variant="cards" class="grid grid-cols-2 w-full">
+                <flux:radio value="passenger" label="Passenger" description="A commuter who rides and tracks transit routes.">
+                    <x-slot name="icon">
+                        <flux:icon.user class="w-5 h-5" />
+                    </x-slot>
+                </flux:radio>
+                <flux:radio value="operator" label="Operator" description="A driver or staff assigned to a route or vehicle.">
+                    <x-slot name="icon">
+                        <flux:icon.identification class="w-5 h-5" />
+                    </x-slot>
+                </flux:radio>
+            </flux:radio.group>
         </div>
 
         @error('role')
@@ -266,13 +253,13 @@ new class extends Component
                     placeholder="e.g. dela Cruz"
                     size="sm"
                 />
+                <flux:input
+                    wire:model="mobile"
+                    label="Mobile number"
+                    placeholder="+63 9XX XXX XXXX"
+                    size="sm"
+                />
             </div>
-            <flux:input
-                wire:model="mobile"
-                label="Mobile number"
-                placeholder="+63 9XX XXX XXXX"
-                size="sm"
-            />
             <flux:input
                 wire:model="email"
                 type="email"

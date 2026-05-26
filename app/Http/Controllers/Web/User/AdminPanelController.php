@@ -14,4 +14,8 @@ class AdminPanelController extends Controller
     public function users() {
         return view('pages.content-by-role.admin.users_page');
     }
+
+    public function register() {
+        return view('pages.content-by-role.admin.register_user');
+    }
 }

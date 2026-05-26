@@ -1,6 +1,7 @@
 <?php
 
 use Livewire\Component;
+use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
 use App\Models\User;
 
@@ -10,7 +11,13 @@ new class extends Component
 
     public $filtered_role;
     public $search;
+    public $selectedUserId = null;
 
+    public function selectUser($id) {
+        $this->selectedUserId = $id;
+    }
+
+    #[Computed]
     public function getUsers()
     {
         return User::with('card')
@@ -35,24 +42,24 @@ new class extends Component
 <div class="mt-10">
 
     <div class="flex items-center gap-3">
-
         <div class="flex-1 w-full">
-            <div class="flex w-full">
-                <flux:heading size="lg" class="flex gap-2">All Users
-                <flux:text size="lg" variant="subtle">{{ $this->getUsers()->total() }}</flux:text>
-                </flux:heading>
-            </div>
+            <flux:heading size="lg" class="flex gap-2">
+                All Users
+                <flux:text size="lg" variant="subtle">{{ $this->getUsers->total() }}</flux:text>
+            </flux:heading>
         </div>
         <div class="flex items-center gap-2">
-            <flux:input class="max-w-xs" size="sm" placeholder="Search..." wire:model.live="search" />
+            <flux:input class="max-w-xs" size="sm" icon="magnifying-glass" placeholder="Search" wire:model.live.blur.300ms="search" />
 
             <flux:select wire:model.live="filtered_role" size="sm" class="w-36">
                 <flux:select.option value="">All roles</flux:select.option>
-                <flux:select.option>Operator</flux:select.option>
+                <flux:select.option value="operator">Operator</flux:select.option>
                 <flux:select.option value="passenger">Commuter</flux:select.option>
             </flux:select>
 
-            <flux:button variant="primary" color="zinc" icon="plus">Add Users</flux:button>
+            <flux:link href="{{ route('admin.register.user') }}" wire:navigate>
+                <flux:button variant="primary" color="zinc" icon="plus">Add Users</flux:button>
+            </flux:link>
         </div>
     </div>
 
@@ -68,7 +75,7 @@ new class extends Component
         </flux:table.columns>
 
         <flux:table.rows>
-            @foreach ($this->getUsers() as $user)
+            @foreach ($this->getUsers as $user)
                 <flux:table.row :key="$user->id">
                     <flux:table.cell>{{ $user->id }}</flux:table.cell>
                     <flux:table.cell>{{ $user->card->uid }}</flux:table.cell>
@@ -76,63 +83,39 @@ new class extends Component
                     <flux:table.cell>{{ $user->email }}</flux:table.cell>
                     <flux:table.cell>{{ $user->address }}</flux:table.cell>
                     <flux:table.cell>
-
-                    @if ($user->role === 'operator')
-                        <flux:badge color="blue" size="sm" inset="top bottom">operator</flux:badge>
-                    @else
-                        <flux:badge color="yellow" size="sm" inset="top bottom">commuter</flux:badge>
-                    @endif
-                    
+                        @if ($user->role === 'operator')
+                            <flux:badge color="blue" size="sm" inset="top bottom">operator</flux:badge>
+                        @else
+                            <flux:badge color="yellow" size="sm" inset="top bottom">commuter</flux:badge>
+                        @endif
                     </flux:table.cell>
                     <flux:table.cell>
                         
-                        <flux:modal.trigger name="edit-user-{{ $user->id }}">
-                            <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" inset="top bottom" />
-                        </flux:modal.trigger>
-
-                        <flux:modal name="edit-user-{{ $user->id }}" class="w-full space-y-6" style="max-width: 672px;">
-                            <div>
-                                <flux:heading size="lg">User Information</flux:heading>
-                                <flux:subheading>Viewing details for {{ $user->name }}</flux:subheading>
-                            </div>
-
-                            <div class="space-y-4 w-full border border-zinc-200 dark:border-zinc-700 rounded-xl p-6 bg-zinc-50 dark:bg-zinc-800/50">
-                                <div class="flex items-center gap-4">
-                                    <flux:avatar src="{{ $user->avatar_url }}" name="{{ $user->name }}" size="xl" />
-                                    <div>
-                                        <div class="font-semibold text-base text-zinc-800 dark:text-zinc-200">{{ $user->name }}</div>
-                                        <div class="text-sm text-zinc-500">{{ $user->email }}</div>
-                                    </div>
-                                </div>
-
-                                <flux:separator variant="dashed" />
-
-                                <div class="grid w-full grid-cols-2 gap-6 text-sm">
-                                    <div>
-                                        <span class="block text-xs text-zinc-400 font-medium uppercase tracking-wider">Role</span>
-                                        <span class="text-zinc-700 dark:text-zinc-300 font-medium">{{ $user->role ?? 'User' }}</span>
-                                    </div>
-                                    <div>
-                                        <span class="block text-xs text-zinc-400 font-medium uppercase tracking-wider">Joined</span>
-                                        <span class="text-zinc-700 dark:text-zinc-300 font-medium">{{ $user->created_at->format('M d, Y') }}</span>
-                                    </div>
-                                </div>
-
-                                {{-- form --}}
-
-                                <livewire:pages::content-by-role.admin.edit_user :user_id="$user->id" />
-
-                            </div>
-                        </flux:modal>
-
+                        <flux:button
+                            variant="ghost"
+                            size="sm"
+                            icon="ellipsis-horizontal"
+                            inset="top bottom"
+                            wire:click="selectUser({{ $user->id }})"
+                            x-on:click="$flux.modal('edit-user').show()"
+                        />
                     </flux:table.cell>
                 </flux:table.row>
             @endforeach
-
         </flux:table.rows>
     </flux:table>
 
     <div class="mt-4">
-        {{ $this->getUsers()->links() }}
+        {{ $this->getUsers->links() }}
     </div>
+
+    <flux:modal name="edit-user" class="w-full space-y-6" style="max-width: 672px;">
+        @if ($selectedUserId)
+            <livewire:pages::content-by-role.admin.edit_user
+                :user_id="$selectedUserId"
+                :key="$selectedUserId"
+            />
+        @endif
+    </flux:modal>
+
 </div>

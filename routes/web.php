@@ -39,7 +39,7 @@ Route::livewire('/login', 'pages::auth.login')->name('login');
 Route::middleware('auth')->group(function () {
 
     //Admin Section
-    Route::get('/admin/dashboard',    [AdminPanelController::class, 'index'])
+    Route::get('/admin/dashboard', [AdminPanelController::class, 'index'])
         ->middleware('role:admin')
         ->name('admin.dashboard');
 
@@ -49,7 +49,9 @@ Route::middleware('auth')->group(function () {
 
     //Edit users
     Route::livewire('/admin/edit/user/{user}', 'pages::content-by-role.admin.edit.user')->name('admin.edit.user');
-    
+
+    //Register users
+    Route::get('/admin/register/user', [AdminPanelController::class, 'register'])->name('admin.register.user');
 
     //Operator Section
     Route::get('/operator/dashboard', [OperatorDashboardController::class, 'index'])
