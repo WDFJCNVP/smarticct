@@ -8,10 +8,10 @@ use Illuminate\Http\Request;
 class AdminPanelController extends Controller
 {
     public function index() {
-        return view('user.admin.index');
+        return view('pages.content-by-role.admin.index');
     }
 
     public function users() {
-        return view('user.admin.users');
+        return view('pages.content-by-role.admin.users_page');
     }
 }

@@ -13,7 +13,7 @@ new class extends Component
 
     public function getUsers()
     {
-        $users = User::with('card')
+        return User::with('card')
             ->whereIn('role', ['operator', 'passenger'])
             ->when(
                 $this->filtered_role,
@@ -27,8 +27,6 @@ new class extends Component
                         ->orWhere('id', 'like', '%' . $this->search . '%');
                 })
             )->paginate(10);
-
-        return $users;
     }
 
 };
@@ -37,16 +35,28 @@ new class extends Component
 <div class="mt-10">
 
     <div class="flex items-center gap-3">
-        <flux:input class="max-w-xs" size="sm" placeholder="Search..." wire:model.live="search" />
 
-        <flux:select wire:model.live="filtered_role" size="sm" class="w-36">
-            <flux:select.option value="">All roles</flux:select.option>
-            <flux:select.option>Operator</flux:select.option>
-            <flux:select.option value="passenger">Commuter</flux:select.option>
-        </flux:select>
+        <div class="flex-1 w-full">
+            <div class="flex w-full">
+                <flux:heading size="lg" class="flex gap-2">All Users
+                <flux:text size="lg" variant="subtle">{{ $this->getUsers()->total() }}</flux:text>
+                </flux:heading>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <flux:input class="max-w-xs" size="sm" placeholder="Search..." wire:model.live="search" />
+
+            <flux:select wire:model.live="filtered_role" size="sm" class="w-36">
+                <flux:select.option value="">All roles</flux:select.option>
+                <flux:select.option>Operator</flux:select.option>
+                <flux:select.option value="passenger">Commuter</flux:select.option>
+            </flux:select>
+
+            <flux:button variant="primary" color="zinc" icon="plus">Add Users</flux:button>
+        </div>
     </div>
 
-    <flux:table container:class="max-h-80 mt-5" :paginate="$this->getUsers()" wire:poll.visible.30s="getUsers">
+    <flux:table container:class="max-h-80 mt-5">
         <flux:table.columns sticky class="bg-white dark:bg-zinc-900">
             <flux:table.column>ID</flux:table.column>
             <flux:table.column>Card No.</flux:table.column>
@@ -121,4 +131,8 @@ new class extends Component
 
         </flux:table.rows>
     </flux:table>
+
+    <div class="mt-4">
+        {{ $this->getUsers()->links() }}
+    </div>
 </div>

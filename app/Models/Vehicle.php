@@ -17,6 +17,15 @@ class Vehicle extends Model
         'total_seats'
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'time_queued' => 'datetime',
+            'time_departed' => 'datetime',
+            'departs_at' => 'datetime', // Good practice to cast this too if you use it later
+        ];
+    }
+
     public function user() {
         return $this->belongsTo(User::class);
     }

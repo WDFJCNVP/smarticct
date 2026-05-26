@@ -25,5 +25,14 @@ class Queue extends Model
         'departs_at',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'time_queued' => 'datetime',
+            'time_departed' => 'datetime',
+            'departs_at' => 'datetime', // Good practice to cast this too if you use it later
+        ];
+    }
+
     use HasFactory;
 }

@@ -45,7 +45,7 @@
               </x-dashboard.sidebar-menu.sidebar-item>
 
               <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
-              <x-dashboard.sidebar-menu.sidebar-item href="/admin/users" icon="home">Users</x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-item href="/admin/users" icon="home" wire:navigate>Users</x-dashboard.sidebar-menu.sidebar-item>
               <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Card</x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>

@@ -26,10 +26,10 @@
 
             <flux:sidebar.nav>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/dashboard" icon=""> Payments </x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/balance" icon=""> Balance </x-dashboard.sidebar-menu.sidebar-item>
+                {{-- <x-dashboard.sidebar-menu.sidebar-item href="/operator/dashboard" icon=""> Payments </x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/balance" icon=""> Balance </x-dashboard.sidebar-menu.sidebar-item> --}}
 
-                {{-- 
+                
                 <x-dashboard.sidebar-menu.sidebar-group heading="Routes">
                     <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Local</x-dashboard.sidebar-menu.sidebar-item>
                     <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Provincial</x-dashboard.sidebar-menu.sidebar-item>
@@ -42,8 +42,9 @@
                     <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Multicab</x-dashboard.sidebar-menu.sidebar-item>
                 </x-dashboard.sidebar-menu.sidebar-item>
 
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/vehicles" icon="home">Vehicles</x-dashboard.sidebar-menu.sidebar-item>
                 <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Your Card</x-dashboard.sidebar-menu.sidebar-item> --}}
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Your Card</x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>
 

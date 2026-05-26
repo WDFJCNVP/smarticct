@@ -29,8 +29,8 @@
 
             <flux:sidebar.nav>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/dashboard" icon="home"> Payment </x-dashboard.sidebar-menu.sidebar-item>
-                {{-- <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home"> Notifaction </x-dashboard.sidebar-menu.sidebar-item>
+                {{-- <x-dashboard.sidebar-menu.sidebar-item href="/operator/dashboard" icon="home"> Payment </x-dashboard.sidebar-menu.sidebar-item> --}}
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home"> Notifaction </x-dashboard.sidebar-menu.sidebar-item>
 
                 <x-dashboard.sidebar-menu.sidebar-group heading="Routes">
                     <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Local</x-dashboard.sidebar-menu.sidebar-item>
@@ -44,8 +44,9 @@
                     <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Multicab</x-dashboard.sidebar-menu.sidebar-item>
                 </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Your Card</x-dashboard.sidebar-menu.sidebar-item> --}}
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/vehicles" icon="home">My Vehicle</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/travel-records" icon="home">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/your-card" icon="home">Your Card</x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>
 
