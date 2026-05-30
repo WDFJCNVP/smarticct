@@ -1,9 +1,12 @@
 <?php
 
 use Livewire\Component;
+use Livewire\Attributes\On;
+use App\Events\UserInfoUpdated;
 use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
 use App\Models\User;
+
 
 new class extends Component
 {
@@ -13,13 +16,14 @@ new class extends Component
     public $search;
     public $selectedUserId = null;
 
+    public $user;
+
     public function selectUser($id) {
         $this->selectedUserId = $id;
     }
 
     #[Computed]
-    public function getUsers()
-    {
+    public function getUsers() {
         return User::with('card')
             ->whereIn('role', ['operator', 'passenger'])
             ->when(
@@ -35,6 +39,14 @@ new class extends Component
                 })
             )->paginate(10);
     }
+
+    #[On('echo:user-info-updated,UserInfoUpdated')]
+    public function refreshUserInfo() {
+
+        unset($this->getUsers);
+    }
+
+
 
 };
 ?>
@@ -91,14 +103,17 @@ new class extends Component
                     </flux:table.cell>
                     <flux:table.cell>
                         
+                    <flux:link href="/admin/edit/user/{{ $user->id }}" wire:navigate>
                         <flux:button
                             variant="ghost"
                             size="sm"
                             icon="ellipsis-horizontal"
                             inset="top bottom"
-                            wire:click="selectUser({{ $user->id }})"
-                            x-on:click="$flux.modal('edit-user').show()"
+                            {{-- wire:click="selectUser({{ $user->id }})"
+                            x-on:click="$flux.modal('edit-user').show()" --}}
                         />
+                    </flux:link>
+
                     </flux:table.cell>
                 </flux:table.row>
             @endforeach
@@ -109,7 +124,7 @@ new class extends Component
         {{ $this->getUsers->links() }}
     </div>
 
-    <flux:modal name="edit-user" class="w-full space-y-6" style="max-width: 672px;">
+    <flux:modal name="edit-user" class="w-full space-y-6" style="max-width: 898px;">
         @if ($selectedUserId)
             <livewire:pages::content-by-role.admin.edit_user
                 :user_id="$selectedUserId"

@@ -1,17 +1,50 @@
+<?php
 
-<x-layouts::dashboard.operator.operator-dashboard>
-    <div>
-        <flux:heading size="xl">My Vehicles</flux:heading>
-        <flux:text class="mt-2">You can monitor your vehicles and it's status here.</flux:text>
-    </div>
-    <div>
-        <flux:heading size="lg" class="mt-10 mb-2 flex gap-2 items-center">
-            All Vehicles 
-            <flux:text class="text-base" size="2xl" variant="subtle">
-                {{ $vehicles->count() }}
-            </flux:text>
-        </flux:heading>
-    </div>
+use Livewire\Component;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Computed;
+use Livewire\WithPagination;
+
+use App\Events\UserInfoUpdated;
+use Livewire\Attributes\On;
+
+use App\Models\Vehicle;
+use App\Models\User;
+
+new #[Layout('layouts.dashboard.operator.operator-dashboard')]class extends Component
+{
+
+    #[Computed]
+    public function vehicles() {
+        return Vehicle::with('user','route.terminal')
+            ->where('user_id', auth()->user()->id)
+            ->get();
+    }
+
+    // #[Computed]
+    // public function getUser() {
+    //     return User::where('id', auth()->user()->id)->first();
+    // }
+
+
+    #[On('echo:user-info-updated,UserInfoUpdated')]
+    public function refreshUserInfo() {
+
+        unset($this->vehicles);
+    }
+}
+?>
+
+<div>
+    <x-pages-heading-with-count 
+        :count="$this->vehicles->count()" 
+        heading="My Vehicles" 
+        description="You can monitor your vehicles and it's status here."
+        >
+
+        All Vehicles
+    </x-pages-heading-with-count>
+
     <div>
         <flux:table>
             <flux:table.columns>
@@ -25,31 +58,31 @@
 
             <flux:table.rows>
 
-                @foreach ($vehicles as $vehicle)
+                @foreach ($this->vehicles as $vehicle)
 
                     <flux:table.row>
-                    <flux:table.cell>{{$vehicle['plate_number']}}</flux:table.cell>
-                    <flux:table.cell>{{$vehicle->vehicle_type}}</flux:table.cell>
-                    <flux:table.cell>Iriga Terminal to {{$vehicle->route->terminal->municipality}}</flux:table.cell>
-                    <flux:table.cell>{{ $vehicle->created_at->format('M d, Y') }}</flux:table.cell>
-                    <flux:table.cell variant="strong">
-                        @if ($vehicle->status === 'loading')
-                            <flux:badge color="green" size="sm" inset="top bottom">
-                                in queue
-                            </flux:badge>
-                        @else
-                            <flux:badge color="orange" size="sm" inset="top bottom">
-                                not in queue
-                            </flux:badge>
-                        @endif
-                    </flux:table.cell>
-                    <flux:table.cell>
-                        <flux:link href="/operator/vehicles/{{$vehicle->id}}" variant="subtle" wire:navigate>
-                            <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" inset="top bottom"></flux:button>
-                        </flux:link>
-                    </flux:table.cell>
+                        <flux:table.cell>{{$vehicle['plate_number']}}</flux:table.cell>
+                        <flux:table.cell>{{$vehicle->vehicle_type}}</flux:table.cell>
+                        <flux:table.cell>Iriga Terminal to {{$vehicle->route->terminal->municipality}}</flux:table.cell>
+                        <flux:table.cell>{{ $vehicle->created_at->format('M d, Y') }}</flux:table.cell>
+                        <flux:table.cell variant="strong">
+                            @if ($vehicle->status === 'loading')
+                                <flux:badge color="green" size="sm" inset="top bottom">
+                                    in queue
+                                </flux:badge>
+                            @else
+                                <flux:badge color="orange" size="sm" inset="top bottom">
+                                    not in queue
+                                </flux:badge>
+                            @endif
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <flux:link href="/operator/vehicles/{{$vehicle->id}}" variant="subtle" wire:navigate>
+                                <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" inset="top bottom"></flux:button>
+                            </flux:link>
+                        </flux:table.cell>
                     </flux:table.row>
-                    <flux:modal name="edit-profile-{{ $vehicle->id }}" class="w-full space-y-6" style="max-width: 672px;">
+                    {{-- <flux:modal name="edit-profile-{{ $vehicle->id }}" class="w-full space-y-6" style="max-width: 672px;">
                         <div class="space-y-6">
                             <div>
                                 <div>
@@ -88,9 +121,9 @@
                                 </div>
                             </div>
                         </div>
-                    </flux:modal>
+                    </flux:modal> --}}
                 @endforeach
             </flux:table.rows>
         </flux:table>
     </div>
-</x-layouts::dashboard.operator.operator-dashboard>
+</div>

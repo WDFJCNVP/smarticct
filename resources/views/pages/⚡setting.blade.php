@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\Attributes\On;
+use App\Events\UserInfoUpdated;
+use Livewire\Attributes\Computed;
 
 new #[Title('Profile settings')] class extends Component {
     use ProfileValidationRules;
@@ -26,6 +29,7 @@ new #[Title('Profile settings')] class extends Component {
     /**
      * Update the profile information for the currently authenticated user.
      */
+    
     public function updateProfileInformation(): void
     {
         $user = Auth::user();
@@ -41,6 +45,14 @@ new #[Title('Profile settings')] class extends Component {
         $user->save();
 
         $this->dispatch('profile-updated', name: $user->name);
+
+        broadcast(new UserInfoUpdated($this->user->id));
+    }
+
+    #[On('echo:user-info-updated,UserInfoUpdated')]
+    public function refreshUserInfo() {
+
+        unset($this->name);
     }
 
     /**

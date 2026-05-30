@@ -2,6 +2,9 @@
 
 use Livewire\Attributes\Validate;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
+use App\Events\RegistrationTapCardEvent;
+
 use Livewire\Component;
 use App\Models\User;
 use App\Models\Card;
@@ -39,6 +42,12 @@ new class extends Component
     public array $vehicles = [
         ['vehicle_type' => '', 'plate_number' => '', 'route' => '']
     ];
+
+    #[On('echo:registration-tap-card,.RegistrationTapCardEvent')]
+    public function getUid($event)
+    {
+        $this->card_number = $event['uid'];
+    }
 
     public function selectRole(string $role): void
     {
@@ -79,6 +88,7 @@ new class extends Component
                 $this->validated_attributes[] = $this->validate([
                     'date_of_birth' => 'required|date',
                     'home_address'  => 'required|min:5',
+                    'card_number'   => 'required|unique:cards,uid',
                 ]);
             } else {
                 $this->validated_attributes[] = $this->validate([
@@ -280,9 +290,9 @@ new class extends Component
 
     @if($step === 3 && $role === 'passenger')
         <div class="space-y-4">
-            <flux:callout icon="information-circle" color="blue">
+            {{-- <flux:callout icon="information-circle" color="blue">
                 <flux:callout.text>Passengers get a travel card and can load balance, and view travel history.</flux:callout.text>
-            </flux:callout>
+            </flux:callout> --}}
 
             <div class="grid grid-cols-2 gap-3">
                 <flux:input
@@ -313,7 +323,8 @@ new class extends Component
                 label="Card number"
                 placeholder="e.g. SCCT-0001-2025"
                 size="sm"
-                description="Leave blank to issue a new card automatically."
+                description="Tap the card to the RFID card reader."
+                disabled
             />
         </div>
     @endif

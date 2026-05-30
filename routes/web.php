@@ -48,7 +48,7 @@ Route::middleware('auth')->group(function () {
         ->name('admin.users');
 
     //Edit users
-    Route::livewire('/admin/edit/user/{user}', 'pages::content-by-role.admin.edit.user')->name('admin.edit.user');
+    Route::livewire('/admin/edit/user/{user}', 'pages::content-by-role.admin.edit-user-info')->name('admin.edit.user');
 
     //Register users
     Route::get('/admin/register/user', [AdminPanelController::class, 'register'])->name('admin.register.user');
@@ -58,7 +58,7 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:operator')
         ->name('operator.dashboard');
 
-    Route::get('/operator/vehicles', [OperatorDashboardController::class, 'vehicles'])->name('operator.vehicles');
+    Route::livewire('/operator/vehicles', 'pages::content-by-role.operator.vehicles')->name('operator.vehicles');
     Route::get('/operator/vehicles/{vehicle}', [OperatorDashboardController::class, 'travelRecord'])->name('operator.travel.record');
 
 

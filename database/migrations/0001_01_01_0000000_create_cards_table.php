@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('cards', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(App\Models\User::class)->constrained()->onDelete('cascade');
             $table->string('uid', 50)->unique();
             $table->decimal('balance', 10, 2)->default(0);
             $table->enum('status', ['active', 'suspended', 'terminated'])->default('active');

@@ -2,27 +2,31 @@
 
 namespace App\Events;
 
-use App\Models\User;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class UserInfoUpdated implements ShouldBroadcastNow
+use App\Models\Card;
+
+class RegistrationTapCardEvent implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public $user;
+    public $card;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(int $user_id)
+    public function __construct(
+            Card $card
+        )
     {
-        $this->user = User::findOrFail($user_id);
+        $this->card = $card;    
     }
 
     /**
@@ -33,22 +37,21 @@ class UserInfoUpdated implements ShouldBroadcastNow
     public function broadcastOn(): array
     {
         return [
-            new Channel('user-info-updated'),
+            new Channel('registration-tap-card'),
         ];
     }
 
-    /**
-     * Explicitly define safe data for the frontend.
-     */
+    public function broadcastAs(): string {
+        return 'RegistrationTapCardEvent';
+    }
+
     public function broadcastWith(): array
     {
+
+        \Log::info('broadcastWith called');
+
         return [
-            'user' => [
-                'id'    => $this->user->id,
-                'name'  => $this->user->name,
-                'email' => $this->user->email,
-                // Add other safe public attributes here
-            ],
+            'uid' => $this->card->uid,
         ];
     }
 }

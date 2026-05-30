@@ -92,7 +92,7 @@ new class extends Component
                     @endif
                     <flux:table.cell variant="strong">{{$queue->seat_capacity}}</flux:table.cell>
                     <flux:table.cell variant="strong">{{$queue->seat_count}}</flux:table.cell>
-                    <flux:table.cell variant="strong">{{$queue->time_queued->format('M d, Y')}}</flux:table.cell>
+                    <flux:table.cell variant="strong">{{ $queue->time_queued->format('M d, Y g:i A') }}</flux:table.cell>
 
                     @if (!$queue->time_departed)
 
@@ -100,7 +100,7 @@ new class extends Component
 
                     @else
 
-                        <flux:table.cell variant="strong">{{$queue->time_departed->format('M d, Y')}}</flux:table.cell>
+                        <flux:table.cell variant="strong">{{$queue->time_departed->format('M d, Y g:i A') }}</flux:table.cell>
 
                     @endif
                     
