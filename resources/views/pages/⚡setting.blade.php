@@ -15,15 +15,15 @@ new #[Title('Profile settings')] class extends Component {
     use ProfileValidationRules;
 
     public string $name = '';
-    public string $email = '';
+    public string $username = '';
 
     /**
      * Mount the component.
      */
     public function mount(): void
     {
-        $this->name = Auth::user()->first_name;
-        $this->email = Auth::user()->email;
+        $this->name = Auth::user()->name
+        $this->username = Auth::user()->username;
     }
 
     /**
@@ -38,7 +38,7 @@ new #[Title('Profile settings')] class extends Component {
 
         $user->fill($validated);
 
-        if ($user->isDirty('email')) {
+        if ($user->isDirty('username')) {
             $user->email_verified_at = null;
         }
 
@@ -46,32 +46,32 @@ new #[Title('Profile settings')] class extends Component {
 
         $this->dispatch('profile-updated', name: $user->name);
 
-        broadcast(new UserInfoUpdated($this->user->id));
+        // broadcast(new UserInfoUpdated($this->user->id));
     }
 
-    #[On('echo:user-info-updated,UserInfoUpdated')]
-    public function refreshUserInfo() {
+    // #[On('echo:user-info-updated,UserInfoUpdated')]
+    // public function refreshUserInfo() {
 
-        unset($this->name);
-    }
+    //     unset($this->name);
+    // }
 
     /**
      * Send an email verification notification to the current user.
      */
-    public function resendVerificationNotification(): void
-    {
-        $user = Auth::user();
+    // public function resendVerificationNotification(): void
+    // {
+    //     $user = Auth::user();
 
-        if ($user->hasVerifiedEmail()) {
-            $this->redirectIntended(default: route('dashboard', absolute: false));
+    //     if ($user->hasVerifiedEmail()) {
+    //         $this->redirectIntended(default: route('dashboard', absolute: false));
 
-            return;
-        }
+    //         return;
+    //     }
 
-        $user->sendEmailVerificationNotification();
+    //     $user->sendEmailVerificationNotification();
 
-        Session::flash('status', 'verification-link-sent');
-    }
+    //     Session::flash('status', 'verification-link-sent');
+    // }
 
     #[Computed]
     public function hasUnverifiedEmail(): bool
@@ -92,9 +92,9 @@ new #[Title('Profile settings')] class extends Component {
     <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
     <div>
-        <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
+        <flux:input wire:model="username" :label="__('Username')" type="text" required autocomplete="username" />
 
-        @if ($this->hasUnverifiedEmail)
+        {{-- @if ($this->hasUnverifiedEmail)
             <div>
                 <flux:text class="mt-4">
                     {{ __('Your email address is unverified.') }}
@@ -110,7 +110,7 @@ new #[Title('Profile settings')] class extends Component {
                     </flux:text>
                 @endif
             </div>
-        @endif
+        @endif --}}
     </div>
 
     <div class="flex items-center gap-4">

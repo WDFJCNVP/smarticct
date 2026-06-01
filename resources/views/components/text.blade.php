@@ -1,0 +1,1 @@
+<flux:text {{ $attributes->merge([]) }}>{{ $slot }}</flux:text>

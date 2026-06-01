@@ -1,2 +1,5 @@
 
-<flux:input {{ $attributes->merge(['class' => 'w-full']) }}/>
+<flux:input {{ $attributes->merge([
+  'class' => 'w-full',
+   'size' => 'lg',
+  ]) }}/>

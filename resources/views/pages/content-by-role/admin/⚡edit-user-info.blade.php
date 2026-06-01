@@ -14,7 +14,7 @@ new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
     public User $user;
 
     public $name;
-    public $email;
+    public $username;
     public $address;
 
     public $confirmingAddVehicle = null;
@@ -41,7 +41,7 @@ new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
 
     public function mount() {
         $this->name    = $this->user->name;
-        $this->email   = $this->user->email;
+        $this->username   = $this->user->username;
         $this->address = $this->user->address;
 
         foreach ($this->getVehicle as $vehicle) {
@@ -53,28 +53,31 @@ new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
         }
     }
 
-    // -------------------------------------------------------------------------
-    // User
-    // -------------------------------------------------------------------------
-
     public function save() {
         $attributes = $this->validate([
             'name'    => 'required|min:2|string',
-            'email'   => 'required|min:1|email|string',
+            'username'   => 'required|min:1|string',
             'address' => 'required|min:1|string',
         ]);
 
         $this->user->update($attributes);
+        Flux::toast(
+            variant: 'success',
+            heading: 'Changes saved.',
+            text: 'Your changes have been saved.'
+        );
     }
 
     public function deleteUser() {
         $this->user->delete();
         $this->redirect(route('admin.users'), navigate: true);
-    }
 
-    // -------------------------------------------------------------------------
-    // Vehicle — Add
-    // -------------------------------------------------------------------------
+        Flux::toast(
+            variant: 'success',
+            heading: 'User deleted.',
+            text: 'User has been deleted.'
+        );
+    }
 
     public function addingVehicle($status) {
         $this->confirmingAddVehicle = $status;
@@ -115,11 +118,13 @@ new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
 
         unset($this->getVehicle);
         $this->addingVehicle(false);
-    }
 
-    // -------------------------------------------------------------------------
-    // Vehicle — Edit
-    // -------------------------------------------------------------------------
+        Flux::toast(
+            variant: 'success',
+            heading: 'Vehicle added.',
+            text: 'New vehicle has been added.'
+        );
+    }
 
     public function editVehicle(int $vehicle_id) {
         $this->confirmingEditVehicle = $vehicle_id;
@@ -153,11 +158,13 @@ new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
 
         $this->confirmingEditVehicle = null;
         unset($this->getVehicle);
-    }
 
-    // -------------------------------------------------------------------------
-    // Vehicle — Delete
-    // -------------------------------------------------------------------------
+        Flux::toast(
+            variant: 'success',
+            heading: 'Vehicle updated.',
+            text: 'Vehicle information has been updated.'
+        );
+    }
 
     public function deleteVehicle(int $vehicle_id) {
         Vehicle::where('id', $vehicle_id)
@@ -167,6 +174,12 @@ new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
         unset($this->editingVehicles[$vehicle_id]);
         $this->confirmingDeleteVehicle = null;
         unset($this->getVehicle);
+
+        Flux::toast(
+            variant: 'success',
+            heading: 'Vehicle deleted.',
+            text: 'Vehicle has been deleted.'
+        );
     }
 };
 ?>
@@ -186,7 +199,7 @@ new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
             <flux:avatar src="{{ $user->avatar_url }}" name="{{ $user->name }}" size="xl" />
             <div>
                 <div class="font-semibold text-base text-zinc-800 dark:text-zinc-200">{{ $user->name }}</div>
-                <div class="text-sm text-zinc-500">{{ $user->email }}</div>
+                <div class="text-sm text-zinc-500">{{ $user->username }}</div>
             </div>
         </div>
 
@@ -212,7 +225,7 @@ new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
         <div class="space-y-4 w-full border border-zinc-200 dark:border-zinc-700 rounded-xl p-6 bg-zinc-50 dark:bg-zinc-800/50">
             <div class="grid w-full grid-cols-2 gap-6 mb-4">
                 <flux:input label="Name"    wire:model="name"    class="w-full" />
-                <flux:input label="Email"   wire:model="email"   class="w-full" />
+                <flux:input label="username"   wire:model="username"   class="w-full" />
                 <flux:input label="Address" wire:model="address" class="w-full" />
             </div>
 

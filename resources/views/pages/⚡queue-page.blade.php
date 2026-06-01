@@ -43,12 +43,6 @@ new #[Layout('components.public.layout')]class extends Component {
         </flux:heading>
 
         <div class="flex-1 sm:max-w-xs mx-auto sm:mx-0">
-            {{-- <input
-                type="text"
-                placeholder="Search Routes"
-                wire:model.live="search"
-                class="w-full rounded-md border border-[#181E74] px-4 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#181E74]"
-            /> --}}
             <flux:field>
 
                 <flux:input 
@@ -61,21 +55,6 @@ new #[Layout('components.public.layout')]class extends Component {
         </div>
 
         <div class="relative shrink-0">
-            {{-- <select
-                wire:model.live="vehicleType"
-                class="appearance-none rounded-lg border border-gray-200 bg-white px-4 pr-10 py-2.5 text-sm font-medium text-gray-700 shadow-sm focus:outline-none cursor-pointer"
-            >
-                <option value="">All Vehicles</option>
-                <option value="Jeep">Jeep</option>
-                <option value="Bus">Bus</option>
-                <option value="Multi-cab">Multi-cab</option>
-                <option value="Van">Van</option>
-            </select>
-            <svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400"
-                fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-            </svg> --}}
-
             <flux:select wire:model.live="vehicleType">
                 <flux:select.option value="" selected>All Vehicles</flux:select.option>
                 <flux:select.option value="Jeep">Jeep</flux:select.option>

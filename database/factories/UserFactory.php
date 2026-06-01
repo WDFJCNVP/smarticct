@@ -33,7 +33,7 @@ class UserFactory extends Factory
             // 'remember_token'    => Str::random(10),
 
             'name'              => 'ADMIN',
-            'email'             => 'admin@123',
+            'username'             => 'admin@123',
             'role'              => 'admin',
             'address'           => 'null',
             'email_verified_at' => now(),

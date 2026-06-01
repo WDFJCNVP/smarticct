@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 new #[Layout('layouts::login')] class extends Component
 {
     #[Validate('required|string')]
-    public $email = '';
+    public $username = '';
 
     #[Validate('required|string')]
     public $password = '';
@@ -22,7 +22,7 @@ new #[Layout('layouts::login')] class extends Component
 
     private function throttleKey(): string
     {
-        return Str::lower($this->email) . '|' . request()->ip();
+        return Str::lower($this->username) . '|' . request()->ip();
     }
 
     private function ensureIsNotRateLimited(): void
@@ -34,7 +34,7 @@ new #[Layout('layouts::login')] class extends Component
         $this->rateLimitedFor = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'email' => 'Too many login attempts.',
+            'username' => 'Too many login attempts.',
         ]);
     }
 
@@ -48,7 +48,7 @@ new #[Layout('layouts::login')] class extends Component
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'email' => 'Sorry, those credentials do not match.',
+                'username' => 'Sorry, those credentials do not match.',
             ]);
         }
 
@@ -70,16 +70,16 @@ new #[Layout('layouts::login')] class extends Component
     @csrf
 
     <flux:field class="mt-5">
-        <flux:label>Email</flux:label>
+        <flux:label>username</flux:label>
         <flux:input
             type="text"
-            wire:model.blur.live="email"
-            name="email"
-            placeholder="Enter your email"
+            wire:model.blur.live="username"
+            name="username"
+            placeholder="Enter your username"
             required
         />
 
-        <flux:error name="email" />
+        <flux:error name="username" />
 
         <p 
             x-show="secondsLeft > 0" 

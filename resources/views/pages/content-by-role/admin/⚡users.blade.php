@@ -34,7 +34,7 @@ new class extends Component
                 $this->search,
                 fn($q) => $q->where(function ($q2) {
                     $q2->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('email', 'like', '%' . $this->search . '%')
+                        ->orWhere('username', 'like', '%' . $this->search . '%')
                         ->orWhere('id', 'like', '%' . $this->search . '%');
                 })
             )->paginate(10);
@@ -70,7 +70,7 @@ new class extends Component
             </flux:select>
 
             <flux:link href="{{ route('admin.register.user') }}" wire:navigate>
-                <flux:button variant="primary" color="zinc" icon="plus">Add Users</flux:button>
+                <flux:button variant="primary" color="zinc" icon="plus" size="sm">Add Users</flux:button>
             </flux:link>
         </div>
     </div>
@@ -92,7 +92,7 @@ new class extends Component
                     <flux:table.cell>{{ $user->id }}</flux:table.cell>
                     <flux:table.cell>{{ $user->card->uid }}</flux:table.cell>
                     <flux:table.cell>{{ $user->name }}</flux:table.cell>
-                    <flux:table.cell>{{ $user->email }}</flux:table.cell>
+                    <flux:table.cell>{{ $user->username }}</flux:table.cell>
                     <flux:table.cell>{{ $user->address }}</flux:table.cell>
                     <flux:table.cell>
                         @if ($user->role === 'operator')

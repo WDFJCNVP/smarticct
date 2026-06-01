@@ -51,6 +51,7 @@ class RegistrationTapCardEvent implements ShouldBroadcastNow
         \Log::info('broadcastWith called');
 
         return [
+            'id' => $this->card->id,
             'uid' => $this->card->uid,
         ];
     }

@@ -24,7 +24,7 @@ class User extends Authenticatable
         'last_name',
         'role',
         'address',
-        'email',
+        'username',
         'password',
     ];
 
@@ -52,7 +52,7 @@ class User extends Authenticatable
     }
 
     public function card() {
-        return $this->belongsTo(Card::class);
+        return $this->hasOne(Card::class);
     }
 
     public function vehicle() {
