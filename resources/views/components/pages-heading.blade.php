@@ -6,12 +6,12 @@
 
 
 <div>
-    <div class="mt-4">
+    <div>
         <flux:heading size="xl">{{ $heading }}</flux:heading>
-        <flux:text class="mt-2">{{ $description }}</flux:text>
+        <flux:text class="mt-1 mb-4">{{ $description }}</flux:text>
     </div>
     <div>
-        <flux:heading size="lg" class="mt-10 mb-2 flex gap-2 items-center">
+        <flux:heading size="lg" class=" mb-2 flex gap-2 items-center">
            {{ $slot }}
             <flux:text class="text-base" size="2xl" variant="subtle">
                 {{ $count ? $count : '' }}

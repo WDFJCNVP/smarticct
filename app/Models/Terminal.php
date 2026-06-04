@@ -18,4 +18,8 @@ class Terminal extends Model
     public function route() {
         return $this->hasOne(Route::class);
     }
+
+    public function route_lists() {
+        return $this->hasMany(RouteList::class);
+    }
 }

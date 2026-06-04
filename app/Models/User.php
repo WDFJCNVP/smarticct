@@ -55,8 +55,8 @@ class User extends Authenticatable
         return $this->hasOne(Card::class);
     }
 
-    public function vehicle() {
-        return $this->hasOne(Vehicle::class);
+    public function vehicles() {
+        return $this->hasMany(Vehicle::class);
     }
 
         public function initials(): string

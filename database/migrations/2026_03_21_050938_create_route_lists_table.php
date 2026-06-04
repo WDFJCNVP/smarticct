@@ -11,13 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('routes', function (Blueprint $table) {
+        Schema::create('route_lists', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(App\Models\Vehicle::class)->constrained()->onDelete('cascade');
-            $table->foreignIdFor(App\Models\Terminal::class)->nullable()->constrained()->onDelete('set null');
+            $table->foreignIdFor(\App\Models\Terminal::class)->constrained()->onDelete('cascade');
+            $table->string('vehicle_type');
             $table->string('first_trip')->nullable();
             $table->string('last_trip')->nullable();
-            $table->decimal('base_fare', 10, 2)->nullable();
+            $table->decimal('base_fare', 10, 2);
+            $table->enum('type', ['fare', 'operator_tickets']);
             $table->timestamps();
         });
     }
@@ -27,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('routes');
+        Schema::dropIfExists('route_lists');
     }
 };

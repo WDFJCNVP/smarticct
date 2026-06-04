@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('vehicles', function (Blueprint $table) {
             $table->id();
             $table->foreignIdFor(App\Models\User::class)->constrained()->onDelete('cascade');
+            $table->foreignIdFor(App\Models\RouteList::class)->nullable()->constrained()->onDelete('set null');
             $table->string('vehicle_type');
             $table->string('plate_number');
             $table->integer('total_seats');

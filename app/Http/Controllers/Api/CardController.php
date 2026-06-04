@@ -10,6 +10,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 //Models
+use App\Models\User;
 use App\Models\Card;
 use App\Models\CardTransaction;
 use App\Models\Queue;
@@ -18,53 +19,52 @@ use App\Models\Vehicle;
 //Job
 use App\Jobs\ProcessAfterDepart;
 
+//Event
+
+use App\Events\QueuedVehicleEvent;
+
 class CardController extends Controller
 {
+    private function getCard($uid) {
+        return Card::with('user.vehicles')->where('uid', $uid)->first();
+    }
 
-    private function getUserVehicle($card, $validated) {
-        $vehicle = Vehicle::where('user_id', $card->user_id)->where('vehicle_type', $validated['vehicle_type'])->first(); 
+    private function getUserVehicle($card, $vehicle_type) {
+
+        $vehicle = Vehicle::where('user_id', $card->user->id)
+            ->where('vehicle_type', $vehicle_type)
+            ->first();
 
         if (!$vehicle) {
-            throw new \Exception('Vehicle Not Found');
+            throw new CardException('Vehicle not found', 404);
         }
 
         return $vehicle;
     }
 
-    private function isVehicleAlreadyQueued($card, $validated) {
+    private function isVehicleAlreadyQueued($card, $vehicle_type) {
 
-        $vehicle = $this->getUserVehicle($card, $validated);
+        $vehicle = $this->getUserVehicle($card, $vehicle_type);
 
-        if (!$vehicle) {
-            throw new \Exception('Vehicle Not Found');
-        }
-
-        //return true
         return Queue::where('plate_number', $vehicle->plate_number)
             ->whereIn('status', ['loading', 'staging'])
             ->exists();
     }
 
-    private function deductUserCard($validated, $amount, $balanceBefore, $balanceAfter, $message) {
+    private function deductUserCard($card, $validated, $amount, $balanceBefore, $balanceAfter, $message) {
 
         if ($balanceBefore < $amount) {
+            throw new CardException("Insufficient balance. Available: {$balanceBefore}, Required: {$amount}", 402);
+        } 
+        else {
+                $balanceAfter = $balanceBefore - $amount;
+                $card->update(['balance' => $balanceAfter, 'updated_at' => now()]);
+                
             return [
-                'status'        => 'insufficient_balance',
-                'balanceAfter'  => $balanceAfter,
-                'message'       => "Insufficient balance. Available:{$balanceBefore}, Required:{$amount}",
+                'status'         => 'success',
+                'balanceAfter'   => $balanceAfter,
+                'message'        => "Fare payment successful. Balance:$balanceAfter",
             ];
-
-        } else {
-            $balanceAfter = $balanceBefore - $amount;
-            
-            // Update card balance
-            $card = Card::where('uid', $validated['uid'])->update(['balance' => $balanceAfter, 'updated_at' => now()]);
-            
-           return [
-            'status'         => 'success',
-            'balanceAfter'   => $balanceAfter,
-            'message'        => "Fare payment successful. Balance:$balanceAfter",
-           ];
         }
     }
 
@@ -72,11 +72,7 @@ class CardController extends Controller
 
         $card_id = $card->id;
 
-        $vehicle = $this->getUserVehicle($card, $validated);
-
-        if (!$vehicle) {
-            throw new \Exception('Vehicle Not Found');
-        }
+        $vehicle = $this->getUserVehicle($card, $validated['vehicle_type']);
 
         $queue = Queue::where('status', 'loading')->where('destination', $validated['destination'])->where('vehicle_type', $vehicle->vehicle_type)->exists();
 
@@ -95,11 +91,6 @@ class CardController extends Controller
                 'departs_at'    => null,
             ]);
         } else {
-            $vehicle = $this->getUserVehicle($card, $validated);
-
-            if (!$vehicle) {
-                throw new \Exception('Vehicle Not Found');
-            }
 
             $queue = Queue::create([
                 'card_id'       => $card->id,
@@ -122,7 +113,7 @@ class CardController extends Controller
 
     public function tap(Request $request) {
         try {
-            // Validate request
+        
             $validated = $request->validate([
                 'uid' => 'required|string|max:50',
                 'name' => 'required|string|max:50',
@@ -133,11 +124,9 @@ class CardController extends Controller
                 'plate_number' => 'nullable|string',
             ]);
 
-            // Log incoming request
             Log::info('Card tap received', $validated);
 
-            // Find card
-            $card = Card::where('uid', $validated['uid'])->first();
+            $card = $this->getCard($validated['uid']);
 
             if (!$card) {
                 return response()->json([
@@ -158,8 +147,8 @@ class CardController extends Controller
             $status = '';
             $message = '';
             $amount = $validated['amount'] ?? 0;
+            $transaction_type = $validated['transaction_type'];
 
-            // Deduct User Card and Queue Operator
             if ($validated['transaction_type'] === 'fare_payment') {
                 
                 $queue = Queue::where('status', 'loading')->where('destination', $validated['destination'])->where('vehicle_type', $validated['vehicle_type'])->first();
@@ -171,7 +160,7 @@ class CardController extends Controller
                     ], 404);
                 }
 
-                $result = $this->deductUserCard($validated, $amount, $balanceBefore, $balanceAfter, $message);
+                $result = $this->deductUserCard($card, $validated, $amount, $balanceBefore, $balanceAfter, $message);
 
                 if ($result['status'] === 'success') {
                     $queue->increment('seat_count');
@@ -181,21 +170,24 @@ class CardController extends Controller
                 $balanceAfter = $result['balanceAfter'];
                 $message      = $result['message'];
 
+                broadcast(new QueuedVehicleEvent());
+
             }
             
             if ($validated['transaction_type'] === 'operator_payment'){
                 
-                $alreadyInQueue = $this->isVehicleAlreadyQueued($card, $validated);
+                $alreadyInQueue = $this->isVehicleAlreadyQueued($card, $validated['vehicle_type']);
 
                 if ($alreadyInQueue) {
                     return response()->json([
-                        'status' => 'failed',
-                        'balanceAfter' => $balanceBefore,
+                        'status'        => 'failed',
+                        'balanceAfter'  => $balanceBefore,
                         'message'       => 'Vehicle is already in queue'
                     ]);
                     
                 } else {
-                    $result = $this->deductUserCard($validated, $amount, $balanceBefore, $balanceAfter, $message);
+
+                    $result = $this->deductUserCard($card, $validated, $amount, $balanceBefore, $balanceAfter, $message);
 
                     if ($result['status'] === 'success') {
 
@@ -205,13 +197,16 @@ class CardController extends Controller
                     $status       = $result['status'];
                     $balanceAfter = $result['balanceAfter'];
                     $message      = $result['message'];
+
+                    broadcast(new QueuedVehicleEvent());
                 }
             }
 
-            // Create Card Transaction
             $transaction = CardTransaction::create([
                 'card_id'           => $card->id,
-                'amount'            => -$amount,
+                'points_deducted'   => -$amount,
+                'transaction_type'  => $transaction_type,
+                'amount'            => $amount,
                 'balance_before'    => $balanceBefore,
                 'balance_after'     => $balanceAfter,
                 'status'            => $status,
@@ -219,10 +214,10 @@ class CardController extends Controller
                 'transaction_time' => now(),
             ]);
 
-            // Return response
             return response()->json([
                 'status' => $status,
                 'message' => $message,
+                'transaction_type' => $transaction_type,
                 'card_holder' => "{$card->user->name}",
                 'card_type' => $card->user->role,
                 'balance_before' => (float) $balanceBefore,
@@ -246,4 +241,5 @@ class CardController extends Controller
             ], 500);
         }
     }
+
 }

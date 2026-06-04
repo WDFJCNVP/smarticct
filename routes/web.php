@@ -47,11 +47,25 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:admin')
         ->name('admin.users');
 
-    //Edit users
-    Route::livewire('/admin/edit/user/{user}', 'pages::content-by-role.admin.edit-user-info')->name('admin.edit.user');
+    Route::livewire('/admin/edit/user/{user}', 'pages::content-by-role.admin.edit-user-info')
+        ->name('admin.edit.user');
+    Route::get('/admin/register/user', [AdminPanelController::class, 'register'])
+        ->name('admin.register.user');
+    Route::livewire('/admin/cards', 'pages::content-by-role.admin.cards')
+        ->name('admin.cards')
+        ->middleware('role:admin');
+    Route::livewire('/admin/card/transaction/{user}', 'pages::content-by-role.admin.card-transaction')
+        ->name('admin.card.transaction')
+        ->middleware('role:admin');
 
-    //Register users
-    Route::get('/admin/register/user', [AdminPanelController::class, 'register'])->name('admin.register.user');
+    // Cashier Section
+    Route::livewire('/cashier/dashboard', 'pages::content-by-role.cashier.index')
+        ->middleware('role:cashier')
+        ->name('cashier.dashboard');
+        
+    Route::livewire('/cashier/queue/vehicle', 'pages::content-by-role.cashier.queue-vehicle')
+        ->middleware('role:cashier')
+        ->name('cashier.queue.vehicle');
 
     //Operator Section
     Route::get('/operator/dashboard', [OperatorDashboardController::class, 'index'])

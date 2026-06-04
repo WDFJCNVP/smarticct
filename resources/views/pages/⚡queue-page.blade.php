@@ -3,6 +3,8 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
+
 use App\Models\Queue;
 
 
@@ -31,9 +33,15 @@ new #[Layout('components.public.layout')]class extends Component {
             ->groupBy(['vehicle_type', 'destination']);
     }
 
-}; ?>
+    #[On('echo:vehicle-queue,.QueuedVehicleEvent')]
+    public function refreshQueuedVehicleList() {
+        unset($this->groupVehicles);
+    }
 
-<div class="w-full max-w-5xl mx-auto mt-10" wire:poll.5s>
+};
+?>
+
+<div class="w-full max-w-5xl mx-auto mt-10">
 
     <!-- Queue Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">

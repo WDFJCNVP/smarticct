@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('queues', function (Blueprint $table) {
             $table->id();
+            $table->integer('card_id');
             $table->string('vehicle_type');
             $table->string('destination');
             $table->string('plate_number');

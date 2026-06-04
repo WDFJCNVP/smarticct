@@ -12,6 +12,7 @@ class Vehicle extends Model
 
     protected $fillable = [
         'user_id',
+        'route_list_id',
         'vehicle_type',
         'plate_number',
         'total_seats'
@@ -32,5 +33,9 @@ class Vehicle extends Model
 
     public function route() {
         return $this->hasOne(Route::class);
+    }
+
+    public function route_list() {
+        return $this->belongsTo(RouteList::class);
     }
 }

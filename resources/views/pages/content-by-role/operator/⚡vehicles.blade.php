@@ -36,14 +36,14 @@ new #[Layout('layouts.dashboard.operator.operator-dashboard')]class extends Comp
 ?>
 
 <div>
-    <x-pages-heading-with-count 
+    <x-pages-heading 
         :count="$this->vehicles->count()" 
         heading="My Vehicles" 
         description="You can monitor your vehicles and it's status here."
         >
 
         All Vehicles
-    </x-pages-heading-with-count>
+    </x-pages-heading>
 
     <div>
         <flux:table>

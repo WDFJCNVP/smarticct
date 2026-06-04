@@ -21,7 +21,7 @@ protected $fillable = [
     'status',
     'message',
     'transaction_time',
-    'points_deduct',
+    'points_deducted',
 ];
 
     public function card() {

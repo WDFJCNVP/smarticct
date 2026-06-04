@@ -4,12 +4,17 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use App\Events\RegistrationTapCardEvent;
 use Livewire\Component;
+
+//facades
+use Illuminate\Support\Facades\DB;
+
+//models
 use App\Models\User;
 use App\Models\Card;
 use App\Models\Vehicle;
 use App\Models\Terminal;
 use App\Models\Route;
-use Illuminate\Support\Facades\DB;
+use App\Models\RouteList;
 
 new class extends Component
 {
@@ -173,20 +178,24 @@ new class extends Component
 
             if ($this->role === 'operator') {
                 foreach ($this->vehicles as $vehicle) {
+
+                    $route_list = RouteList::where('terminal_id', $vehicle['route'])->where('vehicle_type', $vehicle['vehicle_type'])->first();
+
                     $v = Vehicle::create([
                         'user_id'      => $user->id,
+                        'route_list_id'=> $route_list->id,
                         'vehicle_type' => $vehicle['vehicle_type'],
                         'plate_number' => $vehicle['plate_number'],
                         'total_seats'  => 10,
                     ]);
 
-                    Route::create([
-                        'vehicle_id'  => $v->id,
-                        'terminal_id' => intval($vehicle['route']),
-                        'first_trip'  => '8:00 am',
-                        'last_trip'   => '9:00 am',
-                        'base_fare'   => 10.2,
-                    ]);
+                    // Route::create([
+                    //     'vehicle_id'  => $v->id,
+                    //     'terminal_id' => intval($vehicle['route']),
+                    //     'first_trip'  => '8:00 am',
+                    //     'last_trip'   => '9:00 am',
+                    //     'base_fare'   => 10.2,
+                    // ]);
                 }
             }
         });
@@ -427,13 +436,11 @@ new class extends Component
             {{-- Input --}}
             <div class="p-4">
                 <flux:field>
-                    <flux:label class="flex items-center gap-1.5 text-xs">
-                        <flux:icon name="credit-card" class="w-3.5 h-3.5" />
-                        Card UID
-                    </flux:label>
-                    <flux:input
+                    <x-input
                         id="rfid-input"
                         wire:model="card_number"
+                        label="Card UID"
+                        name="card_number"
                         wire:keydown.enter="cardScanned"
                         wire:focus="cardFocused"
                         wire:blur="cardBlurred"
@@ -442,10 +449,6 @@ new class extends Component
                         class="font-mono tracking-widest"
                         autofocus
                     />
-                    hello
-                    @error('card_number')
-                        <flux:error>{{ $message }}</flux:error>
-                    @enderror
                 </flux:field>
             </div>
         </x-card>
@@ -462,7 +465,7 @@ new class extends Component
                 <div class="flex items-center gap-3">
 
                     <div class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">
-                        {{ strtoupper(substr($first_name, 0, 1) . substr($last_name, 0, 1)) }}JC
+                        {{ strtoupper(substr($first_name, 0, 1) . substr($last_name, 0, 1)) }}
                     </div>
 
                     <div class="flex-1 min-w-0">
@@ -526,7 +529,6 @@ new class extends Component
         @endif
     </div>
 
-    {{-- Focus helper: dispatched by refocus() method --}}
     <script>
         document.addEventListener('livewire:initialized', () => {
             Livewire.on('focus-rfid-input', () => {

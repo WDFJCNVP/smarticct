@@ -190,7 +190,7 @@ new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
         <flux:breadcrumbs.item>{{ $this->user->name }}</flux:breadcrumbs.item>
     </flux:breadcrumbs>
 
-    <x-pages-heading-with-count heading="Edit User Information"/>
+    <x-pages-heading heading="Edit User Information"/>
 
     {{-- User header --}}
     <div class="grid w-full grid-cols-2 text-sm mb-6 gap-6 items-center">

@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
 
 use App\Models\Queue;
+use App\Events\QueuedVehicleEvent;
+
 
 class ProcessAfterDepart implements ShouldQueue
 {
@@ -40,6 +42,8 @@ class ProcessAfterDepart implements ShouldQueue
                 'status'        => 'departed',
             ]);
 
+            broadcast(new QueuedVehicleEvent());
+
             Log::info("Queue [{$queue->id}] marked as departed.");
 
             $next_queue = Queue::where('status', 'staging')
@@ -56,11 +60,14 @@ class ProcessAfterDepart implements ShouldQueue
                 'status'     => 'loading',
                 'departs_at' => Carbon::now()->addMinute(),
             ]);
+            
+            broadcast(new QueuedVehicleEvent());
 
             Log::info("Queue [{$next_queue->id}] promoted to loading.");
 
             ProcessAfterDepart::dispatch($next_queue->id)
                 ->delay($next_queue->departs_at);
+                
         });
     }
 }

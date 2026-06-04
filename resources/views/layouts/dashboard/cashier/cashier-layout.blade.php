@@ -7,7 +7,7 @@
 
         <title>
             {{-- {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }} --}}
-            Admin Dashboard
+            Cashier Dashboard
         </title>
 
         <link rel="icon" href="/favicon.ico" sizes="any">
@@ -30,11 +30,9 @@
 
             <flux:sidebar.nav>
 
-              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.dashboard') }}" icon="squares-2x2 "> Dashboard </x-dashboard.sidebar-menu.sidebar-item>
-              <x-dashboard.sidebar-menu.sidebar-item href="#" icon="map"> Routes </x-dashboard.sidebar-menu.sidebar-item>
-              <x-dashboard.sidebar-menu.sidebar-item href="#" icon="briefcase">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
-              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.users') }}" icon="users" wire:navigate>Users</x-dashboard.sidebar-menu.sidebar-item>
-              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.cards') }}" icon="credit-card">Card</x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('cashier.dashboard') }}" icon="home"> Dashboard </x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-item href="#" icon="home"> Routes </x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('cashier.queue.vehicle') }}" icon="home"> Queue </x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>
 
@@ -43,7 +41,7 @@
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </flux:sidebar>
 
-        <!-- Mobile -->
+        <!-- Mobile User Menu -->
         <flux:header class="lg:hidden">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
