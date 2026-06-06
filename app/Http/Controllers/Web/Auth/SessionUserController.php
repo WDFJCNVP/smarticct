@@ -44,7 +44,7 @@ class SessionUserController extends Controller
         return match ($user->role) {
             'admin'     => redirect()->route('admin.dashboard'),
             'operator'  => redirect()->route('operator.dashboard'),
-            'passenger' => redirect()->route('passenger.dashboard')
+            'commuter' => redirect()->route('commuter.dashboard')
         };
     }
 

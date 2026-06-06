@@ -12,7 +12,7 @@ use App\Http\Controllers\Web\Auth\{
 use App\Http\Controllers\Web\User\{
     AdminPanelController,
     OperatorDashboardController,
-    PassengerDashboardController,
+    commuterDashboardController,
 };
 
 //Public Controller
@@ -39,24 +39,37 @@ Route::livewire('/login', 'pages::auth.login')->name('login');
 Route::middleware('auth')->group(function () {
 
     //Admin Section
-    Route::get('/admin/dashboard', [AdminPanelController::class, 'index'])
+    // Route::get('/admin/dashboard', [AdminPanelController::class, 'index'])
+    //     ->middleware('role:admin')
+    //     ->name('admin.dashboard');
+
+    Route::livewire('/admin/dashboard', 'pages::content-by-role.admin.index')
         ->middleware('role:admin')
         ->name('admin.dashboard');
 
-    Route::get('/admin/users', [AdminPanelController::class, 'users'])
+    Route::livewire('/admin/users', 'pages::content-by-role.admin.users')
         ->middleware('role:admin')
         ->name('admin.users');
 
     Route::livewire('/admin/edit/user/{user}', 'pages::content-by-role.admin.edit-user-info')
         ->name('admin.edit.user');
-    Route::get('/admin/register/user', [AdminPanelController::class, 'register'])
+
+    Route::livewire('/admin/register/user', 'pages::content-by-role.admin.register')
+        ->middleware('role:admin')
         ->name('admin.register.user');
+
+    // Route::get('/admin/register/user', [AdminPanelController::class, 'register'])
+    //     ->name('admin.register.user');
     Route::livewire('/admin/cards', 'pages::content-by-role.admin.cards')
         ->name('admin.cards')
         ->middleware('role:admin');
     Route::livewire('/admin/card/transaction/{user}', 'pages::content-by-role.admin.card-transaction')
         ->name('admin.card.transaction')
         ->middleware('role:admin');
+
+    // Route::livewire('/admin/notifications', 'pages::content-by-role.admin.notifications')
+    //     ->name('admin.notifications')
+    //     ->middleware('role:admin');;
 
     // Cashier Section
     Route::livewire('/cashier/dashboard', 'pages::content-by-role.cashier.index')
@@ -68,18 +81,26 @@ Route::middleware('auth')->group(function () {
         ->name('cashier.queue.vehicle');
 
     //Operator Section
-    Route::get('/operator/dashboard', [OperatorDashboardController::class, 'index'])
+    Route::livewire('/operator/dashboard', 'pages::content-by-role.operator.index')
         ->middleware('role:operator')
         ->name('operator.dashboard');
 
-    Route::livewire('/operator/vehicles', 'pages::content-by-role.operator.vehicles')->name('operator.vehicles');
-    Route::get('/operator/vehicles/{vehicle}', [OperatorDashboardController::class, 'travelRecord'])->name('operator.travel.record');
+    Route::livewire('/operator/vehicles', 'pages::content-by-role.operator.vehicles')->middleware('role:operator')->name('operator.vehicles');
+    Route::livewire('/operator/vehicles/{vehicle}', 'pages::content-by-role.operator.queueing_records')
+        ->middleware('role:operator')
+        ->name('operator.travel.record');
+
+    //commuter Section
+    Route::get('/commuter/dashboard',[commuterDashboardController::class, 'index'])
+        ->middleware('role:commuter')
+        ->name('commuter.dashboard');
 
 
-    //Passenger Section
-    Route::get('/passenger/dashboard',[PassengerDashboardController::class, 'index'])
-        ->middleware('role:passenger')
-        ->name('passenger.dashboard');
+    Route::livewire('/notification', 'pages::notifications')
+        ->name('notifications');
+
+    Route::livewire('/notification/{user_notification}', 'pages::notification')
+        ->name('notification');
 });
 
 

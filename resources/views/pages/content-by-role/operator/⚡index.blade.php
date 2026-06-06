@@ -3,12 +3,12 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 
-new #[Layout('layouts.cashier-layout')] class extends Component
+new #[Layout('layouts.operator-layout')] class extends Component
 {
     //
 };
 ?>
 
 <div>
-   Cashier Dashboard
+    Operator Dashboard
 </div>

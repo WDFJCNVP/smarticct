@@ -9,7 +9,7 @@ use App\Models\Terminal;
 use App\Models\Vehicle;
 use App\Models\Route;
 
-new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
+new #[Layout('layouts.admin-layout')] class extends Component
 {
     public User $user;
 
@@ -192,283 +192,228 @@ new #[Layout('layouts.dashboard.admin.admin-layout')] class extends Component
 
     <x-pages-heading heading="Edit User Information"/>
 
-    {{-- User header --}}
-    <div class="grid w-full grid-cols-2 text-sm mb-6 gap-6 items-center">
+    <div class="mt-4 mb-6 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-between flex-wrap gap-4">
 
         <div class="flex items-center gap-4">
             <flux:avatar src="{{ $user->avatar_url }}" name="{{ $user->name }}" size="xl" />
             <div>
-                <div class="font-semibold text-base text-zinc-800 dark:text-zinc-200">{{ $user->name }}</div>
-                <div class="text-sm text-zinc-500">{{ $user->username }}</div>
+                <p class="font-medium text-base text-zinc-800 dark:text-zinc-200">{{ $user->name }}</p>
+                <p class="text-sm text-zinc-500">{{ $user->user_code }}</p>
             </div>
         </div>
 
-        <div class="flex flex-col gap-4">
+        <div class="flex gap-8">
             <div>
-                <span class="block text-xs text-zinc-400 font-medium uppercase tracking-wider">Role</span>
+                <span class="block text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">Role</span>
                 @if ($user->role === 'operator')
-                    <flux:badge color="blue" size="sm" inset="top bottom">Operator</flux:badge>
+                    <flux:badge color="blue" size="sm">Operator</flux:badge>
                 @else
-                    <flux:badge color="yellow" size="sm" inset="top bottom">Commuter</flux:badge>
+                    <flux:badge color="yellow" size="sm">Commuter</flux:badge>
                 @endif
             </div>
             <div>
-                <span class="block text-xs text-zinc-400 font-medium uppercase tracking-wider">Joined</span>
-                <span class="text-zinc-700 dark:text-zinc-300 font-medium">{{ $user->created_at->format('M d, Y') }}</span>
+                <span class="block text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">Joined</span>
+                <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    {{ $user->created_at->format('M d, Y') }}
+                </span>
             </div>
+            @if ($user->role === 'operator')
+            <div>
+                <span class="block text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">Vehicles</span>
+                <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    {{ $this->getVehicle->count() }}
+                </span>
+            </div>
+            @endif
         </div>
 
     </div>
 
-    {{-- Edit user form --}}
     <form wire:submit="save">
-        <div class="space-y-4 w-full border border-zinc-200 dark:border-zinc-700 rounded-xl p-6 bg-zinc-50 dark:bg-zinc-800/50">
-            <div class="grid w-full grid-cols-2 gap-6 mb-4">
-                <flux:input label="Name"    wire:model="name"    class="w-full" />
-                <flux:input label="username"   wire:model="username"   class="w-full" />
-                <flux:input label="Address" wire:model="address" class="w-full" />
+        <div class="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden">
+
+            {{-- Section header --}}
+            <div class="flex items-center gap-2 px-6 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                <flux:icon.user class="w-4 h-4 text-zinc-400" />
+                <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Personal information</span>
             </div>
 
-            <div class="flex w-full gap-2 mt-6">
-                <div class="flex flex-1">
+            <div class="p-6 space-y-4">
+                <div class="grid w-full grid-cols-2 gap-6">
+                    <flux:input label="Name"     wire:model="name"     class="w-full" />
+                    <flux:input label="Username" wire:model="username" class="w-full" />
+                    <div class="col-span-2">
+                        <flux:input label="Address" wire:model="address" class="w-full" />
+                    </div>
+
+                    {{-- Read-only context fields --}}
+                    <flux:input label="Role"      value="{{ ucfirst($user->role) }}"  class="w-full" readonly />
+                    <flux:input label="User code" value="{{ $user->user_code }}"      class="w-full" readonly />
+                </div>
+
+                <div class="flex w-full gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                     <flux:button
                         type="button"
-                        variant="danger"
-                        wire:click="$set('confirmingDelete', true)"
+                        variant="ghost"
                         size="sm"
-                    >Delete</flux:button>
+                        class="text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-950"
+                        icon="trash"
+                        wire:click="$set('confirmingDelete', true)"
+                    >Delete user</flux:button>
+                    <flux:spacer />
+                    <flux:button size="sm" variant="primary" type="submit" icon="check">
+                        Save changes
+                    </flux:button>
                 </div>
-                <flux:button size="sm" variant="primary" type="submit">Save Changes</flux:button>
-            </div>
 
-            @if ($confirmingDelete)
-                <div class="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 space-y-3 mt-4">
-                    <div>
-                        <p class="font-semibold text-red-700 dark:text-red-400">Are you sure?</p>
-                        <p class="text-sm text-red-600 dark:text-red-300 mt-1">
-                            You're about to delete <strong>{{ $user->name }}</strong>.
-                            Including users vehicle.
-                            This action cannot be reversed.
+                @if ($confirmingDelete)
+                    <div class="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 space-y-3">
+                        <p class="font-medium text-red-700 dark:text-red-400">Are you sure?</p>
+                        <p class="text-sm text-red-600 dark:text-red-300">
+                            You're about to permanently delete <strong>{{ $user->name }}</strong>
+                            along with all their vehicles. This cannot be undone.
                         </p>
+                        <div class="flex gap-2 justify-end">
+                            <flux:button size="sm" wire:click="$set('confirmingDelete', false)">
+                                Cancel
+                            </flux:button>
+                            <flux:button size="sm" variant="danger" wire:click="deleteUser">
+                                Yes, delete user
+                            </flux:button>
+                        </div>
                     </div>
-                    <div class="flex gap-2">
-                        <flux:spacer />
-                        <flux:button
-                            size="sm"
-                            wire:click="$set('confirmingDelete', false)"
-                        >Cancel</flux:button>
-                        <flux:button
-                            size="sm"
-                            variant="danger"
-                            wire:click="deleteUser"
-                        >Yes, delete user</flux:button>
-                    </div>
-                </div>
-            @endif
+                @endif
+            </div>
         </div>
     </form>
 
-    {{-- Vehicle section — operators only --}}
+    
     @if ($user->role === 'operator')
 
-        <div class="flex items-center my-6">
-            <flux:heading size="lg" class="mb-6 mt-3 flex-1">Vehicle Information</flux:heading>
-
+        <div class="flex items-center mt-8 mb-4">
+            <div class="flex-1">
+                <p class="text-base font-medium text-zinc-800 dark:text-zinc-200">Vehicle information</p>
+                <p class="text-xs text-zinc-400">Manage vehicles assigned to this operator.</p>
+            </div>
             @if (!$confirmingAddVehicle)
-                <flux:button
-                    wire:key="btn-add-vehicle"
-                    variant="primary"
-                    size="sm"
-                    type="button"
-                    wire:click="addingVehicle(true)"
-                    wire:loading.attr="disabled"
-                    wire:target="addingVehicle"
-                >Add Vehicle</flux:button>
+                <flux:button variant="primary" size="sm" icon="plus"
+                    wire:click="addingVehicle(true)" wire:loading.attr="disabled">
+                    Add vehicle
+                </flux:button>
             @else
-                <flux:button
-                    wire:key="btn-cancel-vehicle"
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                    wire:click="addingVehicle(false)"
-                    wire:loading.attr="disabled"
-                    wire:target="addingVehicle"
-                >Cancel</flux:button>
+                <flux:button variant="ghost" size="sm"
+                    wire:click="addingVehicle(false)" wire:loading.attr="disabled">
+                    Cancel
+                </flux:button>
             @endif
         </div>
 
         {{-- Add vehicle form --}}
         @if ($confirmingAddVehicle)
-            <div class="space-y-4 w-full border border-zinc-200 dark:border-zinc-700 rounded-xl p-6 bg-zinc-50 dark:bg-zinc-800/50 mb-4">
-                <x-form-heading>Add Vehicle</x-form-heading>
-                <div>
-                    <x-inputs-container>
-                        <x-select wire:model="create_vehicle_type" placeholder="Vehicle Type">
+            <div class="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden mb-4">
+                <div class="flex items-center gap-2 px-6 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                    <flux:icon.plus class="w-4 h-4 text-zinc-400" />
+                    <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">New vehicle</span>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-2 gap-6 mb-4">
+                        <x-select wire:model="create_vehicle_type" placeholder="Vehicle type">
                             <x-select-option value="Bus">Bus</x-select-option>
                             <x-select-option value="Van">Van</x-select-option>
                             <x-select-option value="Multi-cab">Multi-cab</x-select-option>
                             <x-select-option value="Jeep">Jeep</x-select-option>
                         </x-select>
 
-                        <x-select wire:model="create_route" placeholder="Select Route">
+                        <x-select wire:model="create_route" placeholder="Select route">
                             @foreach ($this->getTerminal as $terminal)
                                 <x-select-option value="{{ $terminal->id }}">{{ $terminal->municipality }}</x-select-option>
                             @endforeach
                         </x-select>
 
-                        <x-input label="Plate Number"        wire:model="create_plate_number" />
-                        <x-input label="Total Vehicle Seats" wire:model="create_total_seats" />
-                    </x-inputs-container>
-
-                    <x-button
-                        type="button"
-                        size="sm"
-                        wire:click="addNewVehicle()"
-                        wire:loading.attr="disabled"
-                        wire:target="addNewVehicle"
-                    >Add</x-button>
+                        <x-input label="Plate number"       wire:model="create_plate_number" />
+                        <x-input label="Total seats"        wire:model="create_total_seats" type="number" min="1" />
+                    </div>
+                    <div class="flex justify-end">
+                        <flux:button type="button" size="sm" variant="primary"
+                            wire:click="addNewVehicle"
+                            wire:loading.attr="disabled"
+                            wire:target="addNewVehicle">
+                            Add vehicle
+                        </flux:button>
+                    </div>
                 </div>
             </div>
         @endif
-
-        {{-- Vehicle list --}}
         @foreach ($this->getVehicle as $index => $vehicle)
-            <div
-                class="space-y-4 w-full border border-zinc-200 dark:border-zinc-700 rounded-xl p-6 bg-zinc-50 dark:bg-zinc-800/50 mb-4"
-                wire:key="vehicle-container-{{ $vehicle->id }}"
-            >
-                {{-- Vehicle header row --}}
-                <div class="flex items-center gap-2 mb-2">
-                    <div class="flex-1">
-                        <flux:badge color="green" size="sm" inset="top bottom">
-                            Vehicle {{ $index + 1 }}
-                        </flux:badge>
-                    </div>
+            <div class="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden mb-4"
+                wire:key="vehicle-container-{{ $vehicle->id }}">
 
-                    @if ($this->confirmingEditVehicle === $vehicle->id)
-                        {{-- Save --}}
-                        <flux:button
-                            type="button"
-                            variant="primary"
-                            size="sm"
+                {{-- Card header --}}
+                <div class="flex items-center gap-3 px-6 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                    <flux:badge color="green" size="sm">{{ $index + 1 }}</flux:badge>
+                    <span class="font-mono text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        {{ $vehicle->plate_number }}
+                    </span>
+                    <span class="text-xs text-zinc-400">· {{ $vehicle->vehicle_type }}</span>
+
+                    <div class="flex-1"></div>
+
+                    @if ($confirmingEditVehicle === $vehicle->id)
+                        <flux:button type="button" variant="primary" size="sm" icon="check"
                             wire:click="updateVehicle({{ $vehicle->id }})"
-                            wire:loading.attr="disabled"
-                            wire:target="updateVehicle({{ $vehicle->id }})"
-                        >
-                            <flux:icon.check class="w-4 h-4 mr-1" />
+                            wire:loading.attr="disabled">
                             Save
                         </flux:button>
-
-                        {{-- Cancel edit --}}
-                        <flux:button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            wire:click="cancelEditVehicle"
-                        >
+                        <flux:button type="button" variant="ghost" size="sm"
+                            wire:click="cancelEditVehicle">
                             Cancel
                         </flux:button>
                     @else
-                        {{-- Edit pencil --}}
-                        <flux:button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            wire:click="editVehicle({{ $vehicle->id }})"
-                            title="Edit vehicle"
-                            wire:key="edit-btn-{{ $vehicle->id }}"
-                        >
-                            <flux:icon.pencil class="w-5 h-5" />
-                        </flux:button>
-
-                        {{-- Delete trash — hidden while any vehicle is being edited --}}
-                        @unless ($this->confirmingEditVehicle === $vehicle->id)
-                            <flux:button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                wire:click="$set('confirmingDeleteVehicle', {{ $vehicle->id }})"
-                                title="Delete vehicle"
-                            >
-                                <flux:icon.trash class="w-5.5 h-5.5" />
-                            </flux:button>
-                        @endunless
+                        <flux:button type="button" variant="ghost" size="sm" icon="pencil"
+                            wire:click="editVehicle({{ $vehicle->id }})"/>
+                        <flux:button type="button" variant="ghost" size="sm" icon="trash"
+                            class="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                            wire:click="$set('confirmingDeleteVehicle', {{ $vehicle->id }})"/>
                     @endif
                 </div>
 
                 {{-- Delete confirmation --}}
                 @if ($confirmingDeleteVehicle === $vehicle->id)
-                    <div class="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 space-y-3">
-                        <div>
-                            <p class="font-semibold text-red-700 dark:text-red-400">Are you sure?</p>
-                            <p class="text-sm text-red-600 dark:text-red-300 mt-1">
-                                You're about to delete <strong>{{ $vehicle->vehicle_type }}</strong> with plate number
-                                <strong>{{ $vehicle->plate_number }}</strong>.
-                                This action cannot be reversed.
-                            </p>
-                        </div>
-                        <div class="flex gap-2">
-                            <flux:spacer />
-                            <flux:button
-                                size="sm"
-                                wire:click="$set('confirmingDeleteVehicle', null)"
-                            >Cancel</flux:button>
-                            <flux:button
-                                size="sm"
-                                variant="danger"
-                                wire:click="deleteVehicle({{ $vehicle->id }})"
-                            >Yes, delete vehicle</flux:button>
+                    <div class="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 space-y-3">
+                        <p class="font-medium text-red-700 dark:text-red-400">Delete this vehicle?</p>
+                        <p class="text-sm text-red-600 dark:text-red-300">
+                            <strong>{{ $vehicle->vehicle_type }}</strong> with plate
+                            <strong>{{ $vehicle->plate_number }}</strong> will be permanently removed.
+                        </p>
+                        <div class="flex gap-2 justify-end">
+                            <flux:button size="sm" wire:click="$set('confirmingDeleteVehicle', null)">Cancel</flux:button>
+                            <flux:button size="sm" variant="danger" wire:click="deleteVehicle({{ $vehicle->id }})">
+                                Yes, delete
+                            </flux:button>
                         </div>
                     </div>
                 @endif
 
                 {{-- Vehicle fields --}}
-                <div class="grid w-full grid-cols-2 gap-6">
-                    @if ($this->confirmingEditVehicle === $vehicle->id)
-
-                        {{-- Editable fields --}}
+                <div class="p-6 grid grid-cols-2 gap-6">
+                    @if ($confirmingEditVehicle === $vehicle->id)
                         <div>
-                            <flux:label>Vehicle Type</flux:label>
-                            <flux:select
-                                wire:model="editingVehicles.{{ $vehicle->id }}.vehicle_type"
-                                class="w-full"
-                            >
-                                <option value="Bus"      @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Bus')>Bus</option>
-                                <option value="Van"      @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Van')>Van</option>
+                            <flux:label>Vehicle type</flux:label>
+                            <flux:select wire:model="editingVehicles.{{ $vehicle->id }}.vehicle_type">
+                                <option value="Bus"       @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Bus')>Bus</option>
+                                <option value="Van"       @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Van')>Van</option>
                                 <option value="Multi-cab" @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Multi-cab')>Multi-cab</option>
-                                <option value="Jeep"     @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Jeep')>Jeep</option>
+                                <option value="Jeep"      @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Jeep')>Jeep</option>
                             </flux:select>
                         </div>
-
-                        <flux:input
-                            label="Plate No."
-                            wire:model="editingVehicles.{{ $vehicle->id }}.plate_number"
-                            class="w-full"
-                        />
-
-                        <flux:input
-                            label="Total Seats"
-                            type="number"
-                            min="1"
-                            wire:model="editingVehicles.{{ $vehicle->id }}.total_seats"
-                            class="w-full"
-                        />
-
-                        <flux:input
-                            label="Date Registered"
-                            value="{{ $vehicle->created_at->format('Y-m-d') }}"
-                            class="w-full"
-                            disabled
-                        />
-
+                        <flux:input label="Plate no."   wire:model="editingVehicles.{{ $vehicle->id }}.plate_number" />
+                        <flux:input label="Total seats" wire:model="editingVehicles.{{ $vehicle->id }}.total_seats" type="number" min="1" />
+                        <flux:input label="Date registered" value="{{ $vehicle->created_at->format('Y-m-d') }}" disabled />
                     @else
-
-                        {{-- Read-only fields --}}
-                        <flux:input label="Vehicle Type"    value="{{ $vehicle->vehicle_type }}"                class="w-full" readonly />
-                        <flux:input label="Plate No."       value="{{ $vehicle->plate_number }}"                class="w-full" readonly />
-                        <flux:input label="Total Seats"     value="{{ $vehicle->total_seats }}"                 class="w-full" readonly />
-                        <flux:input label="Date Registered" value="{{ $vehicle->created_at->format('Y-m-d') }}" class="w-full" readonly />
-
+                        <flux:input label="Vehicle type"    value="{{ $vehicle->vehicle_type }}"                readonly />
+                        <flux:input label="Plate no."       value="{{ $vehicle->plate_number }}"                readonly class="font-mono" />
+                        <flux:input label="Total seats"     value="{{ $vehicle->total_seats }}"                 readonly />
+                        <flux:input label="Date registered" value="{{ $vehicle->created_at->format('Y-m-d') }}" readonly />
                     @endif
                 </div>
 

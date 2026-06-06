@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\Card;
 use App\Http\Controllers\Api\CardController;
 
-new #[Layout('layouts.dashboard.cashier.cashier-layout')] class extends Component
+new #[Layout('layouts.cashier-layout')] class extends Component
 {
     public bool $card_focused = true;
     public string $card_state = 'ready';

@@ -15,6 +15,7 @@ use App\Models\Card;
 use App\Models\CardTransaction;
 use App\Models\Queue;
 use App\Models\Vehicle;
+use App\Models\Notification;
 
 //Job
 use App\Jobs\ProcessAfterDepart;

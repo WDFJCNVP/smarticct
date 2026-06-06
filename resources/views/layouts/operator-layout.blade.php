@@ -6,8 +6,7 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title>
-            {{-- {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }} --}}
-            Admin Dashboard
+            {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
         </title>
 
         <link rel="icon" href="/favicon.ico" sizes="any">
@@ -30,70 +29,20 @@
 
             <flux:sidebar.nav>
 
-              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.dashboard') }}" icon="squares-2x2 "> Dashboard </x-dashboard.sidebar-menu.sidebar-item>
-              <x-dashboard.sidebar-menu.sidebar-item href="#" icon="map"> Routes </x-dashboard.sidebar-menu.sidebar-item>
-              <x-dashboard.sidebar-menu.sidebar-item href="#" icon="briefcase">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
-              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.users') }}" icon="users" wire:navigate>Users</x-dashboard.sidebar-menu.sidebar-item>
-              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.cards') }}" icon="credit-card">Card</x-dashboard.sidebar-menu.sidebar-item>
+                {{-- <x-dashboard.sidebar-menu.sidebar-item href="/operator/dashboard" icon="home"> Payment </x-dashboard.sidebar-menu.sidebar-item> --}}
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.dashboard') }}" icon="home"> Dashboard </x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/vehicles" icon="home">My Vehicle</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/your-card" icon="home">Your Card</x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>
 
             <flux:spacer />
 
-            <flux:dropdown position="bottom" align="start">
-                <flux:sidebar.profile
-                    :name="auth()->user()->name"
-                    :initials="auth()->user()->initials()"
-                    icon:trailing="chevron-up-down"
-                    data-test="sidebar-menu-button"
-                />
-
-                <flux:menu>
-                    <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                        <flux:avatar
-                            :name="auth()->user()->name"
-                            :initials="auth()->user()->initials()"
-                        />
-                        <div class="grid flex-1 text-start text-sm leading-tight">
-                            <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
-                            <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
-                        </div>
-                    </div>
-                    <flux:menu.separator />
-                    <flux:menu.radio.group>
-                        <flux:menu.item 
-                        :href="route('admin.notifications')" 
-                        icon="bell" 
-                        wire:navigate
-                        >
-                            Notification
-                        </flux:menu.item>
-                        <flux:menu.item 
-                        :href="route('profile.edit')" 
-                        icon="cog" 
-                        wire:navigate
-                        >
-                            Settings
-                        </flux:menu.item>
-                        <form method="POST" action="{{route('logout')}}" class="w-full">
-                            @csrf
-                            <flux:menu.item
-                                as="button"
-                                type="submit"
-                                icon="arrow-right-start-on-rectangle"
-                                class="w-full cursor-pointer"
-                                data-test="logout-button"
-                            >
-                                Log out
-                            </flux:menu.item>
-                        </form>
-                    </flux:menu.radio.group>
-                </flux:menu>
-            </flux:dropdown>
-
+            <x-desktop-user-menu />
+                
         </flux:sidebar>
 
-        <!-- Mobile -->
+        <!-- Mobile User Menu -->
         <flux:header class="lg:hidden">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
@@ -125,6 +74,13 @@
                     <flux:menu.separator />
 
                     <flux:menu.radio.group>
+                        <flux:menu.item 
+                        {{-- :href="route('profile.edit')" 
+                        icon="cog" 
+                        wire:navigate --}}
+                        >
+                            Notification
+                        </flux:menu.item>
                         <flux:menu.item 
                         :href="route('profile.edit')" 
                         icon="cog" 
@@ -158,11 +114,7 @@
 
         </flux:main>
 
-         @fluxScripts
-         @livewireScripts
-
-        @persist('toast')
-            <flux:toast position="top end"/>
-        @endpersist
+        @fluxScripts
+        @livewireScripts
     </body>
 </html>

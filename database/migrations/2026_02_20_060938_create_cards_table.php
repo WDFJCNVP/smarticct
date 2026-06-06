@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('cards', function (Blueprint $table) {
             $table->id();
+            $table->string('card_number', 24)->unique()->nullable();
             $table->foreignIdFor(\App\Models\User::class)->constrained()->onDelete('cascade');;
             $table->string('uid', 50)->unique();
             $table->decimal('balance', 10, 2)->default(0);

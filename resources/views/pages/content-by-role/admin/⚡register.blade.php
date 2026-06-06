@@ -1,6 +1,7 @@
 <?php
 
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use App\Events\RegistrationTapCardEvent;
 use Livewire\Component;
@@ -16,7 +17,7 @@ use App\Models\Terminal;
 use App\Models\Route;
 use App\Models\RouteList;
 
-new class extends Component
+new #[Layout('layouts.admin-layout')] class extends Component
 {
     public int $step = 1;
 
@@ -27,10 +28,11 @@ new class extends Component
     public string $username = '';
     public string $phone_number = '';
     public string $password = '';
+    public string $password_confirmation = '';
 
-    // Passenger details
+    // commuter details
     public string $date_of_birth = '';
-    public string $passenger_type = 'Regular';
+    public string $commuter_type = 'Regular';
     public string $address = '';
     public string $card_number = '';
     public string $new_card_id = '';
@@ -98,7 +100,7 @@ new class extends Component
     public function next(): void
     {
         if ($this->step === 1) {
-            $this->validate(['role' => 'required|in:passenger,operator']);
+            $this->validate(['role' => 'required|in:commuter,operator']);
         }
 
         if ($this->step === 2) {
@@ -106,12 +108,12 @@ new class extends Component
                 'first_name' => 'required|min:2',
                 'last_name'  => 'required|min:2',
                 'username'   => 'required|unique:users,username',
-                'password'   => 'required|min:8',
+                'password'   => 'required|min:8|confirmed',
             ]);
         }
 
         if ($this->step === 3) {
-            if ($this->role === 'passenger') {
+            if ($this->role === 'commuter') {
                 $this->validate([
                     'date_of_birth' => 'required|date',
                     'address'       => 'required|min:5',
@@ -188,14 +190,6 @@ new class extends Component
                         'plate_number' => $vehicle['plate_number'],
                         'total_seats'  => 10,
                     ]);
-
-                    // Route::create([
-                    //     'vehicle_id'  => $v->id,
-                    //     'terminal_id' => intval($vehicle['route']),
-                    //     'first_trip'  => '8:00 am',
-                    //     'last_trip'   => '9:00 am',
-                    //     'base_fare'   => 10.2,
-                    // ]);
                 }
             }
         });
@@ -222,7 +216,6 @@ new class extends Component
         {{ $this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User' }}
     </flux:heading>
 
-    {{-- Step indicator --}}
     <div class="flex items-center gap-1 mb-6 text-xs">
         @foreach([1 => 'Select role', 2 => 'Account info', 3 => 'Details', 4 => 'Card', 5 => 'Confirm'] as $s => $label)
             <div class="flex items-center gap-1 {{ $loop->last ? '' : 'flex-1' }}">
@@ -256,10 +249,9 @@ new class extends Component
         @endforeach
     </div>
 
-    {{-- Step 1: Select Role --}}
     @if($step === 1)
         <flux:radio.group wire:model="role" variant="cards" class="grid grid-cols-2 w-full">
-            <flux:radio value="passenger" label="Passenger" description="A commuter who rides and tracks transit routes.">
+            <flux:radio value="commuter" label="Commuter" description="A commuter who rides and tracks transit routes.">
                 <x-slot name="icon"><flux:icon.user class="w-5 h-5" /></x-slot>
             </flux:radio>
             <flux:radio value="operator" label="Operator" description="A driver or staff assigned to a route or vehicle.">
@@ -271,28 +263,28 @@ new class extends Component
         @enderror
     @endif
 
-    {{-- Step 2: Account Info --}}
     @if($step === 2)
         <div class="space-y-4">
-            <flux:callout variant="warning" icon="exclamation-circle"
-                heading="The user will be prompted to change temporary password on first login." />
+            {{-- <flux:callout variant="warning" icon="exclamation-circle"
+                heading="The user will be prompted to change temporary password on first login." /> --}}
             <x-inputs-container>
                 <x-input wire:model="first_name" label="First name" placeholder="e.g. Juan" />
                 <x-input wire:model="last_name"  label="Last name"  placeholder="e.g. dela Cruz" />
                 <x-input wire:model="username"   label="Username"   placeholder="e.g. juandelacruz" />
-                <x-input wire:model="password"   label="Temporary password" type="password" />
+                <x-input wire:model="password"          label="Temporary password" type="password" />
+                <x-input wire:model="password_confirmation"  label="Confirm password"   type="password" />
             </x-inputs-container>
         </div>
     @endif
 
-    {{-- Step 3: Passenger Details --}}
-    @if($step === 3 && $role === 'passenger')
+    {{-- Step 3: commuter Details --}}
+    @if($step === 3 && $role === 'commuter')
         <div class="space-y-4">
             <x-inputs-container>
                 <x-input wire:model="date_of_birth" type="date"   label="Date of birth" />
                 <x-input wire:model="address"       type="text"   label="Address" />
                 <x-input wire:model="phone_number"  type="number" label="Phone number" />
-                <x-select wire:model="passenger_type" label="Passenger type" size="lg">
+                <x-select wire:model="commuter_type" label="commuter type" size="lg">
                     <x-select-option>Regular</x-select-option>
                     <x-select-option>Senior Citizen</x-select-option>
                     <x-select-option>PWD</x-select-option>
@@ -349,7 +341,7 @@ new class extends Component
                     <div>
                         <flux:label>Route</flux:label>
                         <flux:select wire:model="vehicles.{{ $index }}.route" placeholder="Select route for this vehicle..." size="sm">
-                            @foreach ($this->getRoute() as $route)
+                            @foreach ($this->getRoute as $route)
                                 <flux:select.option value="{{ $route->id }}">Iriga Terminal to {{ $route->municipality }}</flux:select.option>
                             @endforeach
                         </flux:select>
@@ -475,7 +467,7 @@ new class extends Component
 
                     <span @class([
                         'text-xs font-medium px-2 py-0.5 rounded-full',
-                        'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'     => $role === 'passenger',
+                        'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'     => $role === 'commuter',
                         'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' => $role === 'operator',
                     ])>{{ ucfirst($role) }}</span>
 
@@ -490,10 +482,10 @@ new class extends Component
                         <x-text class="text-xs">Phone no.</x-text>
                         <x-text variant="strong" >{{ $phone_number }}</x-text>
                     </div>
-                    @if($role === 'passenger')
+                    @if($role === 'commuter')
                         <div>
-                            <x-text class="text-xs">Passenger type</x-text>
-                            <x-text variant="strong" >{{ $passenger_type }}</x-text>
+                            <x-text class="text-xs">commuter type</x-text>
+                            <x-text variant="strong" >{{ $commuter_type }}</x-text>
                         </div>
                         @if($card_number)
                             <div>

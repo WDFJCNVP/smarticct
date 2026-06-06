@@ -20,8 +20,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
-        'first_name',
-        'last_name',
+        'user_code',
         'role',
         'address',
         'username',
@@ -66,5 +65,13 @@ class User extends Authenticatable
             ->take(2)
             ->map(fn ($word) => Str::substr($word, 0, 1))
             ->implode('');
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (User $user) {
+            $latest = static::max('id') ?? 0;
+            $user->user_code = 'USR-' . str_pad($latest + 1, 4, '0', STR_PAD_LEFT);
+        });
     }
 }

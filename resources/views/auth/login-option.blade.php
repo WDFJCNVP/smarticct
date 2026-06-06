@@ -12,7 +12,7 @@
       <div class="flex flex-col justify-center items-center w-1/2 gap-2">
         <x-forms.form-section-button href="/login/admin" class="w-1/2">Admin</x-forms.form-section-button>
         <x-forms.form-section-button href="/login/operator" class="w-1/2">Operator</x-forms.form-section-button>
-        <x-forms.form-section-button href="/login/passenger" class="w-1/2">Passenger</x-forms.form-section-button>
+        <x-forms.form-section-button href="/login/commuter" class="w-1/2">commuter</x-forms.form-section-button>
       </div>
       <div class="py-5">
         Not a member?

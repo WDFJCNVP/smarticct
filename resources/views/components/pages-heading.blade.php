@@ -7,7 +7,7 @@
 
 <div>
     <div>
-        <flux:heading size="xl">{{ $heading }}</flux:heading>
+        <flux:heading  {{ $attributes->merge([]) }} size="xl">{{ $heading }}</flux:heading>
         <flux:text class="mt-1 mb-4">{{ $description }}</flux:text>
     </div>
     <div>

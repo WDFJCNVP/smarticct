@@ -20,6 +20,13 @@
         <flux:menu.separator />
         <flux:menu.radio.group>
             <flux:menu.item 
+            :href="route('notifications')" 
+            icon="bell" 
+            wire:navigate
+            >
+                Notification
+            </flux:menu.item>
+            <flux:menu.item 
             :href="route('profile.edit')" 
             icon="cog" 
             wire:navigate

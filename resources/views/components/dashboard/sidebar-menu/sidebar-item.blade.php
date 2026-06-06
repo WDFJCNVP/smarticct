@@ -3,4 +3,11 @@
    'badge' => null
 ])
 
-<flux:sidebar.item icon={{$icon}} href="{{ $attributes->get('href') }}"> {{ $slot }} </flux:sidebar.item>
+
+<flux:link href="{{ $attributes->get('href') }}" wire:navigate>
+   <flux:sidebar.item icon={{$icon}}>
+         {{ $slot }} 
+   </flux:sidebar.item>
+</flux:link>
+
+
