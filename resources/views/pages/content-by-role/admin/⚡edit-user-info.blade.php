@@ -8,6 +8,10 @@ use App\Models\User;
 use App\Models\Terminal;
 use App\Models\Vehicle;
 use App\Models\Route;
+use App\Models\RouteList;
+
+use App\Services\UserService;
+
 
 new #[Layout('layouts.admin-layout')] class extends Component
 {
@@ -29,6 +33,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public ?int $confirmingEditVehicle = null;
 
+    public $route_list_id;
+
     #[Computed]
     public function getVehicle() {
         return Vehicle::where('user_id', $this->user->id)->get();
@@ -36,7 +42,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     #[Computed]
     public function getTerminal() {
-        return Terminal::get();
+        return RouteList::with('operatorTicketRate')
+            ->when($this->create_vehicle_type, function($q) {
+                $q->where('vehicle_type', $this->create_vehicle_type);
+            })
+            ->get();
     }
 
     public function mount() {
@@ -60,7 +70,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'address' => 'required|min:1|string',
         ]);
 
-        $this->user->update($attributes);
+        app(UserService::class)->update($this->user, $attributes);
+
         Flux::toast(
             variant: 'success',
             heading: 'Changes saved.',
@@ -69,7 +80,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function deleteUser() {
-        $this->user->delete();
+
+        // $this->user->delete();
+        
+        app(UserService::class)->destroy($this->user);
+
         $this->redirect(route('admin.users'), navigate: true);
 
         Flux::toast(
@@ -92,18 +107,17 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'create_total_seats'  => 'required|integer|min:1',
             ]);
 
-            $new_vehicle = $this->user->vehicle()->create([
+            $route_list = RouteList::where('vehicle_type', $attributes['create_vehicle_type'])
+                ->where('terminal', $attributes['create_route'])
+                ->first();
+
+            $new_vehicle = $this->user->vehicles()->create([
+                'route_list_id' => $route_list->id,
                 'vehicle_type' => $attributes['create_vehicle_type'],
                 'plate_number' => $attributes['create_plate_number'],
                 'total_seats'  => $attributes['create_total_seats'],
             ]);
 
-            Route::create([
-                'vehicle_id'  => $new_vehicle->id,
-                'terminal_id' => $attributes['create_route'],
-            ]);
-
-            // Seed the editingVehicles array so the new vehicle is ready to edit
             $this->editingVehicles[$new_vehicle->id] = [
                 'vehicle_type' => $new_vehicle->vehicle_type,
                 'total_seats'  => $new_vehicle->total_seats,
@@ -180,6 +194,17 @@ new #[Layout('layouts.admin-layout')] class extends Component
             heading: 'Vehicle deleted.',
             text: 'Vehicle has been deleted.'
         );
+    }
+
+    public function updatedCreateVehicleType($value)
+    {
+        $routes = RouteList::where('vehicle_type', $value)->get();
+
+        if ($routes->count() === 1) {
+            $this->create_route = $routes->first()->terminal;
+        } else {
+            $this->create_route = null;
+        }
     }
 };
 ?>
@@ -317,21 +342,30 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 </div>
                 <div class="p-6">
                     <div class="grid grid-cols-2 gap-6 mb-4">
-                        <x-select wire:model="create_vehicle_type" placeholder="Vehicle type">
+                        <x-select wire:model.live="create_vehicle_type" placeholder="Vehicle type">
                             <x-select-option value="Bus">Bus</x-select-option>
-                            <x-select-option value="Van">Van</x-select-option>
+                            <x-select-option value="UV-express">UV-express</x-select-option>
                             <x-select-option value="Multi-cab">Multi-cab</x-select-option>
                             <x-select-option value="Jeep">Jeep</x-select-option>
+                            <x-select-option value="Mountain-unit">Mountain Unit</x-select-option>
                         </x-select>
 
-                        <x-select wire:model="create_route" placeholder="Select route">
-                            @foreach ($this->getTerminal as $terminal)
-                                <x-select-option value="{{ $terminal->id }}">{{ $terminal->municipality }}</x-select-option>
+                        <x-select wire:model.live="create_route" placeholder="Select route">
+                            <x-select-option value="" disabled selected>-- Select a Route --</x-select-option>
+                            @foreach ($this->getTerminal as $route)
+                                <x-select-option value="{{ $route->terminal }}">{{ $route->terminal }}</x-select-option>
                             @endforeach
                         </x-select>
 
-                        <x-input label="Plate number"       wire:model="create_plate_number" />
-                        <x-input label="Total seats"        wire:model="create_total_seats" type="number" min="1" />
+                        <x-input label="Plate number" wire:model="create_plate_number" />
+                        <x-input label="Total seats"  wire:model="create_total_seats" type="number" min="1" />
+
+                        @if ($this->create_vehicle_type === 'Bus' || $this->create_vehicle_type === 'UV-express')
+                             <x-input label="Group No." wire:model="create_group_no" type="number" min="1" />
+                        @else
+                            <x-input label="Group No."  wire:model="create_group_no" type="number" min="1" disabled />
+                        @endif
+
                     </div>
                     <div class="flex justify-end">
                         <flux:button type="button" size="sm" variant="primary"

@@ -23,10 +23,19 @@ class Vehicle extends Model
         return [
             'time_queued' => 'datetime',
             'time_departed' => 'datetime',
-            'departs_at' => 'datetime', // Good practice to cast this too if you use it later
+            'departs_at' => 'datetime',
         ];
     }
+    public function dailyScheduleSlots()
+    {
+        return $this->hasMany(DailyScheduleSlot::class);
+    }
 
+    public function todaySlot()
+    {
+        return $this->hasOne(DailyScheduleSlot::class)
+                    ->whereDate('schedule_date', today());
+    }
     public function user() {
         return $this->belongsTo(User::class);
     }
@@ -37,5 +46,9 @@ class Vehicle extends Model
 
     public function route_list() {
         return $this->belongsTo(RouteList::class);
+    }
+
+    public function vehicle_group() {
+        return $this->hasMany(VehicleGroup::class);
     }
 }

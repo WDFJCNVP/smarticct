@@ -11,3 +11,5 @@ use App\Http\Controllers\Api\RfidCardRegistrationController;
 
 Route::post('/cards/tap', [CardController::class, 'tap']);
 Route::post('/rfid/tap', [RfidCardRegistrationController::class, 'store']);
+Route::post('/queue/skip', [SkipVehicleController::class, 'skip'])
+    ->middleware(['auth', 'role:admin, cashier']);

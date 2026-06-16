@@ -1,0 +1,1 @@
+<flux:table.cell>{{ $slot }}</flux:table.cell>

@@ -64,11 +64,12 @@
         </flux:sidebar.nav>
     </flux:sidebar>
 
-    <main class="[grid-area:main] [[data-flux-container]_&]:px-0 mx-auto w-full [:where(&)]:max-w-7xl" data-flux-main>
+        <flux:main>
 
-        {{$slot}}
+          {{ $slot }}
 
-    </main>
+        </flux:main>
+
     @livewireScripts
     @fluxScripts
 </body>

@@ -6,14 +6,16 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('queues', function (Blueprint $table) {
             $table->id();
-            $table->integer('card_id');
+            $table->integer('user_id');
+            $table->foreignId('daily_schedule_slot_id')
+                  ->nullable()
+                  ->constrained('daily_schedule_slots')
+                  ->nullOnDelete();
+            $table->unsignedSmallInteger('slot_position')->nullable();
             $table->string('vehicle_type');
             $table->string('destination');
             $table->string('plate_number');
@@ -21,6 +23,8 @@ return new class extends Migration
             $table->string('status');
             $table->integer('seat_capacity');
             $table->integer('seat_count')->default(0);
+            $table->boolean('admin_deleted')->default(false);
+            $table->boolean('user_deleted')->default(false);
             $table->timestamp('time_queued')->nullable();
             $table->timestamp('departs_at')->nullable();
             $table->timestamp('time_departed')->nullable();
@@ -28,9 +32,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('queues');

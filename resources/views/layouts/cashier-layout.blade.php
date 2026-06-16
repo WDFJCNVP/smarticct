@@ -32,7 +32,7 @@
 
               <x-dashboard.sidebar-menu.sidebar-item href="{{ route('cashier.dashboard') }}" icon="home"> Dashboard </x-dashboard.sidebar-menu.sidebar-item>
               <x-dashboard.sidebar-menu.sidebar-item href="#" icon="home"> Routes </x-dashboard.sidebar-menu.sidebar-item>
-              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('cashier.queue.vehicle') }}" icon="home"> Queue </x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('cashier.queue') }}" icon="home"> Queue </x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>
 

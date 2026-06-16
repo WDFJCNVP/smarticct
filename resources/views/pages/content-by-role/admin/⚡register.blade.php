@@ -17,6 +17,8 @@ use App\Models\Terminal;
 use App\Models\Route;
 use App\Models\RouteList;
 
+use App\Services\UserService;
+
 new #[Layout('layouts.admin-layout')] class extends Component
 {
     public int $step = 1;
@@ -47,9 +49,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $assigned_route = '';
     public string $vehicle_plate = '';
     public string $operator_type = 'Driver';
+    public string $group_number;
 
     public array $vehicles = [
-        ['vehicle_type' => '', 'plate_number' => '', 'route' => '']
+        ['vehicle_type' => '', 'plate_number' => '', 'group_number' => '', 'route' => ''],
     ];
 
     #[On('echo:registration-tap-card,.RegistrationTapCardEvent')]
@@ -94,7 +97,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
     #[Computed]
     public function getRoute()
     {
-        return Terminal::all();
+         return RouteList::
+            distinct()
+            ->get();
     }
 
     public function next(): void
@@ -151,7 +156,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function addVehicle(): void
     {
-        $this->vehicles[] = ['vehicle_type' => '', 'plate_number' => '', 'route' => ''];
+        $this->vehicles[] = ['vehicle_type' => '', 'plate_number' => '', 'group_number' => '', 'route'=>''];
     }
 
     public function removeVehicle(int $index): void
@@ -163,36 +168,32 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function register(): void
     {
-        DB::transaction(function () {
-            $user = User::create([
-                'name'         => $this->first_name . ' ' . $this->last_name,
-                'username'     => $this->username,
-                'phone_number' => $this->phone_number,
-                'address'      => $this->address,
-                'role'         => $this->role,
-                'password'     => bcrypt($this->password),
-            ]);
 
-            $user->card()->create([
-                'uid'    => $this->card_number,
-                'status' => 'active',
-            ]);
+        $userBasicInformation = [
+            'name'         => $this->first_name . ' ' . $this->last_name,
+            'username'     => $this->username,
+            'phone_number' => $this->phone_number,
+            'address'      => $this->address,
+            'role'         => $this->role,
+            'password'     => $this->password, // plain — service will hash it
+        ];
 
-            if ($this->role === 'operator') {
-                foreach ($this->vehicles as $vehicle) {
+        $cardInformation = [
+            'uid'    => $this->card_number,
+            'status' => 'active',
+        ];
 
-                    $route_list = RouteList::where('terminal_id', $vehicle['route'])->where('vehicle_type', $vehicle['vehicle_type'])->first();
+        app(UserService::class)->create(
+            $userBasicInformation,
+            $cardInformation,
+            $this->vehicles,
+        );
 
-                    $v = Vehicle::create([
-                        'user_id'      => $user->id,
-                        'route_list_id'=> $route_list->id,
-                        'vehicle_type' => $vehicle['vehicle_type'],
-                        'plate_number' => $vehicle['plate_number'],
-                        'total_seats'  => 10,
-                    ]);
-                }
-            }
-        });
+        Flux::toast(
+            variant: 'success',
+            heading: 'User Registered',
+            text: 'User has been successfully registered.'
+        );
 
         $this->dispatch('user-registered');
         $this->reset();
@@ -203,6 +204,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
     {
         return $this->step > $s;
     }
+
+    // public function mount() {
+    //     dd($this->getRoute());
+    // }
 };
 ?>
 
@@ -329,22 +334,51 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <flux:label class="mb-3">Vehicle Type</flux:label>
-                            <flux:select wire:model="vehicles.{{ $index }}.vehicle_type" placeholder="Choose type..." size="sm">
+                            <flux:select wire:model.live="vehicles.{{ $index }}.vehicle_type" placeholder="Choose type..." size="sm">
                                 <flux:select.option>Bus</flux:select.option>
                                 <flux:select.option>Multi-cab</flux:select.option>
                                 <flux:select.option>Van</flux:select.option>
                                 <flux:select.option>Jeep</flux:select.option>
+                                <flux:select.option>Mountain-unit</flux:select.option>
                             </flux:select>
                         </div>
                         <flux:input wire:model="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
                     </div>
-                    <div>
-                        <flux:label>Route</flux:label>
-                        <flux:select wire:model="vehicles.{{ $index }}.route" placeholder="Select route for this vehicle..." size="sm">
-                            @foreach ($this->getRoute as $route)
-                                <flux:select.option value="{{ $route->id }}">Iriga Terminal to {{ $route->municipality }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
+                    <div  class="grid grid-cols-2 gap-3">
+                        <div>
+                            <flux:label>Route</flux:label>
+                            <flux:select wire:model="vehicles.{{ $index }}.route" placeholder="Select route for this vehicle..." size="sm">
+                                @foreach ($this->getRoute as $route)
+
+                                    @if ($route->vehicle_type === $this->vehicles[$index]['vehicle_type'])
+
+                                    <flux:select.option value="{{ $route->terminal }}">
+                                        Iriga Terminal to 
+                                        <strong>{{ $route->terminal}}</strong>
+                                    </flux:select.option>
+
+                                    @endif
+
+                                @endforeach
+                            </flux:select>
+                        </div>
+                        @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'Van')
+                            <div>
+                                <flux:label>Group No.</flux:label>
+                                <flux:select wire:model="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm">
+                                    <flux:select.option value="1">1</flux:select.option>
+                                    <flux:select.option value="2">2</flux:select.option>
+                                </flux:select>
+                            </div>
+                        @else
+                            <div>
+                                <flux:label>Group No.</flux:label>
+                                <flux:select wire:model="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm" disabled>
+                                    <flux:select.option value="1">1</flux:select.option>
+                                    <flux:select.option value="2">2</flux:select.option>
+                                </flux:select>
+                            </div>
+                        @endif
                     </div>
                 </div>
             @empty

@@ -12,7 +12,7 @@ class Queue extends Model
     ];
 
     protected $fillable = [
-        'card_id',
+        'user_id',
         'vehicle_type',
         'status',
         'destination',
@@ -23,6 +23,8 @@ class Queue extends Model
         'time_queued',
         'time_departed',
         'departs_at',
+        'daily_schedule_slot_id',
+        'slot_position',
     ];
 
     protected function casts(): array
@@ -32,6 +34,11 @@ class Queue extends Model
             'time_departed' => 'datetime',
             'departs_at' => 'datetime', // Good practice to cast this too if you use it later
         ];
+    }
+
+    public function dailyScheduleSlot()
+    {
+        return $this->belongsTo(\App\Models\DailyScheduleSlot::class);
     }
 
     use HasFactory;

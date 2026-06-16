@@ -38,11 +38,6 @@ Route::livewire('/login', 'pages::auth.login')->name('login');
 //Pannels
 Route::middleware('auth')->group(function () {
 
-    //Admin Section
-    // Route::get('/admin/dashboard', [AdminPanelController::class, 'index'])
-    //     ->middleware('role:admin')
-    //     ->name('admin.dashboard');
-
     Route::livewire('/admin/dashboard', 'pages::content-by-role.admin.index')
         ->middleware('role:admin')
         ->name('admin.dashboard');
@@ -58,8 +53,6 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:admin')
         ->name('admin.register.user');
 
-    // Route::get('/admin/register/user', [AdminPanelController::class, 'register'])
-    //     ->name('admin.register.user');
     Route::livewire('/admin/cards', 'pages::content-by-role.admin.cards')
         ->name('admin.cards')
         ->middleware('role:admin');
@@ -67,15 +60,20 @@ Route::middleware('auth')->group(function () {
         ->name('admin.card.transaction')
         ->middleware('role:admin');
 
-    // Route::livewire('/admin/notifications', 'pages::content-by-role.admin.notifications')
-    //     ->name('admin.notifications')
-    //     ->middleware('role:admin');;
+    Route::livewire('/admin/travel/record', 'pages::content-by-role.admin.travel-record')
+        ->name('admin.travel.record')
+        ->middleware('role:admin');
 
+        
     // Cashier Section
     Route::livewire('/cashier/dashboard', 'pages::content-by-role.cashier.index')
         ->middleware('role:cashier')
         ->name('cashier.dashboard');
         
+    Route::livewire('/cashier/queue', 'pages::content-by-role.cashier.queue-layout')
+        ->middleware('role:cashier')
+        ->name('cashier.queue');
+
     Route::livewire('/cashier/queue/vehicle', 'pages::content-by-role.cashier.queue-vehicle')
         ->middleware('role:cashier')
         ->name('cashier.queue.vehicle');

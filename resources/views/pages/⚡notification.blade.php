@@ -6,20 +6,31 @@ use Livewire\Attributes\Computed;
 
 use App\Models\UserNotification;
 
-new  class extends Component
+new class extends Component
 {
+
     public UserNotification $user_notification;
 
     #[Computed]
-    public function getUserNotification() {
-        return UserNotification::with('notification')->where('notification_id', $this->user_notification->id)->first();
+    public function notificationDetails() 
+    {
+        if (!$this->user_notification->relationLoaded('notification')) {
+            $this->user_notification->load('notification');
+        }
+
+        return $this->user_notification;
     }
 
     public function render() {
         $role = auth()->user()->role;
-
         return $this->view()->layout('layouts.' . $role . '-layout');
     }
+
+    // public function mount() {
+    //     if (!isset($this->user_notification)) {
+    //         abort(404, 'Notification not found.');
+    //     }
+    // }
 };
 ?>
 
@@ -35,9 +46,7 @@ new  class extends Component
         <flux:button variant="ghost" icon="trash" size="sm" class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950" />
     </div>
 
-
     <x-card class="overflow-hidden">
-
         <div class="h-1 w-full bg-blue-500 -mt-4 mb-4 rounded-t-xl"></div>
 
         <div class="flex items-start gap-4 px-2">
@@ -48,11 +57,11 @@ new  class extends Component
             <div class="flex-1 min-w-0">
                 <x-pages-heading
                     class="!text-blue-600 dark:!text-blue-400 !mb-0.5"
-                    heading="{{ $this->getUserNotification()->notification->title }}"
+                    heading="{{ $this->notificationDetails->notification->title ?? 'No Title' }}"
                 />
                 <div class="flex items-center gap-2 flex-wrap">
                     <x-text class="text-xs text-gray-400">
-                        {{ $this->getUserNotification()->created_at->format('F d, Y \a\t h:i a') }}
+                        {{ $this->notificationDetails->created_at?->format('F d, Y \a\t h:i a') ?? 'N/A' }}
                     </x-text>
                 </div>
             </div>
@@ -62,9 +71,9 @@ new  class extends Component
 
         <div class="px-2 pb-2">
             <x-text variant="strong">
-                {{ $this->getUserNotification()->notification->message }}
+
+                {{ $this->notificationDetails->notification->message ?? 'No Message Content available.' }}
             </x-text>
         </div>
-
     </x-card>
 </div>

@@ -18,4 +18,8 @@ class RouteList extends Model
     public function terminal() {
         return $this->belongsTo(Terminal::class);
     }
+
+    public function operatorTicketRate() {
+        return $this->belongsTo(OperatorTicketRate::class);
+    }
 }

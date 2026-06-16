@@ -7,6 +7,12 @@ use App\Events\UserInfoUpdated;
 use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
 use App\Models\User;
+use App\Services\QueueManagementService;
+use Illuminate\Support\Carbon;
+
+use App\Jobs\ProcessAfterDepart;
+use App\Models\Queue;
+
 
 
 new  #[Layout('layouts.admin-layout')] class extends Component
@@ -18,6 +24,10 @@ new  #[Layout('layouts.admin-layout')] class extends Component
     public $selectedUserId = null;
 
     public $user;
+
+    public function mount() {
+        // app(QueueManagementService::class)->generateSchedule(today());
+    }
 
     public function selectUser($id) {
         $this->selectedUserId = $id;
@@ -37,7 +47,9 @@ new  #[Layout('layouts.admin-layout')] class extends Component
             ->paginate(10);
     }
 
-    #[On('echo:user-info-updated,UserInfoUpdated')]
+
+
+    #[On('echo:user-info-updated,.UserInfoUpdated')]
     public function refreshUserInfo() {
 
         unset($this->getUsers);

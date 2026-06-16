@@ -6,6 +6,8 @@ use Livewire\Attributes\Computed;
 use Illuminate\Http\Request;
 
 use App\Models\Card;
+use App\Models\RouteList;
+use App\Models\Vehicle;
 use App\Http\Controllers\Api\CardController;
 
 new #[Layout('layouts.cashier-layout')] class extends Component
@@ -15,27 +17,41 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     public string $card_number = '';
     public string $operator_name = '';
     public string $driver_name = '';
+    public string $operator_tickets_price;
 
     public $route_list_id; 
 
     public function queueVehicle() {
-
-        $card_controller = new CardController();
         $request = new Request();
         $request->merge([
-            'uid' => $this->card_number,
-            'name' => $this->driver_name,
+            'uid'              => $this->card_number,
+            'driver_name'      => $this->driver_name,
+            'vehicle_id'       => $this->selectedVehicle->id,
             'transaction_type' => 'operator_payment',
-            'amount' => $this->selectedVehicle->route_list?->base_fare,
-            'destination' => $this->selectedVehicle->route_list?->terminal?->municipality,
-            'vehicle_type' => $this->selectedVehicle->vehicle_type,
-            'plate_number' => $this->selectedVehicle->plate_number,
+            'amount'           => $this->selectedVehicle->route_list->operatorTicketRate->base_fare,
+            'destination'      => $this->selectedVehicle->route_list->terminal,
+            'vehicle_type'     => $this->selectedVehicle->vehicle_type,
+            'plate_number'     => $this->selectedVehicle->plate_number,
         ]);
 
+        $response = (new CardController())->tap($request);
 
-        $response = $card_controller->tap($request);
+        $responseData = $response->getData(true);
 
-        dd($response);
+        if ($responseData['success'] === true) {
+            Flux::toast(
+                variant: 'success',
+                heading: 'Vehicle Queued Successfully',
+                text: $responseData['message']
+            );
+        } 
+        else {
+            Flux::toast(
+                variant: 'warning',
+                heading: 'Failed to Queue Vehicle',
+                text: $responseData['message'] ?? 'An error occurred while queuing the vehicle.'
+            );
+        } 
     }
 
     #[Computed]
@@ -44,9 +60,9 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             return null;
         }
 
-        return $this->cardRecord->user->vehicles->first(
-            fn($vehicle) => $vehicle->route_list?->id == $this->route_list_id
-        );
+        return Vehicle::with('route_list.operatorTicketRate')
+            ->where('id', $this->route_list_id)
+            ->first();
     }
 
     #[Computed]
@@ -55,7 +71,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             return null;
         }
 
-        return Card::with('user.vehicles.route_list.terminal')
+        return Card::with('user.vehicles.route_list') // route_list = hasMany
             ->where('uid', $this->card_number)
             ->first();
     }
@@ -109,6 +125,12 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 ?>
 
 <div>
+    
+    <flux:breadcrumbs class="mb-6">
+        <flux:breadcrumbs.item href="{{ route('cashier.queue') }}" wire:navigate>Live Queue</flux:breadcrumbs.item>
+        <flux:breadcrumbs.item>Queue Vehicles</flux:breadcrumbs.item>
+    </flux:breadcrumbs>
+
     <x-card>
         <div @class([
             'flex items-center gap-3 p-4 border-b border-zinc-200 dark:border-zinc-700',
@@ -203,20 +225,23 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                     </x-pages-heading>
 
                     <div class="space-y-6 mt-4">
-                        <x-input wire:model="operator_name" label="Name" readonly/>
-                        <x-input wire:model="driver_name" label="Driver Name" placeholder="Enter driver's name" />
+                        <x-inputs-container>
+                            <x-input wire:model="operator_name" label="Name" readonly/>
+                            <x-input wire:model="driver_name" label="Driver Name" placeholder="Enter driver's name" />
+                        </x-inputs-container>
 
                         <div>
                             <x-pages-heading class="mt-1 mb-3">
                                 Operator's Vehicles
                             </x-pages-heading>
 
-                            <flux:radio.group wire:model.live="route_list_id" variant="cards" class="grid grid-rows-2 md:grid-rows-2 gap-4 w-full">
+                            <flux:radio.group wire:model.live="route_list_id" variant="cards" class="grid grid-rows-1 md:grid-rows-1 gap-4 w-full">
                                 @foreach ($this->cardRecord->user->vehicles as $vehicle)
+
                                     <flux:radio 
-                                        value="{{ $vehicle->route_list?->id }}" 
+                                        value="{{ $vehicle->id }}" 
                                         label="{{ $vehicle->vehicle_type ?? 'Unknown Vehicle' }} - {{ $vehicle->plate_number ?? 'No Plate' }}"
-                                        description="Iriga Terminal to {{ $vehicle->route_list?->terminal?->municipality ?? 'N/A' }} - ₱ {{ $vehicle->route_list?->base_fare ?? 0 }}" 
+                                        description="Iriga Terminal to {{ $vehicle->route_list?->terminal ?? 'N/A' }}" 
                                     />
                                 @endforeach
                             </flux:radio.group>
@@ -248,14 +273,13 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                                         {{ $this->selectedVehicle->plate_number }}
                                     </span>
                                     <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 line-clamp-2">
-                                        Iriga → {{ $this->selectedVehicle->route_list?->terminal?->municipality ?? 'N/A' }}
+                                        Iriga → {{ $this->selectedVehicle?->route_list->terminal ?? 'N/A' }}
                                     </span>
                                 </div>
 
-                                {{-- Right Section: Cost Value --}}
                                 <div class="shrink-0 text-right">
                                     <span class="text-base font-bold text-zinc-950 dark:text-white whitespace-nowrap">
-                                        ₱ {{ number_format($this->selectedVehicle->route_list?->base_fare ?? 0, 2) }}
+                                        ₱ {{ number_format($this->selectedVehicle?->route_list->operatorTicketRate?->base_fare ?? 0, 2) }}
                                     </span>
                                 </div>
                             </div>

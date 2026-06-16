@@ -11,16 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-
-        Schema::create('route_lists', function (Blueprint $table) {
+        Schema::create('vehicle_groups', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(App\Models\OperatorTicketRate::class);
-            $table->string('terminal');
-            $table->string('vehicle_type');
-            $table->decimal('base_fare', 10, 2); 
+            $table->foreignIdFor(\App\Models\Vehicle::class)->constrained()->onDelete('cascade');
+            $table->unsignedSmallInteger('group_number');
+            $table->unsignedSmallInteger('order_number');
+
+            $table->unique('vehicle_id');
             $table->timestamps();
         });
-
     }
 
     /**
@@ -28,7 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('route_lists');
-        Schema::dropIfExists('operator_ticket_rates');
+        Schema::dropIfExists('vehicle_groups');
     }
 };
