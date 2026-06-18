@@ -24,7 +24,7 @@ Route::controller(PublicController::class)->group(function () {
     // Route::get('/queue/partial', 'queuePartial')->name('queue.partial');
 });
 
-Route::livewire('/queue', 'pages::queue-page');
+Route::livewire('/queue', 'pages::queue-page')->name('live.queue');
 
 //Session Controller
 Route::controller(SessionUserController::class)->group(function () {
@@ -35,8 +35,12 @@ Route::controller(SessionUserController::class)->group(function () {
 
 Route::livewire('/login', 'pages::auth.login')->name('login');
 
+
 //Pannels
 Route::middleware('auth')->group(function () {
+
+    Route::livewire('/user/card', 'pages::card')
+        ->name('user.card');
 
     Route::livewire('/admin/dashboard', 'pages::content-by-role.admin.index')
         ->middleware('role:admin')
@@ -78,36 +82,59 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:cashier')
         ->name('cashier.queue.vehicle');
 
+    Route::livewire('/cashier/active/group', 'pages::content-by-role.cashier.active-group')
+        ->middleware('role:cashier')
+        ->name('cashier.active-group');
+
     //Operator Section
     Route::livewire('/operator/dashboard', 'pages::content-by-role.operator.index')
         ->middleware('role:operator')
         ->name('operator.dashboard');
 
-    Route::livewire('/operator/vehicles', 'pages::content-by-role.operator.vehicles')->middleware('role:operator')->name('operator.vehicles');
+    Route::livewire('/operator/vehicles', 'pages::content-by-role.operator.vehicles')
+        ->middleware('role:operator')
+        ->name('operator.vehicles');
     Route::livewire('/operator/vehicles/{vehicle}', 'pages::content-by-role.operator.queueing_records')
         ->middleware('role:operator')
         ->name('operator.travel.record');
+    
+    Route::livewire('/operator/queueing', 'pages::content-by-role.operator.live-queue')
+        ->middleware('role:operator')
+        ->name('operator.live.queue');
+    
+    Route::livewire('/operator/queued/vehicle', 'pages::content-by-role.operator.queued-vehicle')
+        ->middleware('role:operator')
+        ->name('operator.queued.vehicle');
 
     //commuter Section
     Route::get('/commuter/dashboard',[commuterDashboardController::class, 'index'])
         ->middleware('role:commuter')
         ->name('commuter.dashboard');
 
-
+    //Notification
     Route::livewire('/notification', 'pages::notifications')
         ->name('notifications');
-
     Route::livewire('/notification/{user_notification}', 'pages::notification')
         ->name('notification');
+
+    // Settings
+    Route::livewire('/setting/profile', 'pages::profile')
+        ->name('profile.edit');
+    Route::livewire('/setting/appearance', 'pages::settings.appearance')
+        ->name('appearance.edit');
+    Route::livewire('/setting/security', 'pages::settings.security')
+        ->name('security.edit');
+
+    //Queue
 });
 
 
 //Settings
-Route::controller(UserSettingController::class)->group(function () {
-    Route::get('/setting/profile', 'profile')->name('profile.edit');
-    Route::get('/setting/appearance', 'appearance')->name('appearance.edit');
-    Route::get('/setting/security', 'security')->name('security.edit');
-});
+// Route::controller(UserSettingController::class)->group(function () {
+//     Route::get('/setting/profile', 'profile')->name('profile.edit');
+//     Route::get('/setting/appearance', 'appearance')->name('appearance.edit');
+//     Route::get('/setting/security', 'security')->name('security.edit');
+// });
 
 
 Route::livewire('/payment/points', 'pages::load_points.options')->name('points.option');

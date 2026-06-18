@@ -14,6 +14,7 @@ class Queue extends Model
     protected $fillable = [
         'user_id',
         'vehicle_type',
+        'vehicle_id',
         'status',
         'destination',
         'plate_number',
@@ -34,6 +35,16 @@ class Queue extends Model
             'time_departed' => 'datetime',
             'departs_at' => 'datetime', // Good practice to cast this too if you use it later
         ];
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class);
     }
 
     public function dailyScheduleSlot()

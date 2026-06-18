@@ -21,7 +21,8 @@ new  #[Layout('layouts.operator-layout')] class extends Component
     #[Computed]
     public function getQueuedRecords() {
         return Queue::query()
-            ->where('card_id', auth()->user()->card->id) 
+            ->where('user_id', auth()->user()->id) 
+            ->where('plate_number', $this->vehicle->plate_number)
             ->when($this->search, function ($q) {
                 $q->where(function ($q2) {
                     $q2->where('driver_name', 'like', '%' . $this->search . '%')
@@ -36,7 +37,7 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 
     #[Computed]
     public function vehicleStats(): array {
-        $all = Queue::where('card_id', auth()->user()->card->id)->get();
+        $all = Queue::where('user_id', auth()->user()->id)->where('plate_number', $this->vehicle->plate_number)->get();
         return [
             'total'      => $all->count(),
             'departed'   => $all->where('status', 'departed')->count(),
@@ -44,6 +45,10 @@ new  #[Layout('layouts.operator-layout')] class extends Component
             'today'      => $all->filter(fn($queue) => \Carbon\Carbon::parse($queue->time_queued)->isToday())->count(),
         ];
     }
+
+    // public function mount() {
+    //     dd($this->getQueuedRecords);
+    // }
 
 };
 ?>
@@ -56,7 +61,7 @@ new  #[Layout('layouts.operator-layout')] class extends Component
     </flux:breadcrumbs>
 
     {{-- Page heading --}}
-    <div class="mt-4 mb-4">
+    <div class="mt-8 mb-4">
         <p class="text-xl font-medium text-zinc-800 dark:text-zinc-100">Travel records</p>
         <p class="text-sm text-zinc-400 mt-0.5">View all queuing and departure history for this vehicle.</p>
     </div>
@@ -130,8 +135,7 @@ new  #[Layout('layouts.operator-layout')] class extends Component
         </div>
     </div>
 
-    {{-- Toolbar --}}
-    <div class="flex items-center gap-3 mb-4">
+    <div class="inline-flex my-6">
         <flux:input
             icon="magnifying-glass"
             placeholder="Search driver, status, plate…"
@@ -140,7 +144,6 @@ new  #[Layout('layouts.operator-layout')] class extends Component
         />
     </div>
 
-    {{-- Table --}}
     <flux:table container:class="max-h-160">
         <flux:table.columns sticky class="bg-white dark:bg-zinc-900">
             <flux:table.column>#</flux:table.column>
@@ -152,7 +155,6 @@ new  #[Layout('layouts.operator-layout')] class extends Component
             <flux:table.column>Seats</flux:table.column>
             <flux:table.column>Time queued</flux:table.column>
             <flux:table.column>Time departed</flux:table.column>
-            <flux:table.column>Duration</flux:table.column>
         </flux:table.columns>
 
         <flux:table.rows>
@@ -219,14 +221,14 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                     </flux:table.cell>
 
                     {{-- Duration --}}
-                    <flux:table.cell class="text-xs text-zinc-400">
+                    {{-- <flux:table.cell class="text-xs text-zinc-400">
                         @if ($queue->time_departed)
                             @php $mins = $queue->time_queued->diffInMinutes($queue->time_departed); @endphp
                             {{ $mins < 60 ? $mins . ' min' : floor($mins / 60) . 'h ' . ($mins % 60) . 'm' }}
                         @else
                             <span class="text-zinc-300">—</span>
                         @endif
-                    </flux:table.cell>
+                    </flux:table.cell> --}}
 
                 </flux:table.row>
 

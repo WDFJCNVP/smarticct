@@ -26,7 +26,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
     public $user;
 
     public function mount() {
-        // app(QueueManagementService::class)->generateSchedule(today());
+        app(QueueManagementService::class)->generateSchedule(today());
     }
 
     public function selectUser($id) {

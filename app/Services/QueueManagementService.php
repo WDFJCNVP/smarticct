@@ -47,7 +47,6 @@ class QueueManagementService
 
         $sortOrder = ($direction === 'forward') ? 'asc' : 'desc';
 
-        // 4. Fetch the prioritized vehicle assignments
         $scheduledAssignments = VehicleGroup::where('group_number', $activeGroup)
             ->orderBy('order_number', $sortOrder)
             ->with(['vehicle.user', 'vehicle.route_list'])
@@ -56,12 +55,10 @@ class QueueManagementService
         $busPosition = 0;
         $vanPosition = 0;
 
-        // 5. Wrap database inserts in a transaction to ensure an "all-or-nothing" execution
         DB::transaction(function () use ($scheduledAssignments, $targetDate, $direction, &$busPosition, &$vanPosition) {
             foreach ($scheduledAssignments as $assignment) {
                 $vehicle = $assignment->vehicle; 
                 
-                // Safety check: skip if the assignment has a missing or deleted vehicle record
                 if (!$vehicle) {
                     continue;
                 }
@@ -91,6 +88,7 @@ class QueueManagementService
 
                 Queue::create([
                     'user_id'                => $vehicle->user?->id,
+                    'vehicle_id'             => $vehicle->id,
                     'vehicle_type'           => $vehicleType,
                     'plate_number'           => $vehicle->plate_number,
                     'driver_name'            => $vehicle->user?->name ?? 'Unknown Driver',

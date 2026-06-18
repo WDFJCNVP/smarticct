@@ -28,7 +28,7 @@ new #[Layout('components.public.layout')]class extends Component {
                        ->orWhere('vehicle_type', 'like', '%' . $this->search . '%');
                 })
             )
-            // loading first, then staging — within each group ordered by slot_position
+            
             ->orderByRaw("FIELD(status, 'loading', 'staging')")
             ->orderBy('slot_position')
             ->orderBy('time_queued')
@@ -45,16 +45,16 @@ new #[Layout('components.public.layout')]class extends Component {
     public function triggerDepartEvent($payload)
     {
         $queueId = $payload['vehicle']['id'] ?? $payload['id'] ?? null;
-        if (!$queueId) return;
+        if (!$queueId) return;  
 
         $queue = Queue::where('id', $queueId)->lockForUpdate()->first();
         if (!$queue) return;
 
-        if ($queue->vehicle_type === 'Jeep' && ($queue->destination === 'Buhi' || $queue->destination === 'Mountain-unit')) {
+        if (($queue->vehicle_type === 'Jeep' && ($queue->destination === 'Buhi' || $queue->destination === 'Mountain-unit')) && $queue->id === $queue->id) {
             $queue->update(['departs_at' => Carbon::now()]);
             ProcessAfterDepart::dispatch($queue->id);
         } elseif ($queue->vehicle_type === 'Van') {
-            $queue->update(['departs_at' => Carbon::now()->addMinutes(1)]);
+            $queue->update(['departs_at' => Carbon::now()->addMinutes(30)]);
             ProcessAfterDepart::dispatch($queue->id)->delay($queue->departs_at);
         }
 
@@ -88,10 +88,6 @@ new #[Layout('components.public.layout')]class extends Component {
                     <option value="Multi-cab">Multi-cab</option>
                     <option value="Van">Van</option>
                 </select>
-                <svg class="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none"
-                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/>
-                </svg>
             </div>
         </div>
     </div>
@@ -178,7 +174,7 @@ new #[Layout('components.public.layout')]class extends Component {
                                                     </td>
                                                 </tr>
 
-                                            @elseif ($index < 4)
+                                            @elseif ($index < 3)
                                                 {{-- Staging rows — show up to 3 after the loading row --}}
                                                 <tr class="hover:bg-gray-50/50 transition-colors" wire:key="staging-{{ $queue->id }}">
                                                     <td class="px-5 py-3 text-gray-400 text-xs">{{ $index + 1 }}</td>

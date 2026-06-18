@@ -4,7 +4,11 @@ use Livewire\Component;
 use Livewire\Attributes\Title;
 
 new #[Title('Appearance settings')] class extends Component {
-    //
+    public function render() {
+        $role = auth()->user()->role;
+
+        return $this->view()->layout('layouts.' . $role . '-layout');
+    }
 }; ?>
 
 <section class="w-full">

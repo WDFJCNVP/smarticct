@@ -63,11 +63,6 @@ class CardController extends Controller
         ];
     }
 
-    // -------------------------------------------------------------------------
-    // Scheduled vehicle types (Bus / UV-express)
-    // Strict order: vehicle MUST be #1 in staging queue to activate.
-    // -------------------------------------------------------------------------
-
     private function activateScheduledVehicle(array $validated, Vehicle $vehicle): array
     {
         // 1. Fetch today's active schedule slot for this specific vehicle directly
@@ -193,6 +188,7 @@ class CardController extends Controller
 
         $queue = Queue::create([
             'user_id'       => $user_id,
+            'vehicle_id'    => $vehicle->id,
             'vehicle_type'  => $vehicle->vehicle_type,
             'plate_number'  => $vehicle->plate_number,
             'driver_name'   => $validated['driver_name'],
@@ -248,9 +244,6 @@ class CardController extends Controller
             $amount           = (float) ($validated['amount'] ?? 0);
             $transaction_type = $validated['transaction_type'];
 
-            // ------------------------------------------------------------------
-            // Fare payment (passenger tap)
-            // ------------------------------------------------------------------
             if ($transaction_type === 'fare_payment') {
                 $result = DB::transaction(function () use ($validated, $card, $amount, $balanceBefore) {
                     $queue = Queue::where('status', 'loading')
@@ -273,10 +266,12 @@ class CardController extends Controller
                         $queue->increment('seat_count');
                         $queue->refresh();
 
-                        if ($queue->vehicle_type === 'Van'
-                            && $queue->seat_count >= 9
-                            && $queue->departs_at === null
-                        ) {
+                        if (
+                            ($queue->vehicle_type === 'Van' && $queue->seat_count >= 9 && $queue->departs_at === null) || 
+                            (($queue->vehicle_type === 'Jeep' && ($queue->destination === 'Buhi' || $queue->destination === 'Mountain-unit')) && $queue->seat_count >= $queue->seat_capacity)
+                            ) 
+                        {
+
                             broadcast(new TriggerDepartingEvent($queue->id));
                         }
                     }
@@ -291,15 +286,12 @@ class CardController extends Controller
                 broadcast(new QueuedVehicleEvent());
             }
 
-            // ------------------------------------------------------------------
-            // Operator payment (driver/operator tap)
-            // ------------------------------------------------------------------
             if ($transaction_type === 'operator_payment') {
                 $vehicle     = $this->getUserVehicle((int) $validated['vehicle_id']);
                 $isScheduled = in_array($vehicle->vehicle_type, ['Bus', 'UV-express']);
 
                 if ($isScheduled) {
-                    // Check vehicle has a schedule today before deducting balance
+                   
                     $isGroupActive = DailyScheduleSlot::where('schedule_date', today())
                         ->where('metadata->assigned_vehicle_id', (int) $validated['vehicle_id'])
                         ->whereIn('status', ['waiting', 'queued'])
@@ -312,7 +304,7 @@ class CardController extends Controller
                         ], 404);
                     }
 
-                    // Check strict order BEFORE deducting — no charge for wrong-turn attempts
+                  
                     $orderCheck = DB::transaction(function () use ($validated, $card, $amount, $balanceBefore, $vehicle) {
                         $deduction = $this->deductUserCard($card, $amount, $balanceBefore);
 

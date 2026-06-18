@@ -9,7 +9,6 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\Attributes\On;
 use App\Events\UserInfoUpdated;
-use Livewire\Attributes\Computed;
 
 new #[Title('Profile settings')] class extends Component {
     use ProfileValidationRules;
@@ -22,7 +21,7 @@ new #[Title('Profile settings')] class extends Component {
      */
     public function mount(): void
     {
-        $this->name = Auth::user()->name
+        $this->name = Auth::user()->name;
         $this->username = Auth::user()->username;
     }
 
@@ -49,7 +48,6 @@ new #[Title('Profile settings')] class extends Component {
         // broadcast(new UserInfoUpdated($this->user->id));
     }
 
-    // #[On('echo:user-info-updated,UserInfoUpdated')]
     // public function refreshUserInfo() {
 
     //     unset($this->name);
@@ -82,12 +80,17 @@ new #[Title('Profile settings')] class extends Component {
     #[Computed]
     public function showDeleteUser(): bool
     {
-        return ! Auth::user() instanceof MustVerifyEmail
-            || (Auth::user() instanceof MustVerifyEmail && Auth::user()->hasVerifiedEmail());
+        return ! Auth::user() instanceof MustVerifyEmail || (Auth::user() instanceof MustVerifyEmail && Auth::user()->hasVerifiedEmail());
+    }
+
+    public function render() {
+        $role = auth()->user()->role;
+
+        return $this->view()->layout('layouts.' . $role . '-layout');
     }
 }; 
 ?>
-
+<div>
 <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
     <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
@@ -127,6 +130,7 @@ new #[Title('Profile settings')] class extends Component {
     </div>
 </form>
 
-@if ($this->showDeleteUser)
-    <livewire:pages::settings.delete-user-form />
-@endif
+    @if ($this->showDeleteUser)
+        <livewire:pages::settings.delete-user-form />
+    @endif
+</div>

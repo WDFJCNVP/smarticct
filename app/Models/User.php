@@ -50,6 +50,10 @@ class User extends Authenticatable
         ];
     }
 
+    public function queues() {
+        return $this->hasOne(Queue::class);
+    }
+
     public function card() {
         return $this->hasOne(Card::class);
     }

@@ -16,9 +16,9 @@ new #[Layout('layouts.operator-layout')]class extends Component
 
     #[Computed]
     public function vehicles() {
-        return Vehicle::with([
-            'route_list.terminal',
-        ])
+        return Vehicle::with(['route_list', 'queue' => function($q) {
+            $q->latest();
+        }])
         ->where('user_id', auth()->id())
         ->get();
     }
@@ -28,9 +28,9 @@ new #[Layout('layouts.operator-layout')]class extends Component
         $vehicles = $this->vehicles;
         return [
             'total'     => $vehicles->count(),
-            'loading'   => $vehicles->where('status', 'loading')->count(),
-            'staging'   => $vehicles->where('status', 'staging')->count(),
-            'not_queue' => $vehicles->whereNotIn('status', ['loading', 'staging'])->count(),
+            'loading'   => $vehicles->filter(fn($vehicle) => $vehicle->queue?->status === 'loading')->count(),
+            'staging'   => $vehicles->filter(fn($vehicle) => $vehicle->queue?->status === 'staging')->count(),
+            'not_queue' => $vehicles->filter(fn($vehicle) => !$vehicle->queue || !in_array($vehicle->queue->status, ['loading', 'staging']))->count(),
         ];
     }
 
@@ -40,6 +40,10 @@ new #[Layout('layouts.operator-layout')]class extends Component
 
         unset($this->vehicles);
     }
+
+    // public function mount() {
+    //     dd($this->vehicles);
+    // }
 }
 ?>
 
@@ -85,14 +89,13 @@ new #[Layout('layouts.operator-layout')]class extends Component
             <flux:table.column>Type</flux:table.column>
             <flux:table.column>Route</flux:table.column>
             <flux:table.column>Queue status</flux:table.column>
-            <flux:table.column>Last trip</flux:table.column>
-            <flux:table.column>Occupancy</flux:table.column>
             <flux:table.column>Registered</flux:table.column>
             <flux:table.column></flux:table.column>
         </flux:table.columns>
 
         <flux:table.rows>
             @forelse ($this->vehicles as $index => $vehicle)
+
                 <flux:table.row :key="$vehicle->id">
 
                     <flux:table.cell class="text-zinc-400">
@@ -105,60 +108,22 @@ new #[Layout('layouts.operator-layout')]class extends Component
 
                     <flux:table.cell>
                         <div class="flex items-center gap-2">
-                            <div class="flex h-7 w-7 items-center justify-center rounded-md bg-blue-50 dark:bg-blue-950 text-blue-500 flex-shrink-0">
-                                <flux:icon.truck class="w-4 h-4" />
-                            </div>
                             {{ $vehicle->vehicle_type }}
                         </div>
                     </flux:table.cell>
 
                     <flux:table.cell class="text-zinc-500 text-sm">
-                        Iriga Terminal → {{ $vehicle->route_list->terminal->municipality }}
+                        Iriga Terminal → {{ $vehicle->route_list->terminal }}
                     </flux:table.cell>
 
                     <flux:table.cell>
-                        @if ($vehicle->status === 'loading')
+                        @if ($vehicle->queue?->status === 'loading')
                             <flux:badge color="green" size="sm">Loading</flux:badge>
-                        @elseif ($vehicle->status === 'staging')
+                        @elseif ($vehicle->queue?->status === 'staging')
                             <flux:badge color="yellow" size="sm">Staging</flux:badge>
                         @else
-                            <flux:badge color="orange" size="sm">Not in queue</flux:badge>
+                            <flux:badge color="red" size="sm">Departed</flux:badge>
                         @endif
-                    </flux:table.cell>
-
-                    {{-- Last trip --}}
-                    {{-- <flux:table.cell>
-                        
-                        @if ($lastTrip)
-                            <p class="text-xs text-zinc-500">
-                                {{ $lastTrip->time_departed?->format('M d, Y') ?? $lastTrip->time_queued->format('M d, Y') }}
-                            </p>
-                            <p class="text-xs text-zinc-400">
-                                {{ $lastTrip->time_departed?->format('g:i A') ?? 'In progress' }}
-                            </p>
-                        @else
-                            <span class="text-xs text-zinc-300">No trips yet</span>
-                        @endif
-                    </flux:table.cell> --}}
-
-                    {{-- Occupancy bar --}}
-                    <flux:table.cell>
-                        @php
-                            $capacity  = $vehicle->total_seats ?? 0;
-                            $occupied  = $lastTrip?->seat_count ?? 0;
-                            $pct       = $capacity > 0 ? ($occupied / $capacity * 100) : 0;
-                        @endphp
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs tabular-nums text-zinc-500">
-                                {{ $occupied }} / {{ $capacity }}
-                            </span>
-                            <div class="w-10 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                                <div
-                                    class="h-full rounded-full {{ $pct >= 100 ? 'bg-green-500' : 'bg-blue-400' }}"
-                                    style="width: {{ $pct }}%"
-                                ></div>
-                            </div>
-                        </div>
                     </flux:table.cell>
 
                     <flux:table.cell class="text-zinc-400 text-xs">

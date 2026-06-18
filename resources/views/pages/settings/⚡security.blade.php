@@ -34,6 +34,12 @@ new class extends Component
 
         $this->dispatch('password-updated');
     }
+
+    public function render() {
+        $role = auth()->user()->role;
+
+        return $this->view()->layout('layouts.' . $role . '-layout');
+    }
 };
 ?>
 

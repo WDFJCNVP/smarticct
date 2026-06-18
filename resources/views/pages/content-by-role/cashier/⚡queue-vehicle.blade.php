@@ -55,12 +55,13 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     }
 
     #[Computed]
-    public function selectedVehicle() {
-        if (!$this->route_list_id || !$this->cardRecord) {
+    public function selectedVehicle()
+    {
+        if (!$this->route_list_id || !$this->cardRecord?->user) {
             return null;
         }
 
-        return Vehicle::with('route_list.operatorTicketRate')
+        return $this->cardRecord->user->vehicles
             ->where('id', $this->route_list_id)
             ->first();
     }
@@ -90,6 +91,9 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     public function cardScanned(): void
     {
         $this->card_state = $this->card_number !== '' ? 'success' : 'ready';
+        $this->route_list_id = null;
+        $this->driver_name = '';
+
         if ($this->card_state === 'success') {
             $this->setUserProperty();
         }
@@ -99,7 +103,9 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     {
         $this->card_number = '';
         $this->operator_name = '';
-        $this->card_state  = 'warn';
+        $this->driver_name = '';
+        $this->route_list_id = null;
+        $this->card_state = 'warn';
     }
 
     public function cardBlurred(): void
@@ -125,7 +131,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 ?>
 
 <div>
-    
+
     <flux:breadcrumbs class="mb-6">
         <flux:breadcrumbs.item href="{{ route('cashier.queue') }}" wire:navigate>Live Queue</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>Queue Vehicles</flux:breadcrumbs.item>
@@ -133,25 +139,20 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
     <x-card>
         <div @class([
-            'flex items-center gap-3 p-4 border-b border-zinc-200 dark:border-zinc-700',
-            'bg-blue-50 dark:bg-blue-950'   => $card_state === 'ready',
-            'bg-green-50 dark:bg-green-950' => $card_state === 'success',
-            'bg-red-50 dark:bg-red-950'     => $card_state === 'warn',
+            'flex items-center gap-3 p-4 rounded-t-xl',
+            'bg-blue-50 dark:bg-blue-950/40'   => $card_state === 'ready',
+            'bg-green-50 dark:bg-green-950/40' => $card_state === 'success',
+            'bg-red-50 dark:bg-red-950/40'     => $card_state === 'warn',
         ])>
-            <div @class([
-                'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
-                'bg-blue-200 dark:bg-blue-800'   => $card_state === 'ready',
-                'bg-green-200 dark:bg-green-800' => $card_state === 'success',
-                'bg-red-200 dark:bg-red-800'     => $card_state === 'warn',
-            ])>
-                @if($card_state === 'ready')
-                    <flux:icon name="credit-card" class="w-5 h-5 text-blue-800 dark:text-blue-200" />
-                @elseif($card_state === 'success')
-                    <flux:icon name="check-circle" class="w-5 h-5 text-green-800 dark:text-green-200" />
-                @else
-                    <flux:icon name="exclamation-triangle" class="w-5 h-5 text-red-800 dark:text-red-200" />
-                @endif
-            </div>
+            <flux:icon
+                :name="$card_state === 'success' ? 'check-circle' : ($card_state === 'warn' ? 'exclamation-triangle' : 'credit-card')"
+                @class([
+                    'w-5 h-5 shrink-0',
+                    'text-blue-600 dark:text-blue-400'   => $card_state === 'ready',
+                    'text-green-600 dark:text-green-400' => $card_state === 'success',
+                    'text-red-600 dark:text-red-400'     => $card_state === 'warn',
+                ])
+            />
 
             <div class="flex-1 min-w-0">
                 <p @class([
@@ -160,8 +161,8 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                     'text-green-900 dark:text-green-100' => $card_state === 'success',
                     'text-red-900 dark:text-red-100'     => $card_state === 'warn',
                 ])>
-                    @if($card_state === 'ready')   Get your RFID card ready
-                    @elseif($card_state === 'success') Card scanned successfully!
+                    @if($card_state === 'ready') Get your RFID card ready
+                    @elseif($card_state === 'success') Card scanned successfully
                     @else Input field lost focus
                     @endif
                 </p>
@@ -171,22 +172,21 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                     'text-green-600 dark:text-green-300' => $card_state === 'success',
                     'text-red-600 dark:text-red-300'     => $card_state === 'warn',
                 ])>
-                    @if($card_state === 'ready') 
-                        Hold the card near the reader — the number fills in automatically.
-                    @elseif($card_state === 'success') 
-                        UID {{ $card_number }} captured. Click × to scan a different card.
-                    @else 
-                        Click the input field below to re-focus, then tap the rfid card.
+                    @if($card_state === 'ready')
+                        Hold the card near the reader — the number fills in automatically
+                    @elseif($card_state === 'success')
+                        UID {{ $card_number }} captured — form reset for this operator
+                    @else
+                        Click the input field below to re-focus, then tap the card
                     @endif
                 </p>
             </div>
 
             @if($card_state === 'success')
-                {{-- Fixed: Changed method to clearCard so it resets layout state safely --}}
                 <button wire:click="clearCard"
-                    class="text-zinc-400 hover:text-zinc-600 transition"
-                    aria-label="Clear card">
-                    <flux:icon name="x-mark" class="w-6 h-6" />
+                    class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition shrink-0"
+                    aria-label="Scan a different card">
+                    <flux:icon name="x-mark" class="w-5 h-5" />
                 </button>
             @endif
         </div>
@@ -217,88 +217,116 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
     @if ($this->cardRecord && $this->cardRecord->user)
         <div class="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            
-            <div class="lg:col-span-2">
-                <x-card class="h-full">
-                    <x-pages-heading class="mt-1">
+
+            <div class="lg:col-span-2 space-y-4">
+                <x-card>
+                    <x-pages-heading class="mt-1 mb-4">
                         Operator's Details
                     </x-pages-heading>
 
-                    <div class="space-y-6 mt-4">
-                        <x-inputs-container>
-                            <x-input wire:model="operator_name" label="Name" readonly/>
-                            <x-input wire:model="driver_name" label="Driver Name" placeholder="Enter driver's name" />
-                        </x-inputs-container>
-
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <x-pages-heading class="mt-1 mb-3">
-                                Operator's Vehicles
-                            </x-pages-heading>
-
-                            <flux:radio.group wire:model.live="route_list_id" variant="cards" class="grid grid-rows-1 md:grid-rows-1 gap-4 w-full">
-                                @foreach ($this->cardRecord->user->vehicles as $vehicle)
-
-                                    <flux:radio 
-                                        value="{{ $vehicle->id }}" 
-                                        label="{{ $vehicle->vehicle_type ?? 'Unknown Vehicle' }} - {{ $vehicle->plate_number ?? 'No Plate' }}"
-                                        description="Iriga Terminal to {{ $vehicle->route_list?->terminal ?? 'N/A' }}" 
-                                    />
-                                @endforeach
-                            </flux:radio.group>
+                            <flux:label class="text-xs flex items-center gap-1.5 mb-1.5">
+                                Operator name
+                                <span class="text-zinc-400 dark:text-zinc-500 font-normal">· from card</span>
+                            </flux:label>
+                            <div class="flex items-center gap-2 h-9 px-3 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                                <flux:icon name="lock-closed" class="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                                <span class="text-sm text-zinc-700 dark:text-zinc-200 truncate">{{ $operator_name }}</span>
+                            </div>
                         </div>
+
+                        <flux:field>
+                            <flux:label class="text-xs">Driver name</flux:label>
+                            <x-input wire:model="driver_name" placeholder="Enter driver's name" />
+                        </flux:field>
                     </div>
+                </x-card>
+
+                <x-card>
+                    <x-pages-heading class="mt-1 mb-3">
+                        Operator's Vehicles
+                    </x-pages-heading>
+
+                    <flux:radio.group wire:model.live="route_list_id" class="flex flex-col gap-2 w-full">
+                        @forelse ($this->cardRecord->user->vehicles as $vehicle)
+                            <label @class([
+                                'flex items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer transition',
+                                'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/40' => (string) $route_list_id === (string) $vehicle->id,
+                                'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' => (string) $route_list_id !== (string) $vehicle->id,
+                            ])>
+                                <div class="min-w-0">
+                                    <p @class([
+                                        'text-sm font-medium truncate',
+                                        'text-blue-900 dark:text-blue-100' => (string) $route_list_id === (string) $vehicle->id,
+                                    ])>
+                                        {{ $vehicle->vehicle_type ?? 'Unknown Vehicle' }} · {{ $vehicle->plate_number ?? 'No Plate' }}
+                                    </p>
+                                    <p @class([
+                                        'text-xs mt-0.5 truncate',
+                                        'text-blue-600 dark:text-blue-300' => (string) $route_list_id === (string) $vehicle->id,
+                                        'text-zinc-500 dark:text-zinc-400' => (string) $route_list_id !== (string) $vehicle->id,
+                                    ])>
+                                        Iriga Terminal to {{ $vehicle->route_list?->terminal ?? 'N/A' }}
+                                    </p>
+                                </div>
+                                <flux:radio value="{{ $vehicle->id }}" class="shrink-0" />
+                            </label>
+                        @empty
+                            <p class="text-xs text-zinc-400 py-4 text-center">No vehicles linked to this operator.</p>
+                        @endforelse
+                    </flux:radio.group>
                 </x-card>
             </div>
 
             <div class="lg:col-span-1 lg:sticky lg:top-4">
                 <x-card>
-                    <x-pages-heading class="mt-1">
+                    <x-pages-heading class="mt-1 mb-3">
                         Summary
                     </x-pages-heading>
-                    
-                    <div class="mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
 
+                    <div class="border-t border-zinc-100 dark:border-zinc-800 pt-3">
                         @if ($this->selectedVehicle)
-
-                            <div class="flex items-start justify-between gap-4">
-                                
-                                <div class="flex flex-col gap-1 min-w-0">
-                                    <x-text>
-                                        {{ $this->driver_name }}
-                                    </x-text>
-                                    <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                                        {{ $this->selectedVehicle->vehicle_type }}
-                                    </span>
-                                    <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">
-                                        {{ $this->selectedVehicle->plate_number }}
-                                    </span>
-                                    <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 line-clamp-2">
-                                        Iriga → {{ $this->selectedVehicle?->route_list->terminal ?? 'N/A' }}
-                                    </span>
-                                </div>
-
-                                <div class="shrink-0 text-right">
-                                    <span class="text-base font-bold text-zinc-950 dark:text-white whitespace-nowrap">
-                                        ₱ {{ number_format($this->selectedVehicle?->route_list->operatorTicketRate?->base_fare ?? 0, 2) }}
-                                    </span>
-                                </div>
-                            </div>
+                            <table class="w-full text-sm">
+                                <tr>
+                                    <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Plate no.</td>
+                                    <td class="text-right font-medium py-1.5">{{ $this->selectedVehicle->plate_number }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Vehicle type</td>
+                                    <td class="text-right py-1.5">{{ $this->selectedVehicle->vehicle_type }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Route</td>
+                                    <td class="text-right py-1.5">Iriga → {{ $this->selectedVehicle->route_list?->terminal ?? 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Driver</td>
+                                    <td class="text-right py-1.5">{{ $driver_name ?: '—' }}</td>
+                                </tr>
+                                <tr class="border-t border-zinc-100 dark:border-zinc-800">
+                                    <td class="text-zinc-500 dark:text-zinc-400 pt-3">Base fare</td>
+                                    <td class="text-right font-semibold text-base pt-3">
+                                        ₱{{ number_format($this->selectedVehicle->route_list?->operatorTicketRate?->base_fare ?? 0, 2) }}
+                                    </td>
+                                </tr>
+                            </table>
                         @else
                             <div class="flex flex-col items-center justify-center py-6 text-center text-zinc-400 dark:text-zinc-500">
                                 <flux:icon name="cursor-arrow-rays" class="w-8 h-8 mb-2 stroke-1" />
-                                <p class="text-xs">Please select an operator vehicle to calculate the breakdown summary.</p>
+                                <p class="text-xs">Select a vehicle to see its breakdown</p>
                             </div>
                         @endif
                     </div>
                 </x-card>
 
-                <x-button 
-                    size="sm" 
-                    class="mt-4 w-full" 
+                <x-button
+                    size="sm"
+                    class="mt-4 w-full"
                     :disabled="!$this->selectedVehicle"
                     wire:click="queueVehicle"
-                    >
-                    Queue this vehicle 
+                >
+                    Queue this vehicle
                 </x-button>
             </div>
 

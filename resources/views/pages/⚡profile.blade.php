@@ -73,6 +73,13 @@ new #[Title('Profile settings')] class extends Component {
         return ! Auth::user() instanceof MustVerifyEmail
             || (Auth::user() instanceof MustVerifyEmail && Auth::user()->hasVerifiedEmail());
     }
+
+    public function render() {
+        $role = auth()->user()->role;
+
+        return $this->view()->layout('layouts.' . $role . '-layout');
+    }
+
 }; ?>
 
 <section>

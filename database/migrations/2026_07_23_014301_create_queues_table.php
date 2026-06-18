@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('queues', function (Blueprint $table) {
             $table->id();
-            $table->integer('user_id');
+            $table->foreignIdFor(\App\Models\User::class)->nullable()->constrained()->nullOnDelete();
             $table->foreignId('daily_schedule_slot_id')
                   ->nullable()
                   ->constrained('daily_schedule_slots')

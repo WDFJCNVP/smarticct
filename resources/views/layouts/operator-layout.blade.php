@@ -32,7 +32,8 @@
                 {{-- <x-dashboard.sidebar-menu.sidebar-item href="/operator/dashboard" icon="home"> Payment </x-dashboard.sidebar-menu.sidebar-item> --}}
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.dashboard') }}" icon="home"> Dashboard </x-dashboard.sidebar-menu.sidebar-item>
                 <x-dashboard.sidebar-menu.sidebar-item href="/operator/vehicles" icon="home">My Vehicle</x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/your-card" icon="home">Your Card</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.live.queue') }}" icon="home">Live Queueing</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.card') }}" icon="home">My Card</x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>
 

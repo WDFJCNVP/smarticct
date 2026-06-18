@@ -31,6 +31,10 @@ class Vehicle extends Model
         return $this->hasMany(DailyScheduleSlot::class);
     }
 
+    public function queue() {
+        return $this->hasOne(Queue::class);
+    }
+
     public function todaySlot()
     {
         return $this->hasOne(DailyScheduleSlot::class)

@@ -1,3 +1,3 @@
-<flux:button {{ $attributes->merge(['variant'=>'primary']) }} >
+<flux:button {{ $attributes->merge([]) }} >
     {{ $slot }}
 </flux:button>

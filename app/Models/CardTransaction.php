@@ -23,7 +23,9 @@ protected $fillable = [
     'transaction_time',
     'points_deducted',
 ];
-
+   protected $casts = [
+        'transaction_time' => 'datetime',
+    ];
     public function card() {
         return $this->belongsTo(Card::class);
     }

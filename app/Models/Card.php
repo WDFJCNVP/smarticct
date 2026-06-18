@@ -16,6 +16,7 @@ class Card extends Model
         'uid',
         'balance',
     ];
+    
 
     public function user() {
         return $this->belongsTo(User::class);
