@@ -37,6 +37,10 @@ class Queue extends Model
         ];
     }
 
+    public function travelRecords(){
+        return $this->hasMany(TravelRecord::class);
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 use App\Jobs\ProcessAfterDepart;
 use App\Models\Queue;
 
-new #[Layout('components.public.layout')]class extends Component {
+new class extends Component {
 
     public string $search = '';
     public string $vehicleType = '';
@@ -60,6 +60,13 @@ new #[Layout('components.public.layout')]class extends Component {
 
         $this->refreshQueuedVehicleList();
     }
+
+    public function render() {
+        $role = auth()->user()->role;
+
+        return $this->view()->layout('layouts.' . $role . '-layout');
+    }
+
 };
 ?>
 

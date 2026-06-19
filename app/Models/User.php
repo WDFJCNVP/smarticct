@@ -50,6 +50,10 @@ class User extends Authenticatable
         ];
     }
 
+    public function travelRecords() {
+        return $this->hasMany(TravelRecord::class);
+    }
+
     public function queues() {
         return $this->hasOne(Queue::class);
     }

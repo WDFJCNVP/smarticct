@@ -41,6 +41,8 @@ Route::middleware('auth')->group(function () {
 
     Route::livewire('/user/card', 'pages::card')
         ->name('user.card');
+    Route::livewire('/user/queue', 'pages::queue-page')
+        ->name('user.queue');
 
     Route::livewire('/admin/dashboard', 'pages::content-by-role.admin.index')
         ->middleware('role:admin')
@@ -107,9 +109,12 @@ Route::middleware('auth')->group(function () {
         ->name('operator.queued.vehicle');
 
     //commuter Section
-    Route::get('/commuter/dashboard',[commuterDashboardController::class, 'index'])
+    Route::livewire('/commuter/dashboard', 'pages::content-by-role.commuter.index')
         ->middleware('role:commuter')
         ->name('commuter.dashboard');
+    Route::livewire('/commuter/travel/record', 'pages::content-by-role.commuter.travel-record')
+        ->middleware('role:commuter')
+        ->name('commuter.travel.record');
 
     //Notification
     Route::livewire('/notification', 'pages::notifications')

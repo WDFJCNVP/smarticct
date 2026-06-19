@@ -14,6 +14,7 @@ use App\Models\CardTransaction;
 use App\Models\Queue;
 use App\Models\Vehicle;
 use App\Models\DailyScheduleSlot;
+use App\Models\TravelRecord;
 use App\Jobs\ProcessAfterDepart;
 use App\Events\QueuedVehicleEvent;
 use App\Events\TriggerDepartingEvent;
@@ -245,7 +246,22 @@ class CardController extends Controller
             $transaction_type = $validated['transaction_type'];
 
             if ($transaction_type === 'fare_payment') {
+
+                $isAlreadyInVehicle = TravelRecord::where('user_id', $card->user_id)
+                        ->whereHas('queue', function ($query) {
+                            $query->where('status', 'loading');
+                        })
+                        ->exists();
+
+                if ($isAlreadyInVehicle) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cannot proceed. You are already in the vehicle.'
+                    ]);
+                }
+
                 $result = DB::transaction(function () use ($validated, $card, $amount, $balanceBefore) {
+
                     $queue = Queue::where('status', 'loading')
                         ->where('destination', $validated['destination'])
                         ->where('vehicle_type', $validated['vehicle_type'])
@@ -265,6 +281,11 @@ class CardController extends Controller
                     if ($deduction['success']) {
                         $queue->increment('seat_count');
                         $queue->refresh();
+
+                        TravelRecord::create([
+                            'user_id'  => $card->user_id,
+                            'queue_id' => $queue->id,
+                        ]);
 
                         if (
                             ($queue->vehicle_type === 'Van' && $queue->seat_count >= 9 && $queue->departs_at === null) || 
