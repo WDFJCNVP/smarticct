@@ -53,32 +53,31 @@ new #[Layout('layouts.operator-layout')]class extends Component
         description="Monitor your vehicles and their current queue status here."
     />
 
-    {{-- Stat tiles --}}
     <div class="grid grid-cols-4 gap-3 mt-6 mb-5">
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Total vehicles</p>
-            <p class="text-2xl font-medium text-blue-700 dark:text-blue-400">
+        <flux:card>
+            <x-text size="xs" class="mb-1" color="blue">Total vehicles</x-text>
+            <x-text class="text-2xl">
                 {{ $this->vehicleStats['total'] }}
-            </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Currently loading</p>
-            <p class="text-2xl font-medium text-green-700 dark:text-green-400">
+            </x-text>
+        </flux:card>
+        <flux:card>
+            <x-text size="xs" class="mb-1">Currently loading</x-text>
+            <x-text class="text-2xl" color="green">
                 {{ $this->vehicleStats['loading'] }}
-            </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">In staging</p>
-            <p class="text-2xl font-medium text-amber-700 dark:text-amber-400">
+            </x-text>
+        </flux:card>
+        <flux:card>
+            <x-text size="xs" class="mb-1">In staging</x-text>
+            <x-text class="text-2xl " color="orange">
                 {{ $this->vehicleStats['staging'] }}
-            </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Not in queue</p>
-            <p class="text-2xl font-medium text-zinc-500 dark:text-zinc-400">
+            </x-text>
+        </flux:card>
+        <flux:card>
+            <x-text size="xs" class="mb-1">Not in queue</x-text>
+            <x-text class="text-2xl">
                 {{ $this->vehicleStats['not_queue'] }}
-            </p>
-        </div>
+            </x-text>
+        </flux:card>
     </div>
 
     {{-- Table --}}
@@ -143,7 +142,7 @@ new #[Layout('layouts.operator-layout')]class extends Component
                     <flux:table.cell colspan="9">
                         <div class="flex flex-col items-center justify-center py-12 gap-2">
                             <flux:icon.truck class="w-8 h-8 text-zinc-300" />
-                            <p class="text-sm text-zinc-400">No vehicles registered yet.</p>
+                            <x-text class="text-sm text-zinc-400">No vehicles registered yet.</x-text>
                         </div>
                     </flux:table.cell>
                 </flux:table.row>

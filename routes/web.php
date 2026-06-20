@@ -35,14 +35,14 @@ Route::controller(SessionUserController::class)->group(function () {
 
 Route::livewire('/login', 'pages::auth.login')->name('login');
 
+Route::livewire('/user/queue', 'pages::queue-page')
+    ->name('user.queue');
 
 //Pannels
 Route::middleware('auth')->group(function () {
 
     Route::livewire('/user/card', 'pages::card')
         ->name('user.card');
-    Route::livewire('/user/queue', 'pages::queue-page')
-        ->name('user.queue');
 
     Route::livewire('/admin/dashboard', 'pages::content-by-role.admin.index')
         ->middleware('role:admin')

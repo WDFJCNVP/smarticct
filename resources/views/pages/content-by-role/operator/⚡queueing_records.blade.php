@@ -41,7 +41,6 @@ new  #[Layout('layouts.operator-layout')] class extends Component
         return [
             'total'      => $all->count(),
             'departed'   => $all->where('status', 'departed')->count(),
-            'passengers' => $all->sum('seat_count'),
             'today'      => $all->filter(fn($queue) => \Carbon\Carbon::parse($queue->time_queued)->isToday())->count(),
         ];
     }
@@ -60,14 +59,12 @@ new  #[Layout('layouts.operator-layout')] class extends Component
         <flux:breadcrumbs.item>Travel records</flux:breadcrumbs.item>
     </flux:breadcrumbs>
 
-    {{-- Page heading --}}
     <div class="mt-8 mb-4">
-        <p class="text-xl font-medium text-zinc-800 dark:text-zinc-100">Travel records</p>
-        <p class="text-sm text-zinc-400 mt-0.5">View all queuing and departure history for this vehicle.</p>
+        <x-text class="text-xl font-medium text-zinc-800 dark:text-zinc-100">Travel records</x-text>
+        <x-text class="text-sm text-zinc-400 mt-0.5">View all queuing and departure history for this vehicle.</x-text>
     </div>
 
-    {{-- Vehicle info card --}}
-    <div class="mb-4 flex overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+    <flux:card class="mb-5" size="sm">
         <div class="w-1 bg-blue-500 flex-shrink-0"></div>
         <div class="flex flex-1 flex-wrap items-center justify-between gap-4 p-4">
 
@@ -76,20 +73,14 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                     <flux:icon.truck class="w-5 h-5" />
                 </div>
                 <div>
-                    <p class="font-mono font-medium text-zinc-800 dark:text-zinc-100">
+                    <x-text class="font-mono font-medium text-zinc-800 dark:text-zinc-100">
                         {{ $this->vehicle->plate_number }}
-                    </p>
-                    <p class="text-xs text-zinc-400">{{ $this->vehicle->vehicle_type }}</p>
+                    </x-text>
+                    <x-text class="text-xs text-zinc-400">{{ $this->vehicle->vehicle_type }}</x-text>
                 </div>
             </div>
 
             <div class="flex gap-8">
-                {{-- <div>
-                    <span class="block text-xs text-zinc-400 uppercase tracking-wider mb-1">Route</span>
-                    <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                        {{ $this->vehicle->destination ?? '—' }}
-                    </span>
-                </div> --}}
                 <div>
                     <span class="block text-xs text-zinc-400 uppercase tracking-wider mb-1">Seat capacity</span>
                     <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -105,34 +96,27 @@ new  #[Layout('layouts.operator-layout')] class extends Component
             </div>
 
         </div>
-    </div>
+    </flux:card >
 
-    {{-- Stat tiles --}}
     <div class="grid grid-cols-4 gap-3 mb-5">
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Total trips</p>
-            <p class="text-2xl font-medium text-blue-700 dark:text-blue-400">
+        <flux:card size="sm">
+            <x-text size="lg">Total trips</x-text>
+            <x-text class="text-2xl" variant="strong" color="blue">
                 {{ $this->vehicleStats['total'] }}
-            </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Departed</p>
-            <p class="text-2xl font-medium text-red-600 dark:text-red-400">
+            </x-text>
+        </flux:card>
+        <flux:card size="sm">
+            <x-text size="lg">Departed</x-text>
+            <x-text class="text-2xl" variant="strong" color="red">
                 {{ $this->vehicleStats['departed'] }}
-            </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Total passengers</p>
-            <p class="text-2xl font-medium text-green-700 dark:text-green-400">
-                {{ $this->vehicleStats['passengers'] }}
-            </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Trips today</p>
-            <p class="text-2xl font-medium text-amber-700 dark:text-amber-400">
+            </x-text>
+        </flux:card>
+        <flux:card size="sm">
+            <x-text size="lg">Trips today</x-text>
+            <x-text class="text-2xl" variant="strong" color="orange">
                 {{ $this->vehicleStats['today'] }}
-            </p>
-        </div>
+            </x-text>
+        </flux:card>
     </div>
 
     <div class="inline-flex my-6">
@@ -207,14 +191,14 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                     </flux:table.cell>
 
                     <flux:table.cell>
-                        <p class="text-xs text-zinc-500">{{ $queue->time_queued->format('M d, Y') }}</p>
-                        <p class="text-xs text-zinc-400">{{ $queue->time_queued->format('g:i A') }}</p>
+                        <x-text class="text-xs text-zinc-500">{{ $queue->time_queued->format('M d, Y') }}</x-text>
+                        <x-text class="text-xs text-zinc-400">{{ $queue->time_queued->format('g:i A') }}</x-text>
                     </flux:table.cell>
 
                     <flux:table.cell>
                         @if ($queue->time_departed)
-                            <p class="text-xs text-zinc-500">{{ $queue->time_departed->format('M d, Y') }}</p>
-                            <p class="text-xs text-zinc-400">{{ $queue->time_departed->format('g:i A') }}</p>
+                            <x-text class="text-xs text-zinc-500">{{ $queue->time_departed->format('M d, Y') }}</x-text>
+                            <x-text class="text-xs text-zinc-400">{{ $queue->time_departed->format('g:i A') }}</x-text>
                         @else
                             <span class="text-xs text-zinc-300">—</span>
                         @endif
@@ -237,9 +221,9 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                     <flux:table.cell colspan="10">
                         <div class="flex flex-col items-center justify-center py-12 gap-2">
                             <flux:icon.archive-box class="w-8 h-8 text-zinc-300" />
-                            <p class="text-sm text-zinc-400">No travel records found.</p>
+                            <x-text class="text-sm text-zinc-400">No travel records found.</x-text>
                             @if ($search)
-                                <p class="text-xs text-zinc-400">Try a different search term.</p>
+                                <x-text class="text-xs text-zinc-400">Try a different search term.</x-text>
                             @endif
                         </div>
                     </flux:table.cell>

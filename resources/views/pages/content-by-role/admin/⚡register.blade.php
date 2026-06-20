@@ -30,7 +30,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $username = '';
     public string $phone_number = '';
     public string $password = '';
-    public string $password_confirmation = '';
 
     // commuter details
     public string $date_of_birth = '';
@@ -54,6 +53,42 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public array $vehicles = [
         ['vehicle_type' => '', 'plate_number' => '', 'group_number' => '', 'route' => ''],
     ];
+
+
+    public function updated($property)
+    {
+        // Check if either name field was modified
+        if (in_array($property, ['first_name', 'last_name'])) {
+            if (!empty($this->first_name) && !empty($this->last_name)) {
+                
+                // 1. Generate clean, unique username (e.g., "juandelacruz")
+                $baseUsername = Str::slug($this->first_name . $this->last_name, '');
+                $this->username = $this->ensureUniqueUsername($baseUsername);
+
+                // 2. Generate an 8-digit numeric password ONLY if it hasn't been set yet
+                if (empty($this->password)) {
+                    $temporaryPin = str_pad(random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
+                    $this->password = $temporaryPin;
+                }
+            }
+        }
+    }
+
+    /**
+     * Checks the database and appends a number if the username is taken
+     */
+    protected function ensureUniqueUsername(string $username): string
+    {
+        $original = $username;
+        $counter = 1;
+
+        while (User::where('username', $username)->exists()) {
+            $username = $original . $counter;
+            $counter++;
+        }
+
+        return $username;
+    }
 
     #[On('echo:registration-tap-card,.RegistrationTapCardEvent')]
     public function getUid($event): void
@@ -113,7 +148,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'first_name' => 'required|min:2',
                 'last_name'  => 'required|min:2',
                 'username'   => 'required|unique:users,username',
-                'password'   => 'required|min:8|confirmed',
+                'password'   => 'required|min:8',
             ]);
         }
 
@@ -277,7 +312,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 <x-input wire:model="last_name"  label="Last name"  placeholder="e.g. dela Cruz" />
                 <x-input wire:model="username"   label="Username"   placeholder="e.g. juandelacruz" />
                 <x-input wire:model="password"          label="Temporary password" type="password" />
-                <x-input wire:model="password_confirmation"  label="Confirm password"   type="password" />
             </x-inputs-container>
         </div>
     @endif

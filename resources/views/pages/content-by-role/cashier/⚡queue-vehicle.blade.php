@@ -133,7 +133,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 <div>
 
     <flux:breadcrumbs class="mb-6">
-        <flux:breadcrumbs.item href="{{ route('cashier.queue') }}" wire:navigate>Live Queue</flux:breadcrumbs.item>
+        <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Live Queue</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>Queue Vehicles</flux:breadcrumbs.item>
     </flux:breadcrumbs>
 

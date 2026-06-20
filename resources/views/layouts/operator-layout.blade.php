@@ -30,10 +30,10 @@
             <flux:sidebar.nav>
 
                 {{-- <x-dashboard.sidebar-menu.sidebar-item href="/operator/dashboard" icon="home"> Payment </x-dashboard.sidebar-menu.sidebar-item> --}}
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.dashboard') }}" icon="home"> Dashboard </x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/vehicles" icon="home">My Vehicle</x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.live.queue') }}" icon="home">Live Queueing</x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.card') }}" icon="home">My Card</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.dashboard') }}" icon="squares-2x2 "> Dashboard </x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="/operator/vehicles" icon="truck">My Vehicle</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.queue') }}" icon="clock">Queueing</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.card') }}" icon="credit-card">My Card</x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>
 

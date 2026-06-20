@@ -47,7 +47,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             return;
         }
 
-        $result = app(QueueOrderService::class)->swapWithNext($firstWaitingVehicle->id);
+        $result = app(QueueOrderService::class)->sendToBackOfQueue($firstWaitingVehicle->id);
         
         if ($result['success'] === false) {
             Flux::toast(
@@ -80,7 +80,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 <div class="flex flex-col h-full">
 
     <flux:breadcrumbs class="mb-6">
-        <flux:breadcrumbs.item href="{{ route('cashier.queue') }}" wire:navigate>Live Queue</flux:breadcrumbs.item>
+        <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Live Queue</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>Active Groups</flux:breadcrumbs.item>
     </flux:breadcrumbs>
 
@@ -88,27 +88,35 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         <x-pages-heading heading="Current active group" description="Manage queue order and advance the next vehicle here." />
     </div>
 
-    {{-- ───────────────────────── Scrollable vehicle list ───────────────────────── --}}
     <div class="flex-1 overflow-y-auto px-6 py-2 space-y-2">
 
-        @forelse ($this->getCurrentActiveGroup as $vehicle)
+        @forelse ($this->getCurrentActiveGroup as $index => $vehicle)
 
             @php
                 $status   = $vehicle->status;
                 $isActive = $status === 'loading';
+                
+                $cardClasses = $isActive 
+                    ? 'ring-1 ring-blue-300 dark:ring-blue-700 border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950' 
+                    : ($status === 'departed' || $status === 'skipped' ? 'opacity-50' : '');
+
+                if ($index === 0) {
+                    $cardClasses .= ' border-2 border-emerald-500 dark:border-emerald-400 shadow-md'; 
+                   
+                }
             @endphp
 
             <flux:card
                 wire:key="vehicle-{{ $vehicle->id }}"
                 size="sm"
-                :class="$isActive ? 'ring-1 ring-blue-300 dark:ring-blue-700 border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950' : ($status === 'departed' || $status === 'skipped' ? 'opacity-50' : '')"
+                :class="$cardClasses"
             >
                 <div class="flex items-center gap-3">
 
                     {{-- Position / status icon --}}
                     <div @class([
                         'rounded-full flex items-center justify-center font-semibold shrink-0',
-                        'w-8 h-8 text-sm bg-blue-500 text-white'                                         => $isActive,
+                        'w-8 h-8 text-sm bg-blue-500 text-white'                                        => $isActive,
                         'w-7 h-7 text-xs bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'  => $status === 'waiting',
                         'w-7 h-7 text-xs bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'  => $status === 'departed' || $status === 'skipped',
                     ])>
@@ -157,11 +165,6 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
     </div>
 
-    {{-- ───────────────────────── Next card ─────────────────────────
-         Only rendered when the first vehicle in the queue is "waiting".
-         If something is already "loading", there's nothing to advance into —
-         the queue is already active and the Next action would have no valid target.
-    --}}
     @if ($this->canAdvanceQueue)
         @php 
 

@@ -13,6 +13,49 @@ new class extends Component {
     public string $search = '';
     public string $vehicleType = '';
 
+
+    public function departEarly($queueId)
+    {
+        $queue = Queue::where('id', $queueId)
+            ->where('user_id', auth()->id())
+            ->where('status', 'loading')
+            ->first();
+
+        if (!$queue) {
+            return;
+        }
+
+        $queue->update([
+            'departs_at' => now()
+        ]);
+
+        ProcessAfterDepart::dispatch($queue->id);
+
+        $this->refreshQueuedVehicleList();
+    }
+
+    #[Computed]
+    public function getQueuedUserVehicle() {
+        return Queue::where('user_id', auth()->user()->id)
+            ->whereIn('status', ['staging', 'loading'])
+            ->get();
+    }
+
+    public function getQueuePosition($queue)
+    {
+        $orderedIds = Queue::where('vehicle_type', $queue->vehicle_type)
+            ->where('destination', $queue->destination)
+            ->whereIn('status', ['staging', 'loading'])
+            ->orderByRaw("FIELD(status, 'loading', 'staging')")
+            ->orderBy('slot_position')
+            ->orderBy('time_queued')
+            ->pluck('id');
+
+        $position = $orderedIds->search($queue->id);
+
+        return $position !== false ? $position + 1 : 'N/A';
+    }
+
     #[Computed]
     public function groupVehicles()
     {
@@ -72,6 +115,14 @@ new class extends Component {
 
 <div class="w-full max-w-5xl mx-auto px-4">
 
+
+    @if (auth()->user()->role === 'cashier' && auth()->id())
+        <div class="flex justify-end gap-2 mb-6 items-center">
+            <x-button size="sm" icon="plus" variant="primary" href="{{ route('cashier.queue.vehicle') }}" wire:navigate>Queue Vehicle</x-button>
+            <x-button size="sm" href="{{ route('cashier.active-group') }}" wire:navigate>View Active Groups</x-button>
+        </div>
+    @endif
+
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div class="flex items-center gap-2.5">
@@ -98,6 +149,69 @@ new class extends Component {
             </div>
         </div>
     </div>
+
+
+    @if(auth()->user() && auth()->user()->role === 'operator')
+        <x-card>
+            <div class="flex items-center justify-between mb-3 px-1">
+                <span class="text-[11px] font-semibold tracking-widest uppercase text-gray-400">My Vehicles</span>
+                <span class="text-[11px] text-gray-400 flex items-center gap-1">
+                    <flux:icon name="arrow-path" class="size-3" />
+                    Updates live
+                </span>
+            </div>
+
+            @if($this->getQueuedUserVehicle->isEmpty())
+                <div class="px-1 py-6 text-center text-sm text-gray-400">
+                    You have no vehicles in the queue right now.
+                </div>
+            @else
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                    @foreach($this->getQueuedUserVehicle as $index => $queue)
+
+                    <flux:card class="mb-4" wire:key="mine-{{ $queue->id }}">
+
+                        <div class="flex items-center justify-between mb-2">
+                            <x-text>{{ $queue->plate_number }}</x-text>
+
+                            @if ($queue->status === 'loading')
+                                <flux:badge size="sm" color="green">LOADING</flux:badge>
+                            @else
+                                <flux:badge size="sm" color="orange">STAGING</flux:badge>
+                            @endif
+                        </div>
+
+                        <x-text size="xl" variant="strong">
+                            #{{ $this->getQueuePosition($queue) }}
+                        </x-text>
+
+                        <x-text size="sm" class="mt-1 text-blue-500">
+                            {{ $queue->vehicle_type }} &middot; {{ $queue->destination }}
+                        </x-text>
+
+                        {{-- Add the early departure action trigger button --}}
+                        @if ($queue->status === 'loading')
+                            <div class="mt-4 pt-3 border-t border-gray-100">
+                                <flux:button 
+                                    size="sm" 
+                                    variant="danger" 
+                                    color="blue" 
+                                    icon="paper-airplane"
+                                    wire:click="departEarly({{ $queue->id }})" 
+                                    wire:confirm="Are you sure you want to depart early right now?"
+                                    class="w-full">
+                                    Depart Now
+                                </flux:button>
+                            </div>
+                        @endif
+
+                    </flux:card>
+
+                    @endforeach
+                </div>
+            @endif
+        </x-card>
+    @endif
 
     {{-- Queue list --}}
     <div class="space-y-8">

@@ -20,7 +20,7 @@ new #[Layout('layouts.queue-layout')] class extends Component
 ?>
 
 <div>
-    <div class="flex items-center justify-end my-6 gap-3">    
+    {{-- <div class="flex items-center justify-end my-6 gap-3">    
            
         <x-button href=" {{ route('cashier.queue.vehicle') }}" size="sm" icon="plus" class="cursor-pointer" wire:navigate>
             Queue Vehicle
@@ -39,6 +39,6 @@ new #[Layout('layouts.queue-layout')] class extends Component
         <livewire-pages::content-by-role.cashier.current_active_group />
     @endif
 
-    <livewire-pages::queue-page />
+    <livewire-pages::queue-page /> --}}
 
 </div>
