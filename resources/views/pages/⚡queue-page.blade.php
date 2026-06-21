@@ -96,9 +96,13 @@ new class extends Component {
         if (($queue->vehicle_type === 'Jeep' && ($queue->destination === 'Buhi' || $queue->destination === 'Mountain-unit')) && $queue->id === $queue->id) {
             $queue->update(['departs_at' => Carbon::now()]);
             ProcessAfterDepart::dispatch($queue->id);
+
         } elseif ($queue->vehicle_type === 'UV-express') {
+
             $queue->update(['departs_at' => Carbon::now()->addMinutes(30)]);
             ProcessAfterDepart::dispatch($queue->id)->delay($queue->departs_at);
+
+            $this->refreshQueuedVehicleList();
         }
 
         $this->refreshQueuedVehicleList();

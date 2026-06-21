@@ -72,7 +72,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             return null;
         }
 
-        return Card::with('user.vehicles.route_list') // route_list = hasMany
+        return Card::with('user.vehicles.route_list.operatorTicketRate') 
             ->where('uid', $this->card_number)
             ->first();
     }
@@ -305,7 +305,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                                     <td class="text-right py-1.5">{{ $driver_name ?: '—' }}</td>
                                 </tr>
                                 <tr class="border-t border-zinc-100 dark:border-zinc-800">
-                                    <td class="text-zinc-500 dark:text-zinc-400 pt-3">Base fare</td>
+                                    <td class="text-zinc-500 dark:text-zinc-400 pt-3">Tickets price</td>
                                     <td class="text-right font-semibold text-base pt-3">
                                         ₱{{ number_format($this->selectedVehicle->route_list?->operatorTicketRate?->base_fare ?? 0, 2) }}
                                     </td>

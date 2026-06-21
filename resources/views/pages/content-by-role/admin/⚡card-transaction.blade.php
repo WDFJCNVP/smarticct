@@ -13,7 +13,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     #[Computed]
     public function getCardTransactionRecord() {
-        return CardTransaction::where('card_id', $this->user->card->id)->get();
+        return CardTransaction::where('card_id', $this->user->card->id)->latest()->get();
     }
 
     #[Computed]
@@ -81,36 +81,30 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     </div>
 
-    {{-- Stat tiles --}}
     <div class="grid grid-cols-3 gap-3 mb-5">
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
+        <flux:card >
             <p class="text-xs text-zinc-400 mb-1">Total transactions</p>
             <p class="text-2xl font-medium text-zinc-800 dark:text-zinc-100">
                 {{ $this->getCardTransactionRecord->count() }}
             </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Total deducted</p>
-            <p class="text-2xl font-medium text-red-600 dark:text-red-400">
-                {{ number_format($this->getCardTransactionRecord->sum('points_deducted'), 2) }}
-            </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
+        </flux:card>
+        <flux:card >
             <p class="text-xs text-zinc-400 mb-1">Current balance</p>
             <p class="text-2xl font-medium text-green-700 dark:text-green-400">
                 {{ number_format($this->user->card->balance, 2) }}
             </p>
-        </div>
+        </flux:card>
     </div>
 
     {{-- Table --}}
     <flux:table container:class="max-h-160">
         <flux:table.columns sticky class="bg-white dark:bg-zinc-900">
             <flux:table.column>#</flux:table.column>
+            <flux:table.column>Reference No.</flux:table.column>
             <flux:table.column>Type</flux:table.column>
-            <flux:table.column>Points</flux:table.column>
             <flux:table.column>Amount</flux:table.column>
             <flux:table.column>Balance before</flux:table.column>
+            <flux:table.column>Balance after</flux:table.column>
             <flux:table.column>Status</flux:table.column>
             <flux:table.column>Message</flux:table.column>
             <flux:table.column>Date</flux:table.column>
@@ -127,21 +121,26 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
                     <flux:table.cell>
                         <div class="flex items-center gap-2">
-                            <span class="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                            {{ $transaction->reference_no }}
+                        </div>
+                    </flux:table.cell>
+
+                    <flux:table.cell>
+                        <div class="flex items-center gap-2">
                             {{ $transaction->transaction_type }}
                         </div>
                     </flux:table.cell>
+
 
                     <flux:table.cell class="text-red-500 tabular-nums">
                         {{ number_format($transaction->points_deducted, 2) }}
                     </flux:table.cell>
 
-                    <flux:table.cell class="tabular-nums">
-                        {{ number_format($transaction->amount, 2) }}
-                    </flux:table.cell>
-
                     <flux:table.cell class="text-zinc-500 tabular-nums">
                         {{ number_format($transaction->balance_before, 2) }}
+                    </flux:table.cell>
+                    <flux:table.cell class="text-zinc-500 tabular-nums">
+                        {{ number_format($transaction->balance_after, 2) }}
                     </flux:table.cell>
 
                     <flux:table.cell>

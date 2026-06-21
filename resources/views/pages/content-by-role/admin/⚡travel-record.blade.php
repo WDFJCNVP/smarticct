@@ -78,24 +78,24 @@ new #[Layout('layouts.admin-layout')] class extends Component
     </div>
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
-        <div class="rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
+        <flux:card>
             <div class="text-sm text-zinc-500 dark:text-zinc-400">Total trips</div>
             <div class="text-2xl font-medium mt-1">{{ $this->stats['total'] }}</div>
-        </div>
-        <div class="rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
+        </flux:card>
+        <flux:card>
             <div class="text-sm text-zinc-500 dark:text-zinc-400">Departed</div>
             <div class="text-2xl font-medium mt-1 text-green-600 dark:text-green-400">{{ $this->stats['departed'] }}</div>
-        </div>
-        <div class="rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
+        </flux:card>
+        <flux:card>
             <div class="text-sm text-zinc-500 dark:text-zinc-400">Still queued</div>
             <div class="text-2xl font-medium mt-1 text-amber-600 dark:text-amber-400">{{ $this->stats['queued'] }}</div>
-        </div>
-        <div class="rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
+        </flux:card>
+        {{-- <div class="rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
             <div class="text-sm text-zinc-500 dark:text-zinc-400">Overbooked</div>
             <div class="text-2xl font-medium mt-1 {{ $this->stats['overbooked'] > 0 ? 'text-red-600 dark:text-red-400' : '' }}">
                 {{ $this->stats['overbooked'] }}
             </div>
-        </div>
+        </div> --}}
     </div>
 
     <div class="mt-6">
@@ -128,17 +128,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             </flux:badge>
                         </x-table-cell>
                         <x-table-cell>
-                            <div class="flex items-center gap-2 min-w-[140px]">
-                                <div class="flex-1 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                                    <div
-                                        class="h-full {{ $isOverbooked ? 'bg-red-500' : 'bg-blue-500' }}"
-                                        style="width: {{ $occupancyPct }}%"
-                                    ></div>
-                                </div>
-                                <span class="text-xs {{ $isOverbooked ? 'text-red-600 dark:text-red-400 font-medium' : 'text-zinc-500' }}">
-                                    {{ $record->seat_count }}/{{ $record->seat_capacity }}
-                                </span>
-                            </div>
+                            {{ $record->seat_count }}/{{ $record->seat_capacity }}
                         </x-table-cell>
                         <x-table-cell class="text-zinc-500">
                             {{ $record->time_queued?->format('M d, Y \a\t g:i a') ?? '—' }}
@@ -150,7 +140,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             @if ($record->time_departed)
                                 <flux:badge size="sm" color="green" icon="check">Departed</flux:badge>
                             @else
-                                <flux:badge size="sm" color="amber" icon="clock">Queued</flux:badge>
+                                <flux:badge size="sm" color="amber" icon="clock">Staging</flux:badge>
                             @endif
                         </x-table-cell>
                     </x-table-row>

@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 use App\Models\Card;
 use App\Models\CardTransaction;
@@ -52,23 +54,38 @@ class CardController extends Controller
             return [
                 'success'      => false,
                 'balanceAfter' => $balanceBefore,
-                'message'      => "Payment unsuccessful. Balance:{$balanceBefore}. Required points:{$amount}",
+                'message'      => "Insufficient balance. Available balance: $balanceBefore points. Required amount: $amount points.",
             ];
         }
 
-        $balanceAfter = $balanceBefore - $amount;
+        if ($card->user->role === 'operator') {
+
+            $balanceAfter = DB::transaction(function () use ($card, $amount) {
+                $card = Card::lockForUpdate()
+                        ->findOrFail($card->id);
+                
+                $balanceAfter = (float) $card->balance - $amount;
+                $card->update(['balance' => $balanceAfter, 'updated_at' => now()]);
+
+                return $balanceAfter;
+            });
+        }
+        $card = Card::lockForUpdate()
+                ->findOrFail($card->id);
+        
+        $balanceAfter = (float) $card->balance - $amount;
         $card->update(['balance' => $balanceAfter, 'updated_at' => now()]);
 
         return [
             'success'      => true,
             'balanceAfter' => $balanceAfter,
-            'message'      => "Payment successful. Balance:{$balanceAfter}",
+            'message'      => "Payment successful. Remaining balance: $balanceAfter points.",
         ];
     }
 
     private function activateScheduledVehicle(array $validated, Vehicle $vehicle): array
     {
-        // 1. Fetch today's active schedule slot for this specific vehicle directly
+       
         $slot = DailyScheduleSlot::where('schedule_date', today()->toDateString())
             ->where('metadata->assigned_vehicle_id', $vehicle->id)
             ->whereIn('status', ['waiting', 'queued'])
@@ -81,7 +98,7 @@ class CardController extends Controller
             ];
         }
 
-        // 2. Query the live queue record directly using the exact slot ID relation
+        
         $myQueue = Queue::where('plate_number', $vehicle->plate_number)
             ->where('daily_schedule_slot_id', $slot->id)
             ->where('status', 'staging')
@@ -95,7 +112,7 @@ class CardController extends Controller
             ];
         }
 
-        // 3. Check if another vehicle of the same type is currently loading
+        
         $alreadyLoading = Queue::where('vehicle_type', $vehicle->vehicle_type)
             ->where('status', 'loading')
             ->whereNotNull('daily_schedule_slot_id')
@@ -105,11 +122,11 @@ class CardController extends Controller
         if ($alreadyLoading) {
             return [
                 'success' => false,
-                'message' => 'Another vehicle is currently loading. Please wait for your turn.',
+                'message' => 'Another vehicle of the same type is currently loading. Please wait until it departs.',
             ];
         }
 
-        // 4. Check if this vehicle is #1 in the staging queue
+        
         $frontQueue = Queue::where('vehicle_type', $vehicle->vehicle_type)
             ->where('status', 'staging')
             ->whereNotNull('daily_schedule_slot_id')
@@ -123,14 +140,14 @@ class CardController extends Controller
         if (!$isFront) {
             return [
                 'success' => false,
-                'message' => "Not your turn yet. You are at position {$myQueue->slot_position}. Please wait.",
+                'message' => "Queue activation denied. Your vehicle is currently at position $myQueue->slot_position. Please wait for your turn.",
             ];
         }
 
-        // 5. Vehicle is #1 — activate and start departure countdown
+        
         $departs_in = match ($vehicle->vehicle_type) {
             'Bus'        => Carbon::now()->addMinutes(1),
-            'UV-express' => Carbon::now()->addMinutes(10),
+            'UV-express' => null,
             default      => null,
         };
 
@@ -149,7 +166,7 @@ class CardController extends Controller
 
         return [
             'success' => true,
-            'message' => "Vehicle activated and loading. Departs at {$departs_in?->toTimeString()}",
+            'message' => "Vehicle successfully activated and is now accepting passengers. Scheduled departure: {$departs_in?->format('h:i A')}.",
         ];
     }
 
@@ -221,19 +238,28 @@ class CardController extends Controller
                 'vehicle_id'       => 'required|numeric',
                 'name'             => 'nullable|string|max:50',
                 'driver_name'      => 'nullable|string|max:100',
-                'transaction_type' => 'required|string|max:50',
+                'transaction_type' => [
+                                        'required',
+                                        Rule::in([
+                                            'fare_payment',
+                                            'operator_payment',
+                                            'top_up'
+                                        ])
+                                    ],
                 'amount'           => 'nullable|numeric|min:0',
                 'destination'      => 'nullable|string',
                 'vehicle_type'     => 'nullable|string',
                 'plate_number'     => 'nullable|string',
             ]);
 
+            // dd($validated['vehicle_type']);
+
             Log::info('Card tap received', $validated);
 
             $card = $this->getCard($validated['uid']);
 
             if (!$card) {
-                return response()->json(['success' => false, 'message' => 'Card not found'], 404);
+                return response()->json(['success' => false, 'message' => 'Card not recognized. Please contact an administrator if the problem persists.'], 404);
             }
 
             if ($card->status !== 'active') {
@@ -249,19 +275,6 @@ class CardController extends Controller
 
             if ($transaction_type === 'fare_payment') {
 
-                $isAlreadyInVehicle = TravelRecord::where('user_id', $card->user_id)
-                        ->whereHas('queue', function ($query) {
-                            $query->where('status', 'loading');
-                        })
-                        ->exists();
-
-                if ($isAlreadyInVehicle) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Cannot proceed. You are already in the vehicle.'
-                    ]);
-                }
-
                 $result = DB::transaction(function () use ($validated, $card, $amount, $balanceBefore) {
 
                     $queue = Queue::where('status', 'loading')
@@ -273,14 +286,29 @@ class CardController extends Controller
                     if (!$queue) {
                         return [
                             'success'      => false,
-                            'message'      => 'No available vehicle for this destination!',
+                            'message'      => 'No loading vehicle is currently available for the selected destination.',
                             'balanceAfter' => $balanceBefore,
                         ];
                     }
 
+                    $isAlreadyInVehicle = TravelRecord::where('user_id', $card->user_id)
+                        ->whereHas('queue', function ($query) {
+                            $query->where('status', 'loading');
+                        })
+                        ->exists();
+
+                    if ($isAlreadyInVehicle) {
+                        return [
+                            'success'      => false,
+                            'balanceAfter' => $balanceBefore,
+                            'message'      => 'Boarding denied. You already have an active trip in a loading vehicle.',
+                        ];
+                        }
+
                     $deduction = $this->deductUserCard($card, $amount, $balanceBefore);
 
                     if ($deduction['success']) {
+
                         $queue->increment('seat_count');
                         $queue->refresh();
 
@@ -293,10 +321,11 @@ class CardController extends Controller
                             'driver_name' => $queue->driver_name,
                             'commuter_type' => $card->user->commuter_type,
                             'fare_amount' => $amount,
+                            'departed_at' => $queue->departs_at,
                         ]);
 
                         if (
-                            ($queue->vehicle_type === 'Van' && $queue->seat_count >= 9 && $queue->departs_at === null) || 
+                            ($queue->vehicle_type === 'UV-express' && ($queue->seat_count >= 9 && $queue->departs_at === null)) || 
                             (($queue->vehicle_type === 'Jeep' && ($queue->destination === 'Buhi' || $queue->destination === 'Mountain-unit')) && $queue->seat_count >= $queue->seat_capacity)
                             ) 
                         {
@@ -344,7 +373,7 @@ class CardController extends Controller
                         $activationResult = $this->activateScheduledVehicle($validated, $vehicle);
 
                         if (!$activationResult['success']) {
-                            // Refund — wrong turn, don't charge
+                            
                             $card->update(['balance' => $balanceBefore]);
                             return [
                                 'success'      => false,
@@ -370,7 +399,7 @@ class CardController extends Controller
                         return response()->json([
                             'success'      => false,
                             'balanceAfter' => $balanceBefore,
-                            'message'      => 'Vehicle is already in queue',
+                            'message'      => 'This vehicle is already queued or currently loading.',
                         ]);
                     }
 
@@ -394,8 +423,8 @@ class CardController extends Controller
                 'source'           => 'rfid',
                 'reference_no'     => 'TXN-' . now()->format('YmdHis') . '-' . Str::random(6),
                 'metadata'         =>  $validated,
-                'points_deducted'  => -$amount,
-                'transaction_type' => 'purchase',
+                'points_deducted'  => $amount,
+                'transaction_type' => 'Purchase',
                 'amount'           => $amount,
                 'balance_before'   => $balanceBefore,
                 'balance_after'    => $balanceAfter,

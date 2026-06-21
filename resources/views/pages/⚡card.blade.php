@@ -106,7 +106,11 @@ new class extends Component
                     @endphp
                     <flux:card size="sm" class="flex items-center gap-3 justify-between ">
                         <div>
-                            <flux:icon name="check" class="w-4 h-4 text-green-600 dark:text-green-400" />
+                            @if ($transaction->status !== 'failed')
+                                <flux:icon name="check" class="w-4 h-4 text-green-600 dark:text-green-400" />
+                            @else
+                                <flux:icon name="exclamation-triangle" class="w-4 h-4 text-red-600 dark:text-red-400" />
+                            @endif
                         </div>
                         <div class="flex-1 min-w-0">
                             <x-text class="text-sm font-medium truncate">
@@ -116,9 +120,12 @@ new class extends Component
                                 {{ $transaction->location }} · {{ $transaction->transaction_time?->diffForHumans() }}
                             </x-text>
                         </div>
-                        <x-text size="sm">
-                            - ₱{{ number_format(abs($transaction->amount), 2) }}
-                        </x-text>
+                        @if ($transaction->status !== 'failed')
+                            <x-text size="sm">
+                                - ₱{{ number_format(abs($transaction->amount), 2) }}
+                            </x-text>
+                        @endif
+
                     </flux:card>
                 @empty
                     <x-text class="text-xs text-zinc-400 text-center py-6">No activity yet.</x-text>

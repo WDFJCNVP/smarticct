@@ -28,17 +28,6 @@ new #[Layout('layouts.commuter-layout')] class extends Component
         ];
     }
 
-    public function fareForRecord($card)
-    {   
-
-        if (!$card) {
-            return null;
-        }
-
-        return CardTransaction::where('card_id', $card->id)
-            ->where('transaction_type', 'fare_payment')
-            ->first();
-    }
 
     // public function mount () {
     //    dd($this->getTravelRecords);
@@ -52,10 +41,10 @@ new #[Layout('layouts.commuter-layout')] class extends Component
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
-        <div class="rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
+        <flux:card class="rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
             <div class="text-sm text-zinc-500 dark:text-zinc-400">Total trips</div>
             <div class="text-2xl font-medium mt-1">{{ $this->stats['total'] }}</div>
-        </div>
+        </flux:card>
     </div>
 
     <div class="mt-6">
@@ -72,9 +61,6 @@ new #[Layout('layouts.commuter-layout')] class extends Component
 
             <x-table-rows>
                 @forelse ($this->getTravelRecords as $record)
-                    @php
-                        $fare = $this->fareForRecord($record->user->card);
-                    @endphp
 
                     <x-table-row>
 
@@ -91,7 +77,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
                         <x-table-cell>{{ $record->queue->plate_number ?? '—' }}</x-table-cell>
 
                         <x-table-cell class="text-zinc-700 dark:text-zinc-300">
-                            {{ $fare ? '₱' . number_format($fare->amount, 2) : '—' }}
+                            {{'₱' . number_format($record->fare_amount, 2) ??  '—' }}
                         </x-table-cell>
 
                         <x-table-cell class="text-zinc-500">

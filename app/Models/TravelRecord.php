@@ -10,6 +10,14 @@ class TravelRecord extends Model
     protected $fillable = [
         'user_id',
         'queue_id',
+        'card_transaction_id',
+        'destination',
+        'vehicle_type',
+        'plate_number',
+        'driver_name',
+        'commuter_type',
+        'fare_amount',
+        'departed_at',
 
     ];
 

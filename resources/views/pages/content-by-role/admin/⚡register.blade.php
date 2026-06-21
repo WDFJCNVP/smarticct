@@ -67,24 +67,42 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function updated($property)
     {
-        // Check if either name field was modified
         if (in_array($property, ['first_name', 'last_name'])) {
+
             if (!empty($this->first_name) && !empty($this->last_name)) {
-                
-                $baseUsername = str_pad(random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
+
+                $prefix = match ($this->role) {
+                    'commuter' => '11284711',
+                    'operator' => '11284712',
+                    'cashier'  => '11284713',
+                    'admin'    => '11284714',
+                    default    => '11284710',
+                };
+
+                $sequence = str_pad(
+                    random_int(1, 9999),
+                    4,
+                    '0',
+                    STR_PAD_LEFT
+                );
+
+                $baseUsername = $prefix . $sequence;
+
                 $this->username = $this->ensureUniqueUsername($baseUsername);
 
                 if (empty($this->password)) {
-                    $temporaryPin = str_pad(random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
-                    $this->password = $temporaryPin;
+                    $this->password = str_pad(
+                        random_int(0, 99999999),
+                        8,
+                        '0',
+                        STR_PAD_LEFT
+                    );
                 }
             }
         }
     }
 
-    /**
-     * Checks the database and appends a number if the username is taken
-     */
+
     protected function ensureUniqueUsername(string $username): string
     {
         $original = $username;
@@ -157,7 +175,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'last_name'     => 'required|min:2',
                 'username'      => 'required|unique:users,username',
                 'password'      => 'required|min:8',
-                'email_address' => 'email|unique:users,email_address',
+                'email_address' => 'nullable|email|unique:users,email_address',
                 'age'           => 'required|min:2|numeric',
             ]);
         }
@@ -420,7 +438,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             </flux:select>
                         </div>
 
-                        @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'Uv-express')
+                        @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'UV-express')
                             <div>
                                 <flux:label>Group No.</flux:label>
                                 <flux:select wire:model="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm">
