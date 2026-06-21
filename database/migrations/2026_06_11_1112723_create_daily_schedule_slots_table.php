@@ -15,13 +15,14 @@ return new class extends Migration
             $table->id();
             $table->date('schedule_date')->index();
             $table->foreignIdFor(\App\Models\VehicleGroup::class)->constrained()->onDelete('cascade');
-            $table->enum('status', ['waiting', 'skipped', 'queued', 'departed'])->default('waiting');
+            $table->enum('status', ['waiting', 'queued', 'departed'])->default('waiting')->index();
 
-            $table->unsignedSmallInteger('slot_position');
+            $table->unsignedSmallInteger('slot_position')->index();
 
             $table->json('metadata')->nullable();
             $table->timestamps();
             $table->unique(['schedule_date', 'vehicle_group_id']);
+
         });
     }
 

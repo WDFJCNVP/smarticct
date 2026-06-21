@@ -435,7 +435,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <flux:label>Vehicle type</flux:label>
                             <flux:select wire:model="editingVehicles.{{ $vehicle->id }}.vehicle_type">
                                 <option value="Bus"       @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Bus')>Bus</option>
-                                <option value="Van"       @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Van')>Van</option>
+                                <option value="UV-express"       @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'UV-express')>UV-express</option>
                                 <option value="Multi-cab" @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Multi-cab')>Multi-cab</option>
                                 <option value="Jeep"      @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Jeep')>Jeep</option>
                             </flux:select>

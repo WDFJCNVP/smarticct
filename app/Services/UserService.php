@@ -17,7 +17,7 @@ class UserService
 {
 
     private function getAdmin() {
-        return User::where('role', 'admin')->get();
+        return User::where('role', 'admin')->first();
     }
 
     public function create( array $userBasicInformation, array $cardInformation, ?array $vehicles = null,): User {
@@ -29,12 +29,12 @@ class UserService
             $user = User::create($userBasicInformation);
             $user->card()->create($cardInformation);    
 
-            foreach($this->getAdmin() as $admin) {
-
+            if($this->getAdmin()) {
+                $admin = $this->getAdmin();
                 $notification = Notification::create([
-                    'type'    => 'operator_registration',
+                    'type'    => 'Registration',
                     'title'   => 'User Registration',
-                    'message' => "You've successfully register new operator. You can manage and monitor its details in the Users page. User id:$user->user_code"
+                    'message' => "You have successfully registered a new user. You can manage and monitor the user's details on the Users page. User ID: {$user->user_code}"
                 ]);
 
                 UserNotification::create([
@@ -52,21 +52,24 @@ class UserService
                     $route_list = RouteList::where('vehicle_type', $vehicle['vehicle_type'])->where('terminal', $vehicle['route'])->first();
 
                     $created_vehicle = $user->vehicles()->create([
-                        'route_list_id' => $route_list->id,
-                        'vehicle_type' => $vehicle['vehicle_type'],
-                        'plate_number' => $vehicle['plate_number'],
-                        'total_seats'  => 10,
+                        'route_list_id'    => $route_list->id,
+                        'vehicle_type'     => $vehicle['vehicle_type'],
+                        'plate_number'     => $vehicle['plate_number'],
+                        'total_seats'      => $vehicle['seat_capacity'],
+                        'official_record'  => $vehicle['official_record'],
                     ]);
 
-                    $order_number = VehicleGroup::where('group_number', $vehicle['group_number'])
-                    ->whereHas('vehicle', function($query) use ($created_vehicle) {
-                        $query->where('vehicle_type', $created_vehicle->vehicle_type);
-                    })->max('order_number') + 1;
+                    if ($vehicle['group_number'] !== null) {
+                        $order_number = VehicleGroup::where('group_number', $vehicle['group_number'])
+                            ->whereHas('vehicle', function($query) use ($created_vehicle) {
+                            $query->where('vehicle_type', $created_vehicle->vehicle_type);
+                        })->max('order_number') + 1;
 
-                    $created_vehicle->vehicle_group()->create([
-                        'group_number' => (int) $vehicle['group_number'],
-                        'order_number' => $order_number,
-                    ]);
+                        $created_vehicle->vehicle_group()->create([
+                            'group_number' => (int) $vehicle['group_number'],
+                            'order_number' => $order_number,
+                        ]);
+                    }
                 }
             }
             return $user;

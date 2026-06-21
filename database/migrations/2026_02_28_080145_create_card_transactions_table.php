@@ -13,15 +13,22 @@ return new class extends Migration
     {
         Schema::create('card_transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(\App\Models\Card::class)->constrained()->onDelete('cascade');
+            $table->foreignIdFor(\App\Models\Card::class)->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('processed_by')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete()->index();
+            $table->string('source')->nullable()->index();
             $table->decimal('points_deducted', 10, 2)->nullable();
-            $table->string('transaction_type')->nullable();
+            $table->enum('transaction_type', ['purchase', 'top-up', 'refund', 'adjustment'])->nullable()->index();
+            $table->string('reference_no')->unique()->index();
             $table->decimal('amount', 10, 2)->nullable();
             $table->decimal('balance_before', 10, 2)->nullable();
             $table->decimal('balance_after', 10, 2)->nullable();
-            $table->enum('status', ['success', 'failed', 'insufficient_balance'])->default('success');
+            $table->enum('status', ['success', 'failed', 'insufficient_balance'])->default('success')->index();
             $table->text('message')->nullable();
-            $table->timestamp('transaction_time');
+            $table->timestamp('transaction_time')->index();
+            $table->json('metadata')->nullable();
             $table->timestamps();
         });
     }

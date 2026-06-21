@@ -5,6 +5,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use App\Events\RegistrationTapCardEvent;
 use Livewire\Component;
+use Illuminate\Support\Str;
 
 //facades
 use Illuminate\Support\Facades\DB;
@@ -27,8 +28,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $role = '';
     public string $first_name = '';
     public string $last_name = '';
+    public string $age;
     public string $username = '';
-    public string $phone_number = '';
+    public string $email_address = '';
+    public string $phone_number;
     public string $password = '';
 
     // commuter details
@@ -51,7 +54,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $group_number;
 
     public array $vehicles = [
-        ['vehicle_type' => '', 'plate_number' => '', 'group_number' => '', 'route' => ''],
+        [
+        'vehicle_type' => '',
+         'plate_number' => '',
+         'group_number' => '',
+         'route' => '',
+         'official_record' => '',
+         'seat_capacity' => ''
+         ],
     ];
 
 
@@ -61,11 +71,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
         if (in_array($property, ['first_name', 'last_name'])) {
             if (!empty($this->first_name) && !empty($this->last_name)) {
                 
-                // 1. Generate clean, unique username (e.g., "juandelacruz")
-                $baseUsername = Str::slug($this->first_name . $this->last_name, '');
+                $baseUsername = str_pad(random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
                 $this->username = $this->ensureUniqueUsername($baseUsername);
 
-                // 2. Generate an 8-digit numeric password ONLY if it hasn't been set yet
                 if (empty($this->password)) {
                     $temporaryPin = str_pad(random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
                     $this->password = $temporaryPin;
@@ -145,28 +153,33 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         if ($this->step === 2) {
             $this->validate([
-                'first_name' => 'required|min:2',
-                'last_name'  => 'required|min:2',
-                'username'   => 'required|unique:users,username',
-                'password'   => 'required|min:8',
+                'first_name'    => 'required|min:2',
+                'last_name'     => 'required|min:2',
+                'username'      => 'required|unique:users,username',
+                'password'      => 'required|min:8',
+                'email_address' => 'email|unique:users,email_address',
+                'age'           => 'required|min:2|numeric',
             ]);
         }
 
         if ($this->step === 3) {
             if ($this->role === 'commuter') {
                 $this->validate([
-                    'date_of_birth' => 'required|date',
                     'address'       => 'required|min:5',
                     'phone_number'  => 'required|numeric',
+                    'commuter_type'  => 'required',
                 ]);
             } else {
                 $this->validate([
-                    'employee_id'             => 'required',
-                    'license_number'          => 'required',
-                    'vehicles'                => 'required|array|min:1',
-                    'vehicles.*.vehicle_type' => 'required',
-                    'vehicles.*.plate_number' => 'required',
-                    'vehicles.*.route'        => 'required',
+                    'address'                    => 'required|min:5',
+                    'phone_number'               => 'required|numeric',
+                    'vehicles'                   => 'required|array|min:1',
+                    'vehicles.*.vehicle_type'    => 'required|string',
+                    'vehicles.*.plate_number'    => 'required|unique:vehicles,plate_number',
+                    'vehicles.*.route'           => 'required|string',
+                    'vehicles.*.official_record'  => 'required|unique:vehicles,official_record',
+                    'vehicles.*.seat_capacity'   => 'required|integer|min:10|max:50',
+                    'vehicles.*.group_number'    => 'nullable|integer|min:1|max:2',
                 ]);
             }
         }
@@ -206,11 +219,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         $userBasicInformation = [
             'name'         => $this->first_name . ' ' . $this->last_name,
+            'age'          => $this->age,
+            'commuter_type'=> $this->commuter_type,
             'username'     => $this->username,
             'phone_number' => $this->phone_number,
             'address'      => $this->address,
+            'email_address' => $this->email_address,
             'role'         => $this->role,
-            'password'     => $this->password, // plain — service will hash it
+            'password'     => $this->password, 
         ];
 
         $cardInformation = [
@@ -305,25 +321,30 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     @if($step === 2)
         <div class="space-y-4">
-            {{-- <flux:callout variant="warning" icon="exclamation-circle"
-                heading="The user will be prompted to change temporary password on first login." /> --}}
+            <flux:callout variant="info" icon="information-circle"
+                heading="Credentials Auto-Generated" 
+                description="Username and temporary numeric PIN are filled automatically based on names." />
+                
             <x-inputs-container>
-                <x-input wire:model="first_name" label="First name" placeholder="e.g. Juan" />
-                <x-input wire:model="last_name"  label="Last name"  placeholder="e.g. dela Cruz" />
-                <x-input wire:model="username"   label="Username"   placeholder="e.g. juandelacruz" />
-                <x-input wire:model="password"          label="Temporary password" type="password" />
+                {{-- We add .live.debounce to sync changes gracefully as the admin types --}}
+                <x-input wire:model.live.debounce.500ms="first_name" label="First name" placeholder="e.g. Juan" />
+                <x-input wire:model.live.debounce.500ms="last_name"  label="Last name"  placeholder="e.g. dela Cruz" />
+                <x-input wire:model="email_address"   label="Email address (optional)" placeholder="juandelacruz@gmail.com" />
+                <x-input wire:model="age"   label="Age" placeholder="e.g. 25" type="number" />
+                <x-input wire:model="username" label="Username" placeholder="e.g. juandelacruz" />
+                
+                {{-- Changed type to "text" so the admin can see and copy the temporary PIN --}}
+                <x-input wire:model="password" label="Temporary numeric password" type="text" class="font-mono" />
             </x-inputs-container>
         </div>
     @endif
 
-    {{-- Step 3: commuter Details --}}
     @if($step === 3 && $role === 'commuter')
         <div class="space-y-4">
             <x-inputs-container>
-                <x-input wire:model="date_of_birth" type="date"   label="Date of birth" />
-                <x-input wire:model="address"       type="text"   label="Address" />
-                <x-input wire:model="phone_number"  type="number" label="Phone number" />
-                <x-select wire:model="commuter_type" label="commuter type" size="lg">
+                <x-input wire:model="address"       type="text"   label="Address" placeholder="e.g. Zone 3 San Miguel Nabua Camarines Sur"/>
+                <x-input wire:model="phone_number"  type="number" label="Phone number" pattern="[0-9]{10}" placeholder="e.g. 09463637401"/>
+                <x-select wire:model="commuter_type" label="Commuter type" size="lg">
                     <x-select-option>Regular</x-select-option>
                     <x-select-option>Senior Citizen</x-select-option>
                     <x-select-option>PWD</x-select-option>
@@ -333,14 +354,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
         </div>
     @endif
 
-    {{-- Step 3: Operator Details --}}
     @if($step === 3 && $role === 'operator')
         <div class="space-y-4">
             <x-inputs-container>
-                <x-input wire:model="employee_id"   label="Franchise No."   placeholder="e.g. OPR-2025-001"  />
-                <x-input wire:model="license_number" label="License number" placeholder="e.g. N01-12-345678"  />
-                <x-input wire:model="address"       label="Address"         placeholder="e.g. Zone 3 Ayugan Ocampo Camsur" />
-                <x-input wire:model="phone_number"   label="Phone no."      placeholder="63+ 000 000 0000"  />
+                <x-input wire:model="address"         label="Home address"              placeholder="e.g. Zone 3 San Miguel Nabua Camarines Sur" />
+                <x-input wire:model="phone_number"    label="Phone no."                 placeholder="63+ 912 345 6789"  />
             </x-inputs-container>
 
             <div class="flex items-center justify-between pt-2 pb-1 border-t border-zinc-200 dark:border-zinc-700">
@@ -365,20 +383,25 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             </button>
                         @endif
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
+                    <x-inputs-container>
+
+                        <x-input wire:model="vehicles.{{ $index }}.official_record"   label="Franchise No."   placeholder="e.g. 336-000000047372"  />
+
                         <div>
                             <flux:label class="mb-3">Vehicle Type</flux:label>
                             <flux:select wire:model.live="vehicles.{{ $index }}.vehicle_type" placeholder="Choose type..." size="sm">
                                 <flux:select.option>Bus</flux:select.option>
                                 <flux:select.option>Multi-cab</flux:select.option>
-                                <flux:select.option>Van</flux:select.option>
+                                <flux:select.option>UV-express</flux:select.option>
                                 <flux:select.option>Jeep</flux:select.option>
                                 <flux:select.option>Mountain-unit</flux:select.option>
                             </flux:select>
                         </div>
-                        <flux:input wire:model="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
-                    </div>
-                    <div  class="grid grid-cols-2 gap-3">
+
+                        <x-input wire:model="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
+
+                        <x-input wire:model="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
+
                         <div>
                             <flux:label>Route</flux:label>
                             <flux:select wire:model="vehicles.{{ $index }}.route" placeholder="Select route for this vehicle..." size="sm">
@@ -396,7 +419,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 @endforeach
                             </flux:select>
                         </div>
-                        @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'Van')
+
+                        @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'Uv-express')
                             <div>
                                 <flux:label>Group No.</flux:label>
                                 <flux:select wire:model="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm">
@@ -413,7 +437,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 </flux:select>
                             </div>
                         @endif
-                    </div>
+                    </x-inputs-container>
                 </div>
             @empty
                 <div class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
@@ -425,7 +449,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
         </div>
     @endif
 
-    {{-- Step 4: RFID Card Scan --}}
     @if($step === 4)
         <x-card>
 
@@ -514,14 +537,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
         </x-card>
     @endif
 
-    {{-- Step 5: Confirm --}}
     @if($step === 5)
 
         <div class="space-y-4">
 
             <p class="text-xs font-medium uppercase tracking-wide text-zinc-400">Review before saving</p>
 
-            <x-card>
+            <flux:card>
                 <div class="flex items-center gap-3">
 
                     <div class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">
@@ -530,29 +552,45 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
                     <div class="flex-1 min-w-0">
                         <x-text variant="strong" class="text-base">{{ $first_name }} {{ $last_name }}</x-text>
-                        <x-text>{{ $username }}</x-text>
+                        {{-- <x-text>{{ $username }}</x-text> --}}
                     </div>
 
-                    <span @class([
-                        'text-xs font-medium px-2 py-0.5 rounded-full',
-                        'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'     => $role === 'commuter',
-                        'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' => $role === 'operator',
-                    ])>{{ ucfirst($role) }}</span>
+                    <div>
+                        @if ($this->role === 'operator')
+                            <flux:badge color="blue" size="sm">Operator</flux:badge>
+                        @else
+                            <flux:badge color="yellow" size="sm">Commuter</flux:badge>
+                        @endif
+                    </div>
 
                 </div>
 
                 <x-inputs-container class="border-t border-zinc-200 dark:border-zinc-700 pt-3 grid-cols-3">
                     <div>
-                        <x-text class="text-xs">Home Address</x-text>
+                        <x-text class="text-xs">Username</x-text>
+                        <x-text variant="strong" >{{ $username }}</x-text>
+                    </div>
+                    <div>
+                        <x-text class="text-xs">Password</x-text>
+                        <x-text variant="strong" >{{ $password }}</x-text>
+                    </div>
+                    <div>
+                        <x-text class="text-xs">Home address</x-text>
                         <x-text variant="strong" >{{ $address }}</x-text>
                     </div>
+                    @if ($email_address)
+                        <div>
+                            <x-text class="text-xs">Email address</x-text>
+                            <x-text variant="strong" >{{ $email_address }}</x-text>
+                        </div>
+                    @endif
                     <div>
                         <x-text class="text-xs">Phone no.</x-text>
                         <x-text variant="strong" >{{ $phone_number }}</x-text>
                     </div>
                     @if($role === 'commuter')
                         <div>
-                            <x-text class="text-xs">commuter type</x-text>
+                            <x-text class="text-xs">Commuter type</x-text>
                             <x-text variant="strong" >{{ $commuter_type }}</x-text>
                         </div>
                         @if($card_number)
@@ -561,20 +599,62 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 <x-text variant="strong" >{{ $card_number }}</x-text>
                             </div>
                         @endif
-                    @else
-                        <div>
-                            <flux:text class="text-xs">Operator's data</flux:text>
-                        </div>
                     @endif
                 </x-inputs-container>
-            </x-card>
+            </flux:card>
+            @if($role === 'operator')
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <p class="text-xs font-medium uppercase tracking-wide text-zinc-400">Vehicles</p>
+                        <flux:badge size="sm" color="zinc">
+                            {{ count($vehicles) }} Vehicle/s
+                        </flux:badge>
+                    </div>
+
+                    @foreach ($vehicles as $vehicle)
+                        <flux:card class="!p-4" wire:key="summary-vehicle-{{ $loop->index }}">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                                        <flux:icon
+                                            name="{{ $vehicle['vehicle_type'] === 'Bus' ? 'truck' : ($vehicle['vehicle_type'] === 'Uv-express' ? 'truck' : 'truck') }}"
+                                            class="w-4 h-4 text-zinc-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <x-text variant="strong" class="text-sm">{{ $vehicle['plate_number'] }}</x-text>
+                                        <x-text class="text-xs text-zinc-400">{{ $vehicle['vehicle_type'] }}</x-text>
+                                    </div>
+                                </div>
+                                @if(!empty($vehicle['group_number']))
+                                    <flux:badge size="sm" color="zinc">Group {{ $vehicle['group_number'] }}</flux:badge>
+                                @endif
+                            </div>
+
+                            <x-inputs-container class="border-t border-zinc-200 dark:border-zinc-700 pt-3 grid-cols-2">
+                                <div>
+                                    <x-text class="text-xs">Franchise no.</x-text>
+                                    <x-text variant="strong">{{ $vehicle['official_record'] }}</x-text>
+                                </div>
+                                <div>
+                                    <x-text class="text-xs">Route</x-text>
+                                    <x-text variant="strong">{{ $vehicle['route'] }}</x-text>
+                                </div>
+                                <div>
+                                    <x-text class="text-xs">Seat Capacity</x-text>
+                                    <x-text variant="strong">{{ $vehicle['seat_capacity'] }}</x-text>
+                                </div>
+                            </x-inputs-container>
+                        </flux:card>
+                    @endforeach
+                </div>
+            @endif
             <x-text class="text-xs text-zinc-400 leading-relaxed">
                 A welcome message with login instructions will be sent to the user. You can edit their profile anytime from the Users page.
             </x-text>
         </div>
     @endif
 
-    {{-- Navigation --}}
     <div class="flex items-center gap-2 pt-6">
         <flux:spacer />
         @if($step > 1)

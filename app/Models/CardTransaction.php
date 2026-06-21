@@ -12,6 +12,10 @@ class CardTransaction extends Model
 
 protected $fillable = [
     'card_id',
+    'processed_by',
+    'source',
+    'reference_no',
+    'metadata',
     'transaction_type',
     'amount',
     'balance_before',
@@ -25,7 +29,9 @@ protected $fillable = [
 ];
    protected $casts = [
         'transaction_time' => 'datetime',
+         'metadata' => 'array',
     ];
+
     public function card() {
         return $this->belongsTo(Card::class);
     }

@@ -15,8 +15,8 @@ return new class extends Migration
         Schema::create('route_lists', function (Blueprint $table) {
             $table->id();
             $table->foreignIdFor(App\Models\OperatorTicketRate::class);
-            $table->string('terminal');
-            $table->string('vehicle_type');
+            $table->string('terminal')->index();
+            $table->string('vehicle_type')->index();
             $table->decimal('base_fare', 10, 2); 
             $table->timestamps();
         });

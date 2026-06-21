@@ -96,7 +96,7 @@ new class extends Component {
         if (($queue->vehicle_type === 'Jeep' && ($queue->destination === 'Buhi' || $queue->destination === 'Mountain-unit')) && $queue->id === $queue->id) {
             $queue->update(['departs_at' => Carbon::now()]);
             ProcessAfterDepart::dispatch($queue->id);
-        } elseif ($queue->vehicle_type === 'Van') {
+        } elseif ($queue->vehicle_type === 'UV-express') {
             $queue->update(['departs_at' => Carbon::now()->addMinutes(30)]);
             ProcessAfterDepart::dispatch($queue->id)->delay($queue->departs_at);
         }
@@ -105,6 +105,11 @@ new class extends Component {
     }
 
     public function render() {
+
+        if(!auth()->user()) {
+            return $this->view()->layout('layouts.public-layout');
+        }
+
         $role = auth()->user()->role;
 
         return $this->view()->layout('layouts.' . $role . '-layout');
@@ -115,13 +120,14 @@ new class extends Component {
 
 <div class="w-full max-w-5xl mx-auto px-4">
 
-
-    @if (auth()->user()->role === 'cashier' && auth()->id())
-        <div class="flex justify-end gap-2 mb-6 items-center">
-            <x-button size="sm" icon="plus" variant="primary" href="{{ route('cashier.queue.vehicle') }}" wire:navigate>Queue Vehicle</x-button>
-            <x-button size="sm" href="{{ route('cashier.active-group') }}" wire:navigate>View Active Groups</x-button>
-        </div>
-    @endif
+    @auth
+        @if ( auth()->user()->role === 'cashier' && auth()->id())
+            <div class="flex justify-end gap-2 mb-6 items-center">
+                <x-button size="sm" icon="plus" variant="primary" href="{{ route('cashier.queue.vehicle') }}" wire:navigate>Queue Vehicle</x-button>
+                <x-button size="sm" href="{{ route('cashier.active-group') }}" wire:navigate>View Active Groups</x-button>
+            </div>
+        @endif
+    @endauth
 
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -144,7 +150,7 @@ new class extends Component {
                     <option value="Jeep">Jeep</option>
                     <option value="Bus">Bus</option>
                     <option value="Multi-cab">Multi-cab</option>
-                    <option value="Van">Van</option>
+                    <option value="UV-express">UV-express</option>
                 </select>
             </div>
         </div>

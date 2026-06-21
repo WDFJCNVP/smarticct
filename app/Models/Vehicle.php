@@ -15,7 +15,8 @@ class Vehicle extends Model
         'route_list_id',
         'vehicle_type',
         'plate_number',
-        'total_seats'
+        'total_seats',
+        'official_record',
     ];
 
     protected function casts(): array

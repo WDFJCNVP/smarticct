@@ -21,6 +21,8 @@ use App\Events\TriggerDepartingEvent;
 
 class CardController extends Controller
 {
+    private $travel_record;
+
     private function getCard(string $uid)
     {
         return Card::with('user.vehicles')->where('uid', $uid)->first();
@@ -282,9 +284,15 @@ class CardController extends Controller
                         $queue->increment('seat_count');
                         $queue->refresh();
 
-                        TravelRecord::create([
+                        $this->travel_record = TravelRecord::create([
                             'user_id'  => $card->user_id,
                             'queue_id' => $queue->id,
+                            'destination' => $queue->destination,
+                            'vehicle_type' => $queue->vehicle_type,
+                            'plate_number' => $queue->plate_number,
+                            'driver_name' => $queue->driver_name,
+                            'commuter_type' => $card->user->commuter_type,
+                            'fare_amount' => $amount,
                         ]);
 
                         if (
@@ -380,13 +388,14 @@ class CardController extends Controller
                 broadcast(new QueuedVehicleEvent());
             }
 
-            // ------------------------------------------------------------------
-            // Record transaction
-            // ------------------------------------------------------------------
             $transaction = CardTransaction::create([
                 'card_id'          => $card->id,
+                'processed_by'     => $card->user->id,
+                'source'           => 'rfid',
+                'reference_no'     => 'TXN-' . now()->format('YmdHis') . '-' . Str::random(6),
+                'metadata'         =>  $validated,
                 'points_deducted'  => -$amount,
-                'transaction_type' => $transaction_type,
+                'transaction_type' => 'purchase',
                 'amount'           => $amount,
                 'balance_before'   => $balanceBefore,
                 'balance_after'    => $balanceAfter,
@@ -394,6 +403,8 @@ class CardController extends Controller
                 'message'          => $message,
                 'transaction_time' => now(),
             ]);
+
+            $this->travel_record?->update(['card_transaction_id' => $transaction->id]);
 
             return response()->json([
                 'success'          => $status === 'success',

@@ -16,7 +16,10 @@ return new class extends Migration
             $table->string('user_code', 20)->unique()->nullable();
             $table->string('name');
             $table->string('username')->unique();
-            $table->text('address');
+            $table->string('email_address')->unique()->nullable();
+            $table->integer('age')->nullable();
+            $table->string('commuter_type')->nullable();
+            $table->text('address')->nullable();
             $table->string('phone_number')->nullable();
             $table->enum('role', ['commuter', 'operator', 'admin', 'cashier'])->default('commuter');
             $table->timestamp('email_verified_at')->nullable();
