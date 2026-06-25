@@ -33,6 +33,7 @@
               <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.dashboard') }}" icon="squares-2x2 "> Dashboard </x-dashboard.sidebar-menu.sidebar-item>
               <x-dashboard.sidebar-menu.sidebar-item href="#" icon="map"> Routes </x-dashboard.sidebar-menu.sidebar-item>
               <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.travel.record') }}" icon="briefcase">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.audit.logs') }}" icon="shield-check">Audit Logs</x-dashboard.sidebar-menu.sidebar-item>
               <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.users') }}" icon="users" wire:navigate>Users</x-dashboard.sidebar-menu.sidebar-item>
               <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.cards') }}" icon="credit-card">Card</x-dashboard.sidebar-menu.sidebar-item>
 

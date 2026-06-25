@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
+use App\Services\AuditLogsService;
+
 new #[Layout('layouts::public-layout')] class extends Component
 {
     #[Validate('required|string')]
@@ -32,6 +34,20 @@ new #[Layout('layouts::public-layout')] class extends Component
         }
 
         $this->rateLimitedFor = RateLimiter::availableIn($this->throttleKey());
+
+        $attributes = [
+            'user' => null,
+            'action' => 'login_failed',
+            'subject' => "Failed login - $this->username",
+            'channel' => "Web",
+            'metadata' => json_encode([
+                'ip_address' => request()->ip(),
+                'message' => ' Too many login attempts.',
+            ]),
+        ];
+
+        app(AuditLogsService::class)->create($attributes);
+
 
         throw ValidationException::withMessages([
             'username' => 'Too many login attempts.',

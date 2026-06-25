@@ -70,6 +70,10 @@ Route::middleware('auth')->group(function () {
         ->name('admin.travel.record')
         ->middleware('role:admin');
 
+    Route::livewire('/admin/audit/logs', 'pages::content-by-role.admin.audit-logs')
+        ->name('admin.audit.logs')
+        ->middleware('role:admin');
+
         
     // Cashier Section
     Route::livewire('/cashier/dashboard', 'pages::content-by-role.cashier.index')

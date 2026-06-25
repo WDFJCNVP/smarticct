@@ -44,19 +44,20 @@ class ProcessAfterDepart implements ShouldQueue
         foreach ($this->getAdmins() as $user) {
             $notification = Notification::create([
                 'type'     => 'Departed',
-                'title'    => 'Vehicle has been departed',
-                'message'  => "[" . ucfirst($queue->vehicle_type) . "] vehicle with plate number {$queue->plate_number} has been marked as departed",
+                'title'    => 'Vehicle Departed',
+                'message'  => ucfirst($queue->vehicle_type) . " with plate number {$queue->plate_number} has departed.",
                 'metadata' => json_encode(['user_id' => $queue->user_id]),
             ]);
+
             UserNotification::create(['notification_id' => $notification->id, 'user_id' => $user->id]);
         }
 
-        $notification = Notification::create([
-            'type'     => 'departed',
-            'title'    => 'Vehicle marked departed',
-            'message'  => "Your {$queue->vehicle_type} vehicle with plate number {$queue->plate_number} has been marked as departed.",
-            'metadata' => json_encode(['user_id' => $queue->user_id]),
-        ]);
+            $notification = Notification::create([
+                'type'     => 'departed',
+                'title'    => 'Vehicle Departed',
+                'message'  => "Your {$queue->vehicle_type} with plate number {$queue->plate_number} has departed.",
+                'metadata' => json_encode(['user_id' => $queue->user_id]),
+            ]);
         UserNotification::create(['notification_id' => $notification->id, 'user_id' => $ownerUserId]);
 
         broadcast(new NotificationEvent());
@@ -68,20 +69,20 @@ class ProcessAfterDepart implements ShouldQueue
 
         foreach ($this->getAdmins() as $user) {
             $notification = Notification::create([
-                'type'     => 'Loading',
-                'title'    => 'Vehicle promoted to loading',
-                'message'  => "[" . ucfirst($next_queue->vehicle_type) . "] vehicle with plate number {$next_queue->plate_number} is now next in line",
+                'type'     => 'loading',
+                'title'    => 'Next in Line',
+                'message'  => "{$next_queue->vehicle_type} with plate number {$next_queue->plate_number} is now next in line.",
                 'metadata' => json_encode(['user_id' => $next_queue->user_id]),
             ]);
             UserNotification::create(['notification_id' => $notification->id, 'user_id' => $user->id]);
         }
 
-        $notification = Notification::create([
-            'type'     => 'loading',
-            'title'    => 'Your vehicle is next',
-            'message'  => "Your {$next_queue->vehicle_type} vehicle with plate number {$next_queue->plate_number} is now first in line. Please tap your card to start loading.",
-            'metadata' => json_encode(['user_id' => $next_queue->user_id]),
-        ]);
+            $notification = Notification::create([
+                'type'     => 'loading',
+                'title'    => 'Vehicle Status: Loading',
+                'message'  => "Your {$next_queue->vehicle_type} with plate number {$next_queue->plate_number} is ready for loading.",
+                'metadata' => json_encode(['user_id' => $next_queue->user_id]),
+            ]);
         UserNotification::create(['notification_id' => $notification->id, 'user_id' => $ownerUserId]);
 
         broadcast(new NotificationEvent());
@@ -117,8 +118,7 @@ class ProcessAfterDepart implements ShouldQueue
             $isScheduled = in_array($queue->vehicle_type, ['Bus', 'UV-express']);
 
             if ($isScheduled) {
-                // Scheduled: next staging vehicle by slot_position
-                // Status stays 'staging' — they must tap to start their timer
+
                 $next_queue = Queue::where('vehicle_type', $queue->vehicle_type)
                     ->where('destination', $queue->destination)
                     ->where('status', 'staging')
@@ -133,14 +133,12 @@ class ProcessAfterDepart implements ShouldQueue
                     return;
                 }
 
-                // Do NOT change status — vehicle stays 'staging' until they tap
-                // Just notify them that they're now first in line
                 Log::info("Queue [{$next_queue->id}] is now first in line. Waiting for tap.");
                 $next_card = $this->getCard($next_queue->user_id);
                 $this->promotedNotification($next_queue, $next_card);
 
             } else {
-                // Non-scheduled: auto-promote next staging to loading
+    
                 $next_queue = Queue::where('vehicle_type', $queue->vehicle_type)
                     ->where('destination', $queue->destination)
                     ->where('status', 'staging')

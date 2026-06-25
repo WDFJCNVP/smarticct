@@ -59,7 +59,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
          'plate_number' => '',
          'group_number' => '',
          'route' => '',
-         'official_record' => '',
          'seat_capacity' => ''
          ],
     ];
@@ -195,7 +194,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     'vehicles.*.vehicle_type'    => 'required|string',
                     'vehicles.*.plate_number'    => 'required|unique:vehicles,plate_number',
                     'vehicles.*.route'           => 'required|string',
-                    'vehicles.*.official_record'  => 'required|unique:vehicles,official_record',
                     'vehicles.*.seat_capacity'   => 'required|integer|min:10|max:50',
                     'vehicles.*.group_number'    => 'nullable|integer|min:1|max:2',
                 ]);
@@ -402,9 +400,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         @endif
                     </div>
                     <x-inputs-container>
-
-                        <x-input wire:model="vehicles.{{ $index }}.official_record"   label="Franchise No."   placeholder="e.g. 336-000000047372"  />
-
                         <div>
                             <flux:label class="mb-3">Vehicle Type</flux:label>
                             <flux:select wire:model.live="vehicles.{{ $index }}.vehicle_type" placeholder="Choose type..." size="sm">

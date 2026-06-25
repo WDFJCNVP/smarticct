@@ -15,9 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignIdFor(App\Models\User::class)->constrained()->onDelete('cascade');
             $table->foreignIdFor(App\Models\RouteList::class)->nullable()->constrained()->onDelete('set null');
-            $table->string('official_record')->unique();
             $table->string('vehicle_type')->index();
-            $table->string('plate_number')->unique();
+            $table->string('plate_number')->index();
             $table->integer('total_seats')->index();
             $table->timestamps();
         });

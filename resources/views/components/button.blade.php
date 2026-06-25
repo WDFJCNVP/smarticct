@@ -1,3 +1,3 @@
-<flux:button {{ $attributes->merge([]) }} >
+<flux:button {{ $attributes->merge(['size' => 'sm']) }} >
     {{ $slot }}
 </flux:button>
