@@ -1,5 +1,6 @@
 @import url('https://fonts.bunny.net');
 @import url('https://fonts.bunny.net/css?family=inter:400,500,600&display=swap" rel="stylesheet');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
 @import 'tailwindcss';
 @import '../../vendor/livewire/flux/dist/flux.css';
 
@@ -11,13 +12,106 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: Inter, sans-serif;
-    --color-primary: #181E74;
-    --color-secondary: #000000;
+
+    /* ── Fonts ── */
+    --font-primary: 'Plus Jakarta Sans', sans-serif;
+    --font-secondary: 'Outfit', sans-serif;
+
+    /* ── Font Sizes ── */
+    --text-page-title:       1.5rem;     /* 24px */
+    --text-section-heading:  1.25rem;    /* 20px */
+    --text-card-title:       1rem;       /* 16px */
+    --text-nav-item:         0.875rem;   /* 14px */
+    --text-stat-value:       1.75rem;    /* 28px */
+    --text-nav-label:        0.75rem;    /* 12px */
+    --text-body:             1rem;       /* 16px */
+    --text-table-row:        0.875rem;   /* 14px */
+    --text-stat-label:       0.875rem;   /* 14px */
+    --text-badge:            0.8125rem;  /* 13px */
+    --text-helper:           0.875rem;   /* 14px */
+    --text-timestamp:        0.8125rem;  /* 13px */
+    
+    /* ── Font Weights ── */
+    --font-weight-regular:   400;
+    --font-weight-medium:    500;
+    --font-weight-semibold:  600;
+    --font-weight-bold:      700;
+    --font-weight-extrabold: 800;
+
+    /* ── Brand Colors ── */
+    --color-primary:         #181E74;
+    --color-primary-hover:   #2330A8;
+    --color-secondary:       #FF6A00;
+    --color-secondary-hover: #FF8533;
+
+    /* ── Light Mode — Backgrounds ── */
+    --color-light-primary:   #F5F6FA;
+    --color-light-secondary: #FFFFFF;
+    --color-light-subtle:    #ECEEF5;
+
+    /* ── Light Mode — Text ── */
+    --color-light-txt-primary: #181E74;
+    --color-light-txt-body:    #3D445C;
+    --color-light-txt-muted:   #8B90A7;
+
+    /* ── Light Mode — Borders ── */
+    --color-light-bd-default:  #E2E4EF;
+    --color-light-bd-strong:   #C8CBE0;
+
+    /* ── Dark Mode — Backgrounds ── */
+    --color-dark-primary:    #0D1117;
+    --color-dark-secondary:  #13182A;
+    --color-dark-surface:    #1A1F2E;
+    --color-dark-subtle:     #222840;
+
+    /* ── Dark Mode — Text ── */
+    --color-dark-txt-primary: #FFFFFF;
+    --color-dark-txt-body:    #FFFFFFBF;
+    --color-dark-txt-muted:   #FFFFFF66;
+
+    /* ── Dark Mode — Borders ── */
+    --color-dark-bd-default:  #FFFFFF12;
+    --color-dark-bd-strong:   #FFFFFF26;
+
+    /* ── Semantic — Light ── */
+    --color-success:          #16A34A;
+    --color-warning:          #D97706;
+    --color-danger:           #DC2626;
+    --color-info:             #2563EB;
+
+    /* ── Semantic — Dark ── */
+    --color-dark-success:     #22C55E;
+    --color-dark-warning:     #F59E0B;
+    --color-dark-danger:      #F87171;
+    --color-dark-info:        #60A5FA;
 }
 
 @layer base {
-  html {
-    font-family: var(--font-sans);
-  }
+    html {
+        font-family: var(--font-secondary);
+        font-size: var(--text-body);
+        font-weight: var(--font-weight-regular);
+        color: var(--color-light-txt-body);
+        background-color: var(--color-light-primary);
+    }
+
+    html.dark {
+        color: var(--color-dark-txt-body);
+        background-color: var(--color-dark-primary);
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-primary);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-light-txt-primary);
+    }
+
+    .dark h1,
+    .dark h2,
+    .dark h3,
+    .dark h4,
+    .dark h5,
+    .dark h6 {
+        color: var(--color-dark-txt-primary);
+    }
 }

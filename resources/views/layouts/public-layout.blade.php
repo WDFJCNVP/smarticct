@@ -10,35 +10,46 @@
     @livewireStyles
     @fluxAppearance
 </head>
-<body class="min-h-screen bg-white dark:bg-zinc-800 antialiased">
-    <flux:header container class="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700">
-        <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+<body class="h-screen bg-light-primary dark:bg-dark-primary antialiased">
+    <flux:header container class="sticky top-0 z-50 bg-light-secondary dark:bg-dark-secondary border-b border-light-bd-default dark:border-dark-bd-default">
+        <flux:sidebar.toggle class="lg:hidden mr-3" icon="bars-2" inset="left" />
 
-        <div class="flex-1 flex items-center">
-            <flux:brand
-                href="/"
-                logo="{{ Vite::asset('resources/images/logo.png') }}"
-                name="SmartICCT"
-                class="-mb-px max-lg:hidden"
-            />
+        <div class="flex-1 flex items-center gap-3 lg:gap-3 md:ml-4 lg:ml-6">
+            <a href="/">
+                <img 
+                    src="{{ Vite::asset('resources/images/logo.png') }}" 
+                    alt="SmartICCT" 
+                    class="h-9 w-auto lg:h-10"
+                >
+            </a>
+
+            <div class="flex flex-col leading-tight">
+                <a href="/" class="text-base font-bold font-primary text-light-txt-primary dark:text-dark-txt-primary lg:text-lg">
+                    SmartICCT
+                </a>
+                
+                <span class="text-xs font-secondary text-light-txt-primary dark:text-dark-txt-body lg:text-sm">
+                    Iriga City Central Terminal
+                </span>
+            </div>
         </div>
 
         <flux:spacer />
 
-        <flux:navbar class="me-4 max-lg:hidden">
+        <flux:navbar class="me-4 max-lg:hidden font-primary text-nav-item font-light">
             <flux:navbar.item href="/" wire:navigate>Explore</flux:navbar.item>
             <flux:navbar.item href="/routes" wire:navigate>Routes</flux:navbar.item>
             <flux:navbar.item href="/queue" wire:navigate>Queue</flux:navbar.item>
 
-            <flux:separator vertical variant="subtle" class="my-2"/>
+            <flux:separator vertical variant="subtle" class="my-5"/>
 
-            <flux:navbar.item href="/login" wire:navigate>Login</flux:navbar.item>
+            <flux:navbar.item href="/login" class="dark:active:bg-primary" wire:navigate>Login</flux:navbar.item>
             <flux:navbar.item href="/register" wire:navigate>Register</flux:navbar.item>
         </flux:navbar>
 
     </flux:header>
 
-    <flux:sidebar sticky collapsible="mobile" class="lg:hidden bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-700">
+    <flux:sidebar sticky collapsible="mobile" class="lg:hidden bg-light-secondary dark:bg-dark-secondary border-r border-zinc-200 dark:border-zinc-700">
         <flux:sidebar.header>
             <flux:sidebar.brand
                 href="/"
@@ -51,9 +62,9 @@
         </flux:sidebar.header>
 
         <flux:sidebar.nav>
-            <flux:sidebar.item href="/" wire:navigate>Explore</flux:sidebar.item>
-            <flux:sidebar.item href="/routes" wire:navigate>Routes</flux:sidebar.item>
-            <flux:sidebar.item href="/queue" wire:navigate>Queue</flux:sidebar.item>
+            <flux:sidebar.item href="/" wire:navigate icon="magnifying-glass">Explore</flux:sidebar.item>
+            <flux:sidebar.item href="/routes" wire:navigate icon="map-pin">Routes</flux:sidebar.item>
+            <flux:sidebar.item href="/queue" wire:navigate icon="queue-list">Queue</flux:sidebar.item>
         </flux:sidebar.nav>
 
         <flux:sidebar.spacer />
