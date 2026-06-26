@@ -44,7 +44,7 @@
             <flux:separator vertical variant="subtle" class="my-5"/>
 
             <flux:navbar.item href="/login" class="dark:active:bg-primary" wire:navigate>Login</flux:navbar.item>
-            <flux:navbar.item href="/register" wire:navigate>Register</flux:navbar.item>
+            <flux:navbar.item href="{{ route('public.register') }}" wire:navigate>Register</flux:navbar.item>
         </flux:navbar>
 
     </flux:header>

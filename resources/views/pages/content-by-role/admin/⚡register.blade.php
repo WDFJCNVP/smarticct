@@ -43,7 +43,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     // Card scan state
     public bool $card_focused = true;
-    public string $card_state = 'warn'; // ready | success | warn
+    public string $card_state = 'warn'; 
 
     // Operator details
     public string $employee_id = '';

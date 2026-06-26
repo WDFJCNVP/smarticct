@@ -15,9 +15,13 @@ use App\Http\Controllers\Web\User\{
     commuterDashboardController,
 };
 
+//Public Registration Route
+
+Route::livewire('/register', 'pages::auth.register')->name('public.register');
+
 //Public Controller
 Route::controller(PublicController::class)->group(function () {
-    Route::get('/', 'index');
+    Route::get('/', 'index')->name('explore');
     Route::get('/routes', 'routes');
     Route::get('/fares', 'fare');
     // Route::get('/queue', 'queue');

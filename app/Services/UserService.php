@@ -20,31 +20,35 @@ class UserService
         return User::where('role', 'admin')->first();
     }
 
-    public function create( array $userBasicInformation, array $cardInformation, ?array $vehicles = null,): User {
+    public function create( array $userBasicInformation, array $cardInformation = null, ?array $vehicles = null,): User {
 
         return DB::transaction(function () use ($userBasicInformation, $cardInformation, $vehicles) {
 
             $userBasicInformation['password'] = Hash::make($userBasicInformation['password']);
 
             $user = User::create($userBasicInformation);
-            $user->card()->create($cardInformation);    
 
-            if($this->getAdmin()) {
-                $admin = $this->getAdmin();
-                $notification = Notification::create([
-                    'type'    => 'Registration',
-                    'title'   => 'User Registration',
-                    'message' => "You have successfully registered a new user. You can manage and monitor the user's details on the Users page. User ID: {$user->user_code}"
-                ]);
+            if ($cardInformation) {
 
-                UserNotification::create([
-                    'notification_id' => $notification->id,
-                    'user_id' => $admin->id,
-                ]);
+                $user->card()->create($cardInformation);
 
+                if($this->getAdmin()) {
+                    $admin = $this->getAdmin();
+                    $notification = Notification::create([
+                        'type'    => 'Registration',
+                        'title'   => 'User Registration',
+                        'message' => "You have successfully registered a new user. You can manage and monitor the user's details on the Users page. User ID: {$user->user_code}"
+                    ]);
+
+                    UserNotification::create([
+                        'notification_id' => $notification->id,
+                        'user_id' => $admin->id,
+                    ]);
+
+                }
+
+                broadcast(new NotificationEvent());
             }
-
-            broadcast(new NotificationEvent());
 
             if ($userBasicInformation['role'] === 'operator' && !empty($vehicles)) {
                 foreach ($vehicles as $vehicle) {
