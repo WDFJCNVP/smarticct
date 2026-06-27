@@ -23,6 +23,7 @@ use App\Services\UserService;
 new #[Layout('layouts.admin-layout')] class extends Component
 {
     public int $step = 1;
+    public bool $skipped = false;
 
     // Basic info
     public string $role = '';
@@ -63,6 +64,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
          ],
     ];
 
+    public function stepSkipped() {
+        $this->skipped = true;
+        $this->next();
+    }
 
     public function updated($property)
     {
@@ -201,9 +206,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
         }
 
         if ($this->step === 4) {
-            $this->validate([
-                'card_number' => 'required|unique:cards,uid',
-            ]);
+            if (!$this->skipped) {
+                $this->validate([
+                    'card_number' => 'required|unique:cards,uid',
+                ]);
+            }
         }
 
         if ($this->step < 5) {
@@ -245,10 +252,16 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'password'     => $this->password, 
         ];
 
-        $cardInformation = [
-            'uid'    => $this->card_number,
-            'status' => 'active',
-        ];
+        if($this->card_number) {
+            $cardInformation = [
+                'uid'    => $this->card_number,
+                'status' => 'active',
+            ];
+        } else {
+            $cardInformation = [];
+        }
+
+
 
         app(UserService::class)->create(
             $userBasicInformation,
@@ -580,39 +593,38 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
                 <x-inputs-container class="border-t border-zinc-200 dark:border-zinc-700 pt-3 grid-cols-3">
                     <div>
-                        <x-text class="text-xs">Username</x-text>
+                        <x-text size="sm">Username</x-text>
                         <x-text variant="strong" >{{ $username }}</x-text>
                     </div>
                     <div>
-                        <x-text class="text-xs">Password</x-text>
+                        <x-text size="sm">Password</x-text>
                         <x-text variant="strong" >{{ $password }}</x-text>
                     </div>
                     <div>
-                        <x-text class="text-xs">Home address</x-text>
+                        <x-text size="sm">Home address</x-text>
                         <x-text variant="strong" >{{ $address }}</x-text>
                     </div>
                     @if ($email_address)
                         <div>
-                            <x-text class="text-xs">Email address</x-text>
+                            <x-text size="sm">Email address</x-text>
                             <x-text variant="strong" >{{ $email_address }}</x-text>
                         </div>
                     @endif
                     <div>
-                        <x-text class="text-xs">Phone no.</x-text>
+                        <x-text size="sm">Phone no.</x-text>
                         <x-text variant="strong" >{{ $phone_number }}</x-text>
                     </div>
                     @if($role === 'commuter')
                         <div>
-                            <x-text class="text-xs">Commuter type</x-text>
+                            <x-text size="sm">Commuter type</x-text>
                             <x-text variant="strong" >{{ $commuter_type }}</x-text>
                         </div>
-                        @if($card_number)
-                            <div>
-                                <x-text class="text-xs">Card UID</x-text>
-                                <x-text variant="strong" >{{ $card_number }}</x-text>
-                            </div>
-                        @endif
                     @endif
+                    <div>
+                        <x-text size="sm">Has card</x-text>
+                        <x-text variant="strong">{{ $card_number ? 'Yes' : 'No' }}</x-text>
+                    </div>
+
                 </x-inputs-container>
             </flux:card>
             @if($role === 'operator')
@@ -645,10 +657,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             </div>
 
                             <x-inputs-container class="border-t border-zinc-200 dark:border-zinc-700 pt-3 grid-cols-2">
-                                <div>
-                                    <x-text class="text-xs">Franchise no.</x-text>
-                                    <x-text variant="strong">{{ $vehicle['official_record'] }}</x-text>
-                                </div>
+
                                 <div>
                                     <x-text class="text-xs">Route</x-text>
                                     <x-text variant="strong">{{ $vehicle['route'] }}</x-text>
@@ -674,7 +683,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
             <flux:button size="sm" variant="ghost" wire:click="back">Back</flux:button>
         @endif
         @if($step < 5)
-            <flux:button size="sm" variant="primary" wire:click="next">Continue</flux:button>
+            @if ($step === 4 && $this->card_number === '')
+                <flux:button size="sm" variant="primary" wire:click="stepSkipped">Skip</flux:button>
+            @else
+                <flux:button size="sm" variant="primary" wire:click="next">Continue</flux:button>
+            @endif
         @else
             <flux:button size="sm" variant="primary" wire:click="register">
                 Register this {{ ucfirst($this->role) }}

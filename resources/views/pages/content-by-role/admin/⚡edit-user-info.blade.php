@@ -5,13 +5,14 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 
 use App\Models\User;
+use App\Models\Card;
 use App\Models\Terminal;
 use App\Models\Vehicle;
 use App\Models\Route;
 use App\Models\RouteList;
+use App\Models\VehicleGroup;
 
 use App\Services\UserService;
-
 
 new #[Layout('layouts.admin-layout')] class extends Component
 {
@@ -35,9 +36,16 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public $route_list_id;
 
+    public bool $showCardPanel = false;
+    public string $cardUid = '';
+
+    public function getVehicleGroupNumber($vehicle_id) {
+        return VehicleGroup::where('vehicle_id', $vehicle_id)->value('group_number');
+    }
+
     #[Computed]
     public function getVehicle() {
-        return Vehicle::where('user_id', $this->user->id)->get();
+        return Vehicle::with('vehicle_group')->where('user_id', $this->user->id)->get();
     }
 
     #[Computed]
@@ -50,24 +58,52 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function mount() {
-        $this->name    = $this->user->name;
-        $this->username   = $this->user->username;
-        $this->address = $this->user->address;
+        $this->name     = $this->user->name;
+        $this->username = $this->user->username;
+        $this->address  = $this->user->address;
 
         foreach ($this->getVehicle as $vehicle) {
             $this->editingVehicles[$vehicle->id] = [
                 'vehicle_type' => $vehicle->vehicle_type,
                 'total_seats'  => $vehicle->total_seats,
                 'plate_number' => $vehicle->plate_number,
+                'group_number' => $this->getVehicleGroupNumber($vehicle->id),
             ];
         }
     }
 
+    public function issueCard(): void
+    {
+        $this->validate([
+            'cardUid' => 'required|string|min:4|unique:cards,uid',
+        ], [
+            'cardUid.unique' => 'This card UID is already assigned to another user.',
+            'cardUid.min'    => 'The scanned UID looks too short — please scan again.',
+        ]);
+
+        Card::create([
+            'user_id' => $this->user->id,
+            'uid'     => $this->cardUid,
+            'balance' => 0,
+        ]);
+
+        $this->showCardPanel = false;
+        $this->cardUid = '';
+
+        $this->user->refresh();
+
+        Flux::toast(
+            variant: 'success',
+            heading: 'Card issued.',
+            text: 'RFID card has been linked to ' . $this->user->name . '.',
+        );
+    }
+
     public function save() {
         $attributes = $this->validate([
-            'name'    => 'required|min:2|string',
-            'username'   => 'required|min:1|string',
-            'address' => 'required|min:1|string',
+            'name'     => 'required|min:2|string',
+            'username' => 'required|min:1|string',
+            'address'  => 'required|min:1|string',
         ]);
 
         app(UserService::class)->update($this->user, $attributes);
@@ -80,18 +116,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function deleteUser() {
-
-        // $this->user->delete();
-        
         app(UserService::class)->destroy($this->user);
-
         $this->redirect(route('admin.users'), navigate: true);
-
-        Flux::toast(
-            variant: 'success',
-            heading: 'User deleted.',
-            text: 'User has been deleted.'
-        );
     }
 
     public function addingVehicle($status) {
@@ -113,9 +139,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
             $new_vehicle = $this->user->vehicles()->create([
                 'route_list_id' => $route_list->id,
-                'vehicle_type' => $attributes['create_vehicle_type'],
-                'plate_number' => $attributes['create_plate_number'],
-                'total_seats'  => $attributes['create_total_seats'],
+                'vehicle_type'  => $attributes['create_vehicle_type'],
+                'plate_number'  => $attributes['create_plate_number'],
+                'total_seats'   => $attributes['create_total_seats'],
             ]);
 
             $this->editingVehicles[$new_vehicle->id] = [
@@ -133,11 +159,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         unset($this->getVehicle);
         $this->addingVehicle(false);
 
-        Flux::toast(
-            variant: 'success',
-            heading: 'Vehicle added.',
-            text: 'New vehicle has been added.'
-        );
+        Flux::toast(variant: 'success', heading: 'Vehicle added.', text: 'New vehicle has been added.');
     }
 
     public function editVehicle(int $vehicle_id) {
@@ -145,7 +167,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function cancelEditVehicle() {
-        // Restore original values from the database so edits are discarded
         $vehicle = Vehicle::find($this->confirmingEditVehicle);
 
         if ($vehicle) {
@@ -153,6 +174,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'vehicle_type' => $vehicle->vehicle_type,
                 'total_seats'  => $vehicle->total_seats,
                 'plate_number' => $vehicle->plate_number,
+                'group_number' => $this->getVehicleGroupNumber($vehicle->id),
             ];
         }
 
@@ -160,24 +182,37 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function updateVehicle(int $vehicle_id) {
-        $data = $this->validate([
-            "editingVehicles.{$vehicle_id}.vehicle_type" => 'required|string',
+        $vehicle = Vehicle::where('id', $vehicle_id)
+            ->where('user_id', $this->user->id)
+            ->firstOrFail();
+
+        $rules = [
             "editingVehicles.{$vehicle_id}.plate_number" => 'required|string',
             "editingVehicles.{$vehicle_id}.total_seats"  => 'required|integer|min:1',
+        ];
+
+        if ($vehicle->vehicle_type === 'Bus') {
+            $rules["editingVehicles.{$vehicle_id}.group_number"] = 'required|integer|min:1';
+        }
+
+        $data = $this->validate($rules);
+
+        $vehicle->update([
+            'plate_number' => $data['editingVehicles'][$vehicle_id]['plate_number'],
+            'total_seats'  => $data['editingVehicles'][$vehicle_id]['total_seats'],
         ]);
 
-        Vehicle::where('id', $vehicle_id)
-            ->where('user_id', $this->user->id)
-            ->update($data['editingVehicles'][$vehicle_id]);
+        if ($vehicle->vehicle_type === 'Bus') {
+            VehicleGroup::where('vehicle_id', $vehicle->id)
+                ->update([
+                    'group_number' => $data['editingVehicles'][$vehicle_id]['group_number'],
+                ]);
+        }
 
         $this->confirmingEditVehicle = null;
         unset($this->getVehicle);
 
-        Flux::toast(
-            variant: 'success',
-            heading: 'Vehicle updated.',
-            text: 'Vehicle information has been updated.'
-        );
+        Flux::toast(variant: 'success', heading: 'Vehicle updated.', text: 'Vehicle information has been updated.');
     }
 
     public function deleteVehicle(int $vehicle_id) {
@@ -189,11 +224,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->confirmingDeleteVehicle = null;
         unset($this->getVehicle);
 
-        Flux::toast(
-            variant: 'success',
-            heading: 'Vehicle deleted.',
-            text: 'Vehicle has been deleted.'
-        );
+        Flux::toast(variant: 'success', heading: 'Vehicle deleted.', text: 'Vehicle has been deleted.');
     }
 
     public function updatedCreateVehicleType($value)
@@ -210,20 +241,157 @@ new #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
-    <flux:breadcrumbs>
+    <flux:breadcrumbs class="mb-4">
         <flux:breadcrumbs.item href="{{ route('admin.users') }}" wire:navigate>Users</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>{{ $this->user->name }}</flux:breadcrumbs.item>
     </flux:breadcrumbs>
 
     <x-pages-heading heading="Edit User Information"/>
 
-    <div class="mt-4 mb-6 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-between flex-wrap gap-4">
+    @if ($this->user->card === null)
+        <flux:callout variant="warning" icon="exclamation-circle" >
+            <flux:callout.heading>This user has no RFID card assigned</flux:callout.heading>
+            <flux:callout.text class="flex items-center gap-4">
+                <div>
+                    They won't be able to tap at the terminal until a card is issued and linked to their account.
+                </div> 
+                <x-button
+                    class="cursor-pointer"
+                    size="sm"
+                    icon="credit-card"
+                    wire:click="$set('showCardPanel', true)"
+                    class="shrink-0"
+                >
+                    Issue card now
+                </x-button>
+            </flux:callout.text>
+        </flux:callout>
 
+    @endif
+
+    {{-- Card issuance panel --}}
+    @if ($showCardPanel)
+        <div class="mt-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden">
+
+            <div class="flex items-center gap-2 px-5 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                <flux:icon name="credit-card" class="w-4 h-4 text-zinc-400" />
+                <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Issue RFID card</span>
+                <div class="flex-1"></div>
+                <flux:button
+                    size="sm"
+                    variant="ghost"
+                    icon="x-mark"
+                    wire:click="$set('showCardPanel', false)"
+                    aria-label="Close"
+                />
+            </div>
+
+            {{-- Scan state banner --}}
+            <div @class([
+                'flex items-center gap-3 px-5 py-3 border-b border-zinc-200 dark:border-zinc-700',
+                'bg-blue-50 dark:bg-blue-950/40'  => empty($cardUid),
+                'bg-green-50 dark:bg-green-950/40' => !empty($cardUid),
+            ])>
+                <flux:icon
+                    :name="empty($cardUid) ? 'credit-card' : 'check-circle'"
+                    @class([
+                        'w-5 h-5 shrink-0',
+                        'text-blue-500 dark:text-blue-400'  => empty($cardUid),
+                        'text-green-600 dark:text-green-400' => !empty($cardUid),
+                    ])
+                />
+                <div>
+                    @if (empty($cardUid))
+                        <p class="text-sm font-medium text-blue-700 dark:text-blue-300">Ready to scan</p>
+                        <p class="text-xs text-blue-600 dark:text-blue-400">
+                            Hold the new RFID card near the reader — the UID fills in automatically.
+                        </p>
+                    @else
+                        <p class="text-sm font-medium text-green-700 dark:text-green-300">Card detected</p>
+                        <p class="text-xs text-green-600 dark:text-green-400">
+                            UID {{ $cardUid }} captured. Review the assignment below then click Assign card.
+                        </p>
+                    @endif
+                </div>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <flux:field>
+                    <flux:label class="flex items-center gap-1.5 text-xs">
+                        <flux:icon name="credit-card" class="w-3.5 h-3.5" />
+                        Card UID
+                    </flux:label>
+                    <flux:input
+                        id="card-uid-input"
+                        wire:model.live="cardUid"
+                        placeholder="Tap the card on the reader..."
+                        autocomplete="off"
+                        class="font-mono tracking-widest"
+                        autofocus
+                    />
+                    <flux:error name="cardUid" />
+                    <flux:description>The UID is captured automatically by the RFID reader. Do not type this manually.</flux:description>
+                </flux:field>
+
+                {{-- Assignment preview --}}
+                @if (!empty($cardUid))
+                    <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 p-3">
+                        <p class="text-xs text-zinc-400 mb-2">Card will be assigned to</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <flux:avatar name="{{ $user->name }}" size="sm" />
+                                <div>
+                                    <p class="text-sm font-medium">{{ $user->name }}</p>
+                                    <p class="text-xs text-zinc-400 font-mono">{{ $user->user_code }} · {{ ucfirst($user->role) }}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-zinc-400">UID</p>
+                                <p class="text-sm font-mono font-medium text-blue-600 dark:text-blue-400">{{ $cardUid }}</p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                <div class="flex gap-2 pt-1">
+                    <flux:button
+                        type="button"
+                        size="sm"
+                        class="flex-1"
+                        wire:click="$set('showCardPanel', false)"
+                    >
+                        Cancel
+                    </flux:button>
+                    <flux:button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        icon="credit-card"
+                        class="flex-1"
+                        wire:click="issueCard"
+                        wire:loading.attr="disabled"
+                        wire:target="issueCard"
+                        :disabled="empty($cardUid)"
+                    >
+                        Assign card to user
+                    </flux:button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- User profile header --}}
+    <div class="mt-4 mb-6 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-between flex-wrap gap-4">
         <div class="flex items-center gap-4">
             <flux:avatar src="{{ $user->avatar_url }}" name="{{ $user->name }}" size="xl" />
             <div>
-                <p class="font-medium text-base text-zinc-800 dark:text-zinc-200">{{ $user->name }}</p>
-                <p class="text-sm text-zinc-500">{{ $user->user_code }}</p>
+                <x-text size="md" variant="strong">{{ $user->name }}</x-text>
+                @if ($user->card)
+                    <x-text size="sm" class="font-mono">{{ $user->card->card_number }}</x-text>
+                @else
+                    <span class="text-xs font-medium text-red-500 dark:text-red-400">No card assigned</span>
+                @endif
+                <x-text size="sm">{{ $user->user_code }}</x-text>
             </div>
         </div>
 
@@ -243,21 +411,19 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 </span>
             </div>
             @if ($user->role === 'operator')
-            <div>
-                <span class="block text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">Vehicles</span>
-                <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    {{ $this->getVehicle->count() }}
-                </span>
-            </div>
+                <div>
+                    <span class="block text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">Vehicles</span>
+                    <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        {{ $this->getVehicle->count() }}
+                    </span>
+                </div>
             @endif
         </div>
-
     </div>
 
+    {{-- Personal information form --}}
     <form wire:submit="save">
         <div class="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden">
-
-            {{-- Section header --}}
             <div class="flex items-center gap-2 px-6 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
                 <flux:icon.user class="w-4 h-4 text-zinc-400" />
                 <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Personal information</span>
@@ -270,8 +436,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     <div class="col-span-2">
                         <flux:input label="Address" wire:model="address" class="w-full" />
                     </div>
-
-                    {{-- Read-only context fields --}}
                     <flux:input label="Role"      value="{{ ucfirst($user->role) }}"  class="w-full" readonly />
                     <flux:input label="User code" value="{{ $user->user_code }}"      class="w-full" readonly />
                 </div>
@@ -293,18 +457,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
                 @if ($confirmingDelete)
                     <div class="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 space-y-3">
-                        <p class="font-medium text-red-700 dark:text-red-400">Are you sure?</p>
-                        <p class="text-sm text-red-600 dark:text-red-300">
+                        <x-text class="font-medium text-red-700 dark:text-red-400">Are you sure?</x-text>
+                        <x-text class="text-sm text-red-600 dark:text-red-300">
                             You're about to permanently delete <strong>{{ $user->name }}</strong>
                             along with all their vehicles. This cannot be undone.
-                        </p>
+                        </x-text>
                         <div class="flex gap-2 justify-end">
-                            <flux:button size="sm" wire:click="$set('confirmingDelete', false)">
-                                Cancel
-                            </flux:button>
-                            <flux:button size="sm" variant="danger" wire:click="deleteUser">
-                                Yes, delete user
-                            </flux:button>
+                            <flux:button size="sm" wire:click="$set('confirmingDelete', false)">Cancel</flux:button>
+                            <flux:button size="sm" variant="danger" wire:click="deleteUser">Yes, delete user</flux:button>
                         </div>
                     </div>
                 @endif
@@ -312,13 +472,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
         </div>
     </form>
 
-    
+    {{-- Operator vehicle section --}}
     @if ($user->role === 'operator')
-
         <div class="flex items-center mt-8 mb-4">
             <div class="flex-1">
-                <p class="text-base font-medium text-zinc-800 dark:text-zinc-200">Vehicle information</p>
-                <p class="text-xs text-zinc-400">Manage vehicles assigned to this operator.</p>
+                <x-text class="text-base font-medium text-zinc-800 dark:text-zinc-200">Vehicle information</x-text>
+                <x-text class="text-xs text-zinc-400">Manage vehicles assigned to this operator.</x-text>
             </div>
             @if (!$confirmingAddVehicle)
                 <flux:button variant="primary" size="sm" icon="plus"
@@ -333,7 +492,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
             @endif
         </div>
 
-        {{-- Add vehicle form --}}
         @if ($confirmingAddVehicle)
             <div class="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden mb-4">
                 <div class="flex items-center gap-2 px-6 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
@@ -361,11 +519,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         <x-input label="Total seats"  wire:model="create_total_seats" type="number" min="1" />
 
                         @if ($this->create_vehicle_type === 'Bus' || $this->create_vehicle_type === 'UV-express')
-                             <x-input label="Group No." wire:model="create_group_no" type="number" min="1" />
+                            <x-input label="Group No." wire:model="create_group_no" type="number" min="1" />
                         @else
-                            <x-input label="Group No."  wire:model="create_group_no" type="number" min="1" disabled />
+                            <x-input label="Group No." wire:model="create_group_no" type="number" min="1" disabled />
                         @endif
-
                     </div>
                     <div class="flex justify-end">
                         <flux:button type="button" size="sm" variant="primary"
@@ -378,30 +535,25 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 </div>
             </div>
         @endif
+
         @foreach ($this->getVehicle as $index => $vehicle)
-            <div class="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden mb-4"
+            <flux:card class="mb-4"
                 wire:key="vehicle-container-{{ $vehicle->id }}">
 
-                {{-- Card header --}}
                 <div class="flex items-center gap-3 px-6 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
                     <flux:badge color="green" size="sm">{{ $index + 1 }}</flux:badge>
                     <span class="font-mono text-sm font-medium text-zinc-700 dark:text-zinc-300">
                         {{ $vehicle->plate_number }}
                     </span>
                     <span class="text-xs text-zinc-400">· {{ $vehicle->vehicle_type }}</span>
-
                     <div class="flex-1"></div>
 
                     @if ($confirmingEditVehicle === $vehicle->id)
                         <flux:button type="button" variant="primary" size="sm" icon="check"
                             wire:click="updateVehicle({{ $vehicle->id }})"
-                            wire:loading.attr="disabled">
-                            Save
-                        </flux:button>
+                            wire:loading.attr="disabled">Save</flux:button>
                         <flux:button type="button" variant="ghost" size="sm"
-                            wire:click="cancelEditVehicle">
-                            Cancel
-                        </flux:button>
+                            wire:click="cancelEditVehicle">Cancel</flux:button>
                     @else
                         <flux:button type="button" variant="ghost" size="sm" icon="pencil"
                             wire:click="editVehicle({{ $vehicle->id }})"/>
@@ -411,14 +563,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     @endif
                 </div>
 
-                {{-- Delete confirmation --}}
                 @if ($confirmingDeleteVehicle === $vehicle->id)
                     <div class="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 space-y-3">
-                        <p class="font-medium text-red-700 dark:text-red-400">Delete this vehicle?</p>
-                        <p class="text-sm text-red-600 dark:text-red-300">
+                        <x-text >Delete this vehicle?</x-text>
+                        <x-text color="red" size="sm">
                             <strong>{{ $vehicle->vehicle_type }}</strong> with plate
                             <strong>{{ $vehicle->plate_number }}</strong> will be permanently removed.
-                        </p>
+                        </x-text>
                         <div class="flex gap-2 justify-end">
                             <flux:button size="sm" wire:click="$set('confirmingDeleteVehicle', null)">Cancel</flux:button>
                             <flux:button size="sm" variant="danger" wire:click="deleteVehicle({{ $vehicle->id }})">
@@ -428,32 +579,45 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     </div>
                 @endif
 
-                {{-- Vehicle fields --}}
                 <div class="p-6 grid grid-cols-2 gap-6">
                     @if ($confirmingEditVehicle === $vehicle->id)
                         <div>
-                            <flux:label>Vehicle type</flux:label>
-                            <flux:select wire:model="editingVehicles.{{ $vehicle->id }}.vehicle_type">
-                                <option value="Bus"       @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Bus')>Bus</option>
-                                <option value="UV-express"       @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'UV-express')>UV-express</option>
-                                <option value="Multi-cab" @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Multi-cab')>Multi-cab</option>
-                                <option value="Jeep"      @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Jeep')>Jeep</option>
+                            <flux:label >Vehicle type</flux:label>
+                            <flux:select wire:model="editingVehicles.{{ $vehicle->id }}.vehicle_type" disabled>
+                                <option value="Bus"           @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Bus')>Bus</option>
+                                <option value="UV-express"    @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'UV-express')>UV-express</option>
+                                <option value="Multi-cab"     @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Multi-cab')>Multi-cab</option>
+                                <option value="Jeep"          @selected($editingVehicles[$vehicle->id]['vehicle_type'] === 'Jeep')>Jeep</option>
                             </flux:select>
                         </div>
+                            @if ($vehicle->vehicle_type === 'Bus')
+                                <div>
+                                    <flux:label >Group number</flux:label>
+                                    <flux:select wire:model="editingVehicles.{{ $vehicle->id }}.group_number">
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    </flux:select>
+                                </div>
+                            @endif
                         <flux:input label="Plate no."   wire:model="editingVehicles.{{ $vehicle->id }}.plate_number" />
                         <flux:input label="Total seats" wire:model="editingVehicles.{{ $vehicle->id }}.total_seats" type="number" min="1" />
                         <flux:input label="Date registered" value="{{ $vehicle->created_at->format('Y-m-d') }}" disabled />
                     @else
-                        <flux:input label="Vehicle type"    value="{{ $vehicle->vehicle_type }}"                readonly />
-                        <flux:input label="Plate no."       value="{{ $vehicle->plate_number }}"                readonly class="font-mono" />
-                        <flux:input label="Total seats"     value="{{ $vehicle->total_seats }}"                 readonly />
-                        <flux:input label="Date registered" value="{{ $vehicle->created_at->format('Y-m-d') }}" readonly />
+                        <flux:input label="Vehicle type"    value="{{ $vehicle->vehicle_type }}"                 readonly />
+                        @if ($vehicle->vehicle_type === 'Bus')
+                                @php
+                                    $groupNumber = $this->getVehicleGroupNumber($vehicle->id);
+                                @endphp
+                            <flux:input label="Group number"    wire:model="editingVehicles.{{ $vehicle->id }}.group_number" readonly />
+                        @endif
+                        <flux:input label="Plate no."       value="{{ $vehicle->plate_number }}"                 readonly class="font-mono" />
+                        <flux:input label="Total seats"     value="{{ $vehicle->total_seats }}"                  readonly />
+                        <flux:input label="Date registered" value="{{ $vehicle->created_at->format('Y-m-d') }}"  readonly />
                     @endif
                 </div>
 
-            </div>
+            </flux:card>
         @endforeach
-
     @endif
 
 </div>

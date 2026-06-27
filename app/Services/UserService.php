@@ -60,7 +60,6 @@ class UserService
                         'vehicle_type'     => $vehicle['vehicle_type'],
                         'plate_number'     => $vehicle['plate_number'],
                         'total_seats'      => $vehicle['seat_capacity'],
-                        'official_record'  => $vehicle['official_record'],
                     ]);
 
                     if ($vehicle['group_number'] !== null) {

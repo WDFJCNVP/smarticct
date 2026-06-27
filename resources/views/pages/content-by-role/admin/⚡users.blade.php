@@ -36,7 +36,6 @@ new  #[Layout('layouts.admin-layout')] class extends Component
     #[Computed]
     public function getUsers() {
         return User::with('card')
-            ->whereHas('card')
             ->whereIn('role', ['operator', 'commuter'])
             ->when($this->filtered_role, fn($q) => $q->where('role', $this->filtered_role))
             ->when($this->search, fn($q) => $q->where(function ($q2) {
@@ -64,30 +63,30 @@ new  #[Layout('layouts.admin-layout')] class extends Component
     <x-pages-heading heading="Users" description="View all registered users in the system." />
 
     <div class="grid grid-cols-4 gap-3 mt-6 mb-5">
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Total users</p>
-            <p class="text-2xl font-medium text-zinc-800 dark:text-zinc-100">
+        <flux:card>
+            <x-text size="sm">Total users</x-text>
+            <x-text class="text-2xl">
                 {{ $this->getUsers->total() }}
-            </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Operators</p>
-            <p class="text-2xl font-medium text-blue-700 dark:text-blue-400">
+            </x-text>
+        </flux:card>
+        <flux:card>
+            <x-text size="sm">Operators</x-text>
+            <x-text class="text-2xl" color="blue">
                 {{ User::where('role', 'operator')->count() }}
-            </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Commuters</p>
-            <p class="text-2xl font-medium text-amber-700 dark:text-amber-400">
+            </x-text>
+        </flux:card>
+        <flux:card>
+            <x-text size="sm">Commuters</x-text>
+            <x-text class="text-2xl" color="yellow">
                 {{ User::where('role', 'commuter')->count() }}
-            </p>
-        </div>
-        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p class="text-xs text-zinc-400 mb-1">Registered today</p>
-            <p class="text-2xl font-medium text-purple-700 dark:text-purple-400">
+            </x-text>
+        </flux:card>
+        <flux:card>
+            <x-text size="sm">Registered today</x-text>
+            <x-text class="text-2xl" color="purple">
                 {{ User::whereIn('role', ['operator', 'commuter'])->whereDate('created_at', today())->count() }}
-            </p>
-        </div>
+            </x-text>
+        </flux:card>
     </div>
 
     <div class="flex items-center justify-end gap-3 mb-4">
@@ -118,7 +117,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
             <flux:table.column>Username</flux:table.column>
             <flux:table.column>Address</flux:table.column>
             <flux:table.column>Role</flux:table.column>
-            <flux:table.column></flux:table.column>
+            <flux:table.column></flux:table.column> 
         </flux:table.columns>
 
         <flux:table.rows>
@@ -129,8 +128,8 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                         {{ $user->user_code }}
                     </flux:table.cell>
 
-                    <flux:table.cell class="font-mono text-xs text-zinc-500">
-                        **** **** **** {{ substr($user->card->card_number, -4) }}
+                    <flux:table.cell class="font-mono text-sm text-zinc-500">
+                        {{ $user->card ? '**** **** **** ' . substr($user->card->card_number, -4) : 'No card' }}
                     </flux:table.cell>
 
                     <flux:table.cell>
@@ -177,11 +176,11 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                     <flux:table.cell colspan="7">
                         <div class="flex flex-col items-center justify-center py-12 gap-2">
                             <flux:icon.users class="w-8 h-8 text-zinc-300" />
-                            <p class="text-sm text-zinc-400">No users found.</p>
+                            <x-text class="text-sm text-zinc-400">No users found.</x-text>
                             @if ($search)
-                                <p class="text-xs text-zinc-400">Try a different search term.</p>
+                                <x-text class="text-xs text-zinc-400">Try a different search term.</x-text>
                             @elseif ($filtered_role)
-                                <p class="text-xs text-zinc-400">No {{ $filtered_role }}s registered yet.</p>
+                                <x-text class="text-xs text-zinc-400">No {{ $filtered_role }}s registered yet.</x-text>
                             @endif
                         </div>
                     </flux:table.cell>
