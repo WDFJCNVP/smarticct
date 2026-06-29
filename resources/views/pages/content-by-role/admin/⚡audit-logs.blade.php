@@ -118,7 +118,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     <div>
         <x-table>
             <x-table-columns class="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
-                <x-table-column>User</x-table-column>
+                <x-table-column>Actor</x-table-column>
                 <x-table-column>Action</x-table-column>
                 <x-table-column>Date & Time</x-table-column>
                 <x-table-column>Subject</x-table-column>

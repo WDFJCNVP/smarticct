@@ -9,6 +9,7 @@ use App\Models\Notification;
 use App\Models\UserNotification;
 use App\Events\NotificationEvent;
 use App\Services\QueueManagementService;
+use Illuminate\Support\Arr;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -29,26 +30,27 @@ class UserService
             $user = User::create($userBasicInformation);
 
             if ($cardInformation) {
-
                 $user->card()->create($cardInformation);
-
-                if($this->getAdmin()) {
-                    $admin = $this->getAdmin();
-                    $notification = Notification::create([
-                        'type'    => 'Registration',
-                        'title'   => 'User Registration',
-                        'message' => "You have successfully registered a new user. You can manage and monitor the user's details on the Users page. User ID: {$user->user_code}"
-                    ]);
-
-                    UserNotification::create([
-                        'notification_id' => $notification->id,
-                        'user_id' => $admin->id,
-                    ]);
-
-                }
-
-                broadcast(new NotificationEvent());
             }
+
+            if($this->getAdmin()) {
+                $admin = $this->getAdmin();
+                $notification = Notification::create([
+                    'type'    => 'Registration',
+                    'title'   => 'User Registration',
+                    'message' => "You have successfully registered a new user. You can manage and monitor the user's details on the Users page. User ID: {$user->user_code}"
+                ]);
+
+                UserNotification::create([
+                    'notification_id' => $notification->id,
+                    'user_id' => $admin->id,
+                ]);
+
+            }
+
+            broadcast(new NotificationEvent());
+
+            $created_vehicle;
 
             if ($userBasicInformation['role'] === 'operator' && !empty($vehicles)) {
                 foreach ($vehicles as $vehicle) {
@@ -75,6 +77,17 @@ class UserService
                     }
                 }
             }
+
+            app(AuditLogsService::class)->create([
+                'user_id' => auth()->id(),
+                'action'  => 'User Created',
+                'subject' => 'User Account Creation',
+                'channel' => 'Web',
+                'metadata' => [
+                    'ip_address' => request()->ip(),
+                    'message'    => "A new user account was successfully created (User ID: {$user->user_code}).",
+                ],
+            ]);
             return $user;
         });
     }
@@ -83,6 +96,48 @@ class UserService
     {
         return DB::transaction(function () use ($user, $data) {
             $user->update($data);
+
+            if($this->getAdmin()) {
+                $admin = $this->getAdmin();
+                $notification = Notification::create([
+                    'type'    => 'Update',
+                    'title'   => 'User Updated',
+                    'message' => "You have successfully modified the account details for {$user->name} ({$user->username}). Fields modified: " . implode(', ', array_keys($data))                
+                    ]);
+
+                UserNotification::create([
+                    'notification_id' => $notification->id,
+                    'user_id' => $admin->id,
+                ]);
+
+            }
+
+            $notification = Notification::create([
+                'type'    => 'Update',
+                'title'   => 'Profile Updated',
+                'message' => 'Your account details were successfully updated by an administrator on' . now()->format('F d, Y') . '.' . 'by Admin',
+            ]);
+
+            UserNotification::create([
+                'notification_id' => $notification->id,
+                'user_id' => $user->id,
+            ]);
+
+            broadcast(new NotificationEvent());
+
+
+
+        app(AuditLogsService::class)->create([
+            'user_id' => auth()->id(),
+            'action'  => 'User Updated',
+            'subject' => 'User Account Update',
+            'channel' => 'Web',
+            'metadata' => [
+                'ip_address' => request()->ip(),
+                'message'    => "User account information was successfully updated (User ID: {$user->user_code}).",
+            ],
+        ]);
+
             return $user;
         });
     }
@@ -91,6 +146,33 @@ class UserService
     {
         DB::transaction(function () use ($user) {
             $user->delete();
+
+            if($this->getAdmin()) {
+                $admin = $this->getAdmin();
+                $notification = Notification::create([
+                    'type'    => 'Delete',
+                    'title'   => 'User Deleted',
+                    'message' => "You have successfully deleted the account for {$user->name} ({$user->username})."
+                    ]);
+
+                UserNotification::create([
+                    'notification_id' => $notification->id,
+                    'user_id' => $admin->id,
+                ]);
+
+                broadcast(new NotificationEvent());
+
+                app(AuditLogsService::class)->create([
+                    'user_id' => auth()->id(),
+                    'action'  => 'User Deleted',
+                    'subject' => 'User Account Deletion',
+                    'channel' => 'Web',
+                    'metadata' => [
+                        'ip_address' => request()->ip(),
+                        'message'    => "User account was successfully deleted (User ID: {$user->user_code}).",
+                    ],
+                ]);
+            }
         });
     }
 }

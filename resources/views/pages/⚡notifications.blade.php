@@ -36,6 +36,10 @@ new class extends Component
 
         return $this->view()->layout('layouts.' . $role . '-layout');
     }
+
+    // public function mount() {
+    //     dd($this->getNotification);
+    // }
 };
 ?>
 
@@ -58,19 +62,23 @@ new class extends Component
 
             @if ($total_unread_notification)
                 <flux:badge color="blue" size="sm">{{ $total_unread_notification }} Unread</flux:badge>
+            @elseif($this->getNotification->isEmpty())
+                {{-- <flux:badge color="zinc" size="sm">No notification</flux:badge> --}}
             @else
                 <flux:badge color="zinc" size="sm">All read</flux:badge>
             @endif            
         </div>
 
         <div>
-            <x-button size="sm" wire:click="markAllAsRead">Mark all as read </x-button>
+            @if ($this->getNotification->isNotEmpty())
+                <x-button size="sm" wire:click="markAllAsRead">Mark all as read </x-button>
+            @endif
         </div>
 
     </div>
 
     <div>
-        @foreach ($this->getNotification as $notification)
+        @forelse ($this->getNotification as $notification)
 
             <x-notification-container :notification_id="$notification->id" href="/notification/{{ $notification->id }}" >
                 @if ($notification->is_read === 0)  
@@ -100,7 +108,13 @@ new class extends Component
                     </div>
                 </div>
             </x-notification-container>
-        @endforeach
+        @empty
+
+        <flux:card>
+            There's no notification yet.
+        </flux:card>
+
+        @endforelse
 
     </div>
 </div>

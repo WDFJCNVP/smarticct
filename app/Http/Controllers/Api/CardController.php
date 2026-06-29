@@ -170,9 +170,7 @@ class CardController extends Controller
         ];
     }
 
-    // -------------------------------------------------------------------------
     // Non-scheduled vehicle types (Multi-cab, etc.)
-    // -------------------------------------------------------------------------
 
     private function queueOperatorVehicle(array $validated, Vehicle $vehicle): void
     {
@@ -226,9 +224,7 @@ class CardController extends Controller
         }
     }
 
-    // -------------------------------------------------------------------------
     // Main tap endpoint
-    // -------------------------------------------------------------------------
 
     public function tap(Request $request)
     {
@@ -258,12 +254,45 @@ class CardController extends Controller
 
             $card = $this->getCard($validated['uid']);
 
+            app(AuditLogsService::class)->create([
+                'user_id' => auth()->id(),
+                'action'  => 'Tap Card',
+                'subject' => 'User tapped card',
+                'channel' => 'Web',
+                'metadata' => [
+                    'ip_address' => request()->ip(),
+                    'message'    => "Card was successfully tapped (Card ID: {$card->card_number} User No.: {$card->user->user_code}).",
+                ],
+            ]);
+
             if (!$card) {
                 return response()->json(['success' => false, 'message' => 'Card not recognized. Please contact an administrator if the problem persists.'], 404);
+
+                app(AuditLogsService::class)->create([
+                    'user_id' => auth()->id(),
+                    'action'  => 'Tap Card',
+                    'subject' => 'Tapped Card Not Recognized',
+                    'channel' => 'Web',
+                    'metadata' => [
+                        'ip_address' => request()->ip(),
+                        'message'    => "Card was not recognized (Card ID: {$validated['uid']}).",
+                    ],
+                ]);
             }
 
             if ($card->status !== 'active') {
                 return response()->json(['success' => false, 'message' => 'Card is ' . $card->status], 403);
+
+                app(AuditLogsService::class)->create([
+                    'user_id' => auth()->id(),
+                    'action'  => 'Tap Card',
+                    'subject' => 'Tapped Card Inactive',
+                    'channel' => 'Web',
+                    'metadata' => [
+                        'ip_address' => request()->ip(),
+                        'message'    => "Card is inactive (Card Number: {$card->card_number}). Card status: {$card->status} (User No.: {$card->user->user_code}).",
+                    ],
+                ]);
             }
 
             $balanceBefore    = (float) $card->balance;

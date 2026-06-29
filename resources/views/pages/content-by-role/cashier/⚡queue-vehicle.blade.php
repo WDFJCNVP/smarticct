@@ -44,6 +44,17 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 heading: 'Vehicle Queued Successfully',
                 text: $responseData['message']
             );
+
+            app(AuditLogsService::class)->create([
+                'user_id' => auth()->id(),
+                'action'  => 'Queued Vehicle',
+                'subject' => 'Vehicle Queued Successfully',
+                'channel' => 'Web',
+                'metadata' => [
+                    'ip_address' => request()->ip(),
+                    'message'    => "Vehicle was successfully queued (Vehicle ID: {$this->selectedVehicle->id}).",
+                ],
+            ]);
         } 
         else {
             Flux::toast(
@@ -51,6 +62,17 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 heading: 'Failed to Queue Vehicle',
                 text: $responseData['message'] ?? 'An error occurred while queuing the vehicle.'
             );
+
+            app(AuditLogsService::class)->create([
+                'user_id' => auth()->id(),
+                'action'  => 'Failed to Queue Vehicle',
+                'subject' => 'Vehicle Queue Failure',
+                'channel' => 'Web',
+                'metadata' => [
+                    'ip_address' => request()->ip(),
+                    'message'    => "$responseData['message'] (Vehicle ID: {$this->selectedVehicle->id}).",
+                ],
+            ]);
         } 
     }
 

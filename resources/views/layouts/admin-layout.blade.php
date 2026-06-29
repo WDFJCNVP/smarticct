@@ -41,7 +41,7 @@
 
             <flux:spacer />
 
-            <x-desktop-user-menu />
+           <livewire:pages::sidebar-profile />
 
         </flux:sidebar>
 

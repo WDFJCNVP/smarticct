@@ -11,6 +11,15 @@ new class extends Component
 
     public UserNotification $user_notification;
 
+    public function destroyNotification($notification_id) {
+        $notification = UserNotification::find($notification_id);
+        if ($notification) {
+            $notification->delete();
+
+           return $this->redirect(route('notifications'), navigate: true);
+        }
+    }
+
     #[Computed]
     public function notificationDetails() 
     {
@@ -26,11 +35,11 @@ new class extends Component
         return $this->view()->layout('layouts.' . $role . '-layout');
     }
 
-    // public function mount() {
-    //     if (!isset($this->user_notification)) {
-    //         abort(404, 'Notification not found.');
-    //     }
-    // }
+    public function mount() {
+        if($this->user_notification->is_read === 0) {
+            $this->user_notification->update(['is_read' => true]);
+        }
+    }
 };
 ?>
 
@@ -43,7 +52,9 @@ new class extends Component
             <flux:breadcrumbs.item>Inbox</flux:breadcrumbs.item>
         </flux:breadcrumbs>
 
-        <flux:button variant="ghost" icon="trash" size="sm" class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950" />
+        <flux:modal.trigger name="delete-notification">
+            <flux:button variant="ghost" icon="trash" size="sm" class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950" />
+        </flux:modal.trigger>
     </div>
 
     <x-card class="overflow-hidden">
@@ -76,4 +87,23 @@ new class extends Component
             </x-text>
         </div>
     </x-card>
+
+    <flux:modal name="delete-notification" class="min-w-[22rem]">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Delete notification?</flux:heading>
+                <flux:text class="mt-2">
+                    You're about to delete this notification.<br>
+                    This action cannot be reversed.
+                </flux:text>
+            </div>
+            <div class="flex gap-2">
+                <flux:spacer />
+                <flux:modal.close>
+                    <flux:button variant="ghost">Cancel</flux:button>
+                </flux:modal.close>
+                <flux:button variant="danger" wire:click="destroyNotification({{ $this->user_notification->id }})">Delete notification</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>
