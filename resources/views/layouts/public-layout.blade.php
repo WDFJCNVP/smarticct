@@ -38,8 +38,9 @@
 
         <flux:navbar class="me-4 max-lg:hidden font-primary text-nav-item font-light">
             <flux:navbar.item href="/" wire:navigate>Explore</flux:navbar.item>
-            <flux:navbar.item href="/routes" wire:navigate>Routes</flux:navbar.item>
-            <flux:navbar.item href="/queue" wire:navigate>Queue</flux:navbar.item>
+            <flux:navbar.item href="{{ route('route') }}" wire:navigate>Routes</flux:navbar.item>
+            <flux:navbar.item href=" {{ route('live.queue') }}" wire:navigate>Queue</flux:navbar.item>
+            <flux:navbar.item href=" {{ route('help.center') }}" wire:navigate>Help Center</flux:navbar.item>
 
             <flux:separator vertical variant="subtle" class="my-5"/>
 

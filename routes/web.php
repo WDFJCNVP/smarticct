@@ -22,13 +22,11 @@ Route::livewire('/register', 'pages::auth.register')->name('public.register');
 //Public Controller
 Route::controller(PublicController::class)->group(function () {
     Route::get('/', 'index')->name('explore');
-    Route::get('/routes', 'routes');
-    Route::get('/fares', 'fare');
-    // Route::get('/queue', 'queue');
-    // Route::get('/queue/partial', 'queuePartial')->name('queue.partial');
 });
 
+Route::livewire('/routes', 'pages::route-page')->name('route');
 Route::livewire('/queue', 'pages::queue-page')->name('live.queue');
+Route::livewire('/help', 'pages::help-page')->name('help.center');
 
 //Session Controller
 Route::controller(SessionUserController::class)->group(function () {
