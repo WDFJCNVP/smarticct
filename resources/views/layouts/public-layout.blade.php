@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-100">
+<html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +10,7 @@
     @livewireStyles
     @fluxAppearance
 </head>
-<body class="h-screen bg-light-primary dark:bg-dark-primary antialiased">
+<body class="min-h-screen flex flex-col bg-light-primary dark:bg-dark-primary antialiased">
     <flux:header container class="sticky top-0 z-50 bg-light-secondary dark:bg-dark-secondary border-b border-light-bd-default dark:border-dark-bd-default">
         <flux:sidebar.toggle class="lg:hidden mr-3" icon="bars-2" inset="left" />
 
@@ -28,7 +28,7 @@
                     SmartICCT
                 </a>
                 
-                <span class="text-xs font-secondary text-light-txt-primary dark:text-dark-txt-body lg:text-sm">
+                <span class="text-xs font-secondary text-light-txt-muted dark:text-dark-txt-muted lg:text-sm">
                     Iriga City Central Terminal
                 </span>
             </div>
@@ -76,7 +76,7 @@
         </flux:sidebar.nav>
     </flux:sidebar>
 
-        <flux:main>
+        <flux:main class="!p-8 flex-1 overflow-y-auto">
 
           {{ $slot }}
 
