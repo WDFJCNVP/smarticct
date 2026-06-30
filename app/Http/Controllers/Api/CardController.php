@@ -21,6 +21,8 @@ use App\Jobs\ProcessAfterDepart;
 use App\Events\QueuedVehicleEvent;
 use App\Events\TriggerDepartingEvent;
 
+use App\Services\AuditLogsService;
+
 class CardController extends Controller
 {
     private $travel_record;

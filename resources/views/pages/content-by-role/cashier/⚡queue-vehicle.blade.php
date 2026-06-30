@@ -10,6 +10,8 @@ use App\Models\RouteList;
 use App\Models\Vehicle;
 use App\Http\Controllers\Api\CardController;
 
+use App\Services\AuditLogsService;
+
 new #[Layout('layouts.cashier-layout')] class extends Component
 {
     public bool $card_focused = true;
@@ -28,7 +30,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             'driver_name'      => $this->driver_name,
             'vehicle_id'       => $this->selectedVehicle->id,
             'transaction_type' => 'operator_payment',
-            'amount'           => $this->selectedVehicle->route_list->operatorTicketRate->base_fare,
+            'amount'           => $this->selectedVehicle->route_list->operatorTicketRate->queueing_fee,
             'destination'      => $this->selectedVehicle->route_list->terminal,
             'vehicle_type'     => $this->selectedVehicle->vehicle_type,
             'plate_number'     => $this->selectedVehicle->plate_number,
@@ -70,7 +72,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 'channel' => 'Web',
                 'metadata' => [
                     'ip_address' => request()->ip(),
-                    'message'    => "$responseData['message'] (Vehicle ID: {$this->selectedVehicle->id}).",
+                    'message' => "{$responseData['message']} (Vehicle ID: {$this->selectedVehicle->id}).",
                 ],
             ]);
         } 
@@ -329,7 +331,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                                 <tr class="border-t border-zinc-100 dark:border-zinc-800">
                                     <td class="text-zinc-500 dark:text-zinc-400 pt-3">Tickets price</td>
                                     <td class="text-right font-semibold text-base pt-3">
-                                        ₱{{ number_format($this->selectedVehicle->route_list?->operatorTicketRate?->base_fare ?? 0, 2) }}
+                                        ₱{{ number_format($this->selectedVehicle->route_list?->operatorTicketRate?->queueing_fee ?? 0, 2) }}
                                     </td>
                                 </tr>
                             </table>

@@ -55,7 +55,9 @@ class UserService
             if ($userBasicInformation['role'] === 'operator' && !empty($vehicles)) {
                 foreach ($vehicles as $vehicle) {
 
-                    $route_list = RouteList::where('vehicle_type', $vehicle['vehicle_type'])->where('terminal', $vehicle['route'])->first();
+                    $route_list = RouteList::whereHas('operatorTicketRate', function($q) use($vehicle) {
+                        $q->where('vehicle_type', $vehicle['vehicle_type']);
+                    })->where('terminal', $vehicle['route'])->first();
 
                     $created_vehicle = $user->vehicles()->create([
                         'route_list_id'    => $route_list->id,
@@ -67,7 +69,9 @@ class UserService
                     if ($vehicle['group_number'] !== null) {
                         $order_number = VehicleGroup::where('group_number', $vehicle['group_number'])
                             ->whereHas('vehicle', function($query) use ($created_vehicle) {
+
                             $query->where('vehicle_type', $created_vehicle->vehicle_type);
+                            
                         })->max('order_number') + 1;
 
                         $created_vehicle->vehicle_group()->create([

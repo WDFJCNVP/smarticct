@@ -89,6 +89,7 @@ new class extends Component
 <div>
     <x-pages-heading heading="Routes and fare information" description="Browse available local and provincial routes." />
 
+    @if (auth()->user() && auth()->user()->role === 'admin')
     <flux:card class="flex items-center justify-between gap-2 mb-4">
 
         <flux:input wire:model="terminal" placeholder="e.g. Nabua" label="City/Municipality"/>
@@ -110,7 +111,7 @@ new class extends Component
         <flux:button wire:click="add" class="mt-8" variant="primary">Add</flux:button>
 
     </flux:card>
-
+    @endif
     <div class="flex items-start justify-between gap-4 mb-4">
         <div class="flex-1">
             <flux:input

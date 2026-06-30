@@ -168,8 +168,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     #[Computed]
     public function getRoute()
     {
-         return RouteList::
-            distinct()
+         return RouteList::with('operatorTicketRate')
             ->get();
     }
 
@@ -437,7 +436,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <flux:select wire:model="vehicles.{{ $index }}.route" placeholder="Select route for this vehicle..." size="sm">
                                 @foreach ($this->getRoute as $route)
 
-                                    @if ($route->vehicle_type === $this->vehicles[$index]['vehicle_type'])
+                                    @if ($route->operatorTicketRate->vehicle_type === $this->vehicles[$index]['vehicle_type'])
 
                                     <flux:select.option value="{{ $route->terminal }}">
                                         Iriga Terminal to 

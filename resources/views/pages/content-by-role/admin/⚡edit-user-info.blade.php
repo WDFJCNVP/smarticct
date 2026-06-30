@@ -11,6 +11,7 @@ use App\Models\Vehicle;
 use App\Models\Route;
 use App\Models\RouteList;
 use App\Models\VehicleGroup;
+use App\Models\OperatorTicketRate;
 
 use App\Services\UserService;
 
@@ -31,13 +32,27 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public $create_route        = null;
     public $create_plate_number = null;
     public $create_total_seats  = null;
+    public $create_group_number = null;
 
     public ?int $confirmingEditVehicle = null;
 
     public $route_list_id;
+    public $vehicles;
 
     public bool $showCardPanel = false;
     public string $cardUid = '';
+
+    #[Computed]
+    public function getRoute()
+    {
+         return RouteList::with('operatorTicketRate')
+            ->get();
+    }
+
+    #[Computed]
+    public function getVehicleTypeOptions() {
+        return OperatorTicketRate::get(['vehicle_type', 'id']);
+    }
 
     public function getVehicleGroupNumber($vehicle_id) {
         return VehicleGroup::where('vehicle_id', $vehicle_id)->value('group_number');
@@ -133,7 +148,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'create_total_seats'  => 'required|integer|min:1',
             ]);
 
-            $route_list = RouteList::where('vehicle_type', $attributes['create_vehicle_type'])
+            $route_list = RouteList::whereHas('operatorTicketRate', function ($query) use ($attributes) {
+                $query->where('vehicle_type', $attributes['create_vehicle_type']);
+            })
                 ->where('terminal', $attributes['create_route'])
                 ->first();
 
@@ -143,6 +160,20 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'plate_number'  => $attributes['create_plate_number'],
                 'total_seats'   => $attributes['create_total_seats'],
             ]);
+
+            if ($this->create_group_number !== null) {
+                $order_number = VehicleGroup::where('group_number', $this->create_group_number)
+                    ->whereHas('vehicle', function($query) use ($new_vehicle) {
+
+                    $query->where('vehicle_type', $new_vehicle->vehicle_type);
+
+                })->max('order_number') + 1;
+
+                $new_vehicle->vehicle_group()->create([
+                    'group_number' => (int) $this->create_group_number,
+                    'order_number' => $order_number,
+                ]);
+            }
 
             $this->editingVehicles[$new_vehicle->id] = [
                 'vehicle_type' => $new_vehicle->vehicle_type,
@@ -229,10 +260,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function updatedCreateVehicleType($value)
     {
-        $routes = RouteList::where('vehicle_type', $value)->get();
+        $routes = RouteList::whereHas('operatorTicketRate', function($q) use($value) {
+            $q->where('vehicle_type', $value);
+        })->first();
 
-        if ($routes->count() === 1) {
-            $this->create_route = $routes->first()->terminal;
+        if ($routes) {
+            $this->create_route = $routes->terminal;
         } else {
             $this->create_route = null;
         }
@@ -501,17 +534,26 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 <div class="p-6">
                     <div class="grid grid-cols-2 gap-6 mb-4">
                         <x-select wire:model.live="create_vehicle_type" placeholder="Vehicle type">
-                            <x-select-option value="Bus">Bus</x-select-option>
-                            <x-select-option value="UV-express">UV-express</x-select-option>
-                            <x-select-option value="Multi-cab">Multi-cab</x-select-option>
-                            <x-select-option value="Jeep">Jeep</x-select-option>
-                            <x-select-option value="Mountain-unit">Mountain Unit</x-select-option>
+                            
+                            @forelse ($this->getVehicleTypeOptions as $vehicle)
+                                <x-select-option>{{ $vehicle->vehicle_type }}</x-select-option>
+                            @empty
+                                <x-select-option>Record not found</x-select-option>
+                            @endforelse
                         </x-select>
 
                         <x-select wire:model.live="create_route" placeholder="Select route">
-                            <x-select-option value="" disabled selected>-- Select a Route --</x-select-option>
-                            @foreach ($this->getTerminal as $route)
-                                <x-select-option value="{{ $route->terminal }}">{{ $route->terminal }}</x-select-option>
+                            @foreach ($this->getRoute as $route)
+                                {{-- {{dd($route->operatorTicketRate->vehicle_type)}} --}}
+                                @if ($route->operatorTicketRate->vehicle_type == $this->create_vehicle_type)
+
+                                <flux:select.option value="{{ $route->operatorTicketRate->id }}">
+                                    Iriga Terminal to 
+                                    <strong>{{ $route->terminal}}</strong>
+                                </flux:select.option>
+
+                                @endif
+
                             @endforeach
                         </x-select>
 
@@ -519,9 +561,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         <x-input label="Total seats"  wire:model="create_total_seats" type="number" min="1" />
 
                         @if ($this->create_vehicle_type === 'Bus' || $this->create_vehicle_type === 'UV-express')
-                            <x-input label="Group No." wire:model="create_group_no" type="number" min="1" />
+                            <x-input label="Group No." wire:model="create_group_number" type="number" min="1" />
                         @else
-                            <x-input label="Group No." wire:model="create_group_no" type="number" min="1" disabled />
+                            <x-input label="Group No." wire:model="create_group_number" type="number" min="1" disabled />
                         @endif
                     </div>
                     <div class="flex justify-end">
