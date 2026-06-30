@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Notification extends Model
 {
+
+    protected $casts = [
+        'metadata' => 'array',
+    ];
+
     protected $fillable = [
         'type',
         'title',

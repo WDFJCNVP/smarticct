@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('operator_ticket_rates', function (Blueprint $table) {
             $table->id();
-            $table->decimal('base_fare', 10, 2); 
+            $table->string('vehicle_type')->unique();
+            $table->decimal('queueing_fee', 8, 2);
             $table->timestamps();
         });
     }

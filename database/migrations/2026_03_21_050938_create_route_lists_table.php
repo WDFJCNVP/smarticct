@@ -11,13 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-
         Schema::create('route_lists', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(App\Models\OperatorTicketRate::class);
-            $table->string('terminal')->index();
-            $table->string('vehicle_type')->index();
-            $table->decimal('base_fare', 10, 2); 
+            $table->foreignId('operator_ticket_rate_id')->constrained()->restrictOnDelete();
+            $table->string('terminal');
+            $table->decimal('fare', 8, 2);
+            $table->json('metadata')->nullable();
             $table->timestamps();
         });
 

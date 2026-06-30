@@ -50,6 +50,10 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:admin')
         ->name('admin.dashboard');
 
+    Route::livewire('/admin/routes', 'pages::route-page')
+        ->middleware('role:admin')
+        ->name('admin.routes');
+
     Route::livewire('/admin/users', 'pages::content-by-role.admin.users')
         ->middleware('role:admin')
         ->name('admin.users');
@@ -136,7 +140,8 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/setting/security', 'pages::settings.security')
         ->name('security.edit');
 
-    //Queue
+    Route::livewire('/setting/vehicle/type', 'pages::settings.vehicle-type-page')
+        ->name('security.vehicle.type');
 });
 
 

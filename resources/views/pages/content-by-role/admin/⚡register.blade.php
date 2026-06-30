@@ -17,6 +17,7 @@ use App\Models\Vehicle;
 use App\Models\Terminal;
 use App\Models\Route;
 use App\Models\RouteList;
+use App\Models\OperatorTicketRate;
 
 use App\Services\UserService;
 
@@ -63,6 +64,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
          'seat_capacity' => ''
          ],
     ];
+
+    #[Computed]
+    public function getVehicleType() {  
+        return OperatorTicketRate::get('vehicle_type');
+    }
 
     public function stepSkipped() {
         $this->skipped = true;
@@ -416,11 +422,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         <div>
                             <flux:label class="mb-3">Vehicle Type</flux:label>
                             <flux:select wire:model.live="vehicles.{{ $index }}.vehicle_type" placeholder="Choose type..." size="sm">
-                                <flux:select.option>Bus</flux:select.option>
-                                <flux:select.option>Multi-cab</flux:select.option>
-                                <flux:select.option>UV-express</flux:select.option>
-                                <flux:select.option>Jeep</flux:select.option>
-                                <flux:select.option>Mountain-unit</flux:select.option>
+                                @foreach ($this->getVehicleType as $vehicle)
+                                     <flux:select.option>{{ $vehicle->vehicle_type }}</flux:select.option>
+                                @endforeach
                             </flux:select>
                         </div>
 

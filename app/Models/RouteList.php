@@ -6,13 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class RouteList extends Model
 {
+    protected $casts = [
+        'metadata' => 'array',
+    ];
+
     protected $fillable = [
-        'terminal_id',
-        'vehicle_type',
+        'operator_ticket_rate_id',
+        'terminal',
         'first_trip',
         'last_trip',
-        'base_fare',
-        'type',
+        'fare',
+        'metadata'
     ];
 
     public function terminal() {
