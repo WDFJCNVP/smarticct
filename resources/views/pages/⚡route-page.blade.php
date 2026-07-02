@@ -85,8 +85,7 @@ new class extends Component
     }
 };
 ?>
-
-<div>
+<div class="p-10!">
     <x-pages-heading heading="Routes and fare information" description="Browse available local and provincial routes." />
 
     @if (auth()->user() && auth()->user()->role === 'admin')

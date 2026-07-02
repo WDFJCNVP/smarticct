@@ -15,38 +15,58 @@
         <flux:sidebar.toggle class="lg:hidden mr-3" icon="bars-2" inset="left" />
 
         <div class="flex-1 flex items-center gap-3 lg:gap-3 md:ml-4 lg:ml-6">
-            <a href="/">
-                <img 
-                    src="{{ Vite::asset('resources/images/logo.png') }}" 
-                    alt="SmartICCT" 
-                    class="h-9 w-auto lg:h-10"
-                >
-            </a>
+    <a href="/">
+        <img 
+            src="{{ Vite::asset('resources/images/logo.png') }}" 
+            alt="SmartICCT" 
+            class="h-9 w-auto lg:h-10"
+        >
+    </a>
 
-            <div class="flex flex-col leading-tight">
-                <a href="/" class="text-base font-bold font-primary text-light-txt-primary dark:text-dark-txt-primary lg:text-lg">
-                    SmartICCT
-                </a>
-                
-                <span class="text-xs font-secondary text-light-txt-muted dark:text-dark-txt-muted lg:text-sm">
-                    Iriga City Central Terminal
-                </span>
-            </div>
-        </div>
+    <div class="flex flex-col leading-tight">
+        <a href="/" class="text-base font-bold font-primary text-light-txt-primary dark:text-dark-txt-primary lg:text-lg">
+            SmartICCT
+        </a>
+        <span class="text-xs font-secondary text-light-txt-muted dark:text-dark-txt-muted lg:text-sm">
+            Iriga City Central Terminal
+        </span>
+    </div>
+</div>
 
-        <flux:spacer />
+    <flux:navbar class="max-lg:hidden font-primary text-nav-item font-light absolute left-1/2 -translate-x-1/2">
+        <flux:navbar.item href="/" wire:navigate>Explore</flux:navbar.item>
+        <flux:navbar.item href="{{ route('route') }}" wire:navigate>Routes</flux:navbar.item>
+        <flux:navbar.item href="{{ route('live.queue') }}" wire:navigate>Queue</flux:navbar.item>
+        <flux:navbar.item href="{{ route('help.center') }}" wire:navigate>Help</flux:navbar.item>
+    </flux:navbar>
 
-        <flux:navbar class="me-4 max-lg:hidden font-primary text-nav-item font-light">
-            <flux:navbar.item href="/" wire:navigate>Explore</flux:navbar.item>
-            <flux:navbar.item href="{{ route('route') }}" wire:navigate>Routes</flux:navbar.item>
-            <flux:navbar.item href=" {{ route('live.queue') }}" wire:navigate>Queue</flux:navbar.item>
-            <flux:navbar.item href=" {{ route('help.center') }}" wire:navigate>Help Center</flux:navbar.item>
+    <flux:spacer />
 
-            <flux:separator vertical variant="subtle" class="my-5"/>
 
-            <flux:navbar.item href="/login" class="dark:active:bg-primary" wire:navigate>Login</flux:navbar.item>
-            <flux:navbar.item href="{{ route('public.register') }}" wire:navigate>Register</flux:navbar.item>
-        </flux:navbar>
+    <flux:navbar class="me-4 max-lg:hidden font-secondary text-nav-item font-light gap-2">
+
+        @unless(request()->routeIs('login'))
+            <flux:navbar.item
+                href="/login"
+                wire:navigate
+                class="!rounded-lg !font-extrabold !border-1 !border-light-bd-default dark:!bg-dark-subtle !text-light-txt-primary dark:!text-dark-txt-primary hover:!bg-light-primary dark:hover:!bg-dark-surface !shadow-none ![box-shadow:none] !border-0 !no-underline"
+            >
+                Login
+            </flux:navbar.item>
+        @endunless
+
+        @unless(request()->routeIs('public.register'))
+        <flux:navbar.item
+            href="{{ route('public.register') }}"
+            wire:navigate
+            :current="request()->routeIs('public.register')"
+            class="!rounded-lg !bg-primary !text-white hover:!bg-primary-hover !shadow-none ![box-shadow:none] !border-0 !no-underline"
+        >
+            Register
+        </flux:navbar.item>
+        @endunless
+
+    </flux:navbar>
 
     </flux:header>
 
@@ -76,7 +96,7 @@
         </flux:sidebar.nav>
     </flux:sidebar>
 
-        <flux:main class="!p-8 flex-1 overflow-y-auto">
+        <flux:main class="p-0! flex-1 overflow-y-auto">
 
           {{ $slot }}
 

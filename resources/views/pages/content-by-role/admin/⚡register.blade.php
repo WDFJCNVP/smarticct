@@ -242,6 +242,21 @@ new #[Layout('layouts.admin-layout')] class extends Component
         }
     }
 
+    public function vehicleIsComplete(array $vehicle): bool {
+        $required = ['vehicle_type', 'plate_number', 'route', 'seat_capacity'];
+        foreach ($required as $field) {
+            if (!filled($vehicle[$field] ?? null)) {
+                return false;
+            }
+        }
+
+        if (in_array($vehicle['vehicle_type'] ?? '', ['Bus', 'UV-express'])) {
+            return filled($vehicle['group_number'] ?? null);
+        }
+
+        return true;
+    }
+
     public function register(): void
     {
 
@@ -302,19 +317,19 @@ new #[Layout('layouts.admin-layout')] class extends Component
         <flux:breadcrumbs.item>Registration</flux:breadcrumbs.item>
     </flux:breadcrumbs>
 
-    <flux:heading size="lg" class="my-8">
+    <flux:heading size="xl" class="!font-primary !font-bold my-8 text-light-txt-primary dark:text-dark-txt-primary">
         {{ $this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User' }}
     </flux:heading>
 
-    <div class="flex items-center gap-1 mb-6 text-xs">
+    <div class="flex items-center gap-1 mb-6 font-secondary text-timestamp">
         @foreach([1 => 'Select role', 2 => 'Account info', 3 => 'Details', 4 => 'Card', 5 => 'Confirm'] as $s => $label)
             <div class="flex items-center gap-1 {{ $loop->last ? '' : 'flex-1' }}">
                 <div class="flex items-center gap-1.5">
                     <div @class([
-                        'w-12 h-12 rounded-full flex items-center justify-center text-xs font-medium shrink-0 border transition-colors',
-                        'bg-accent text-accent-foreground border-accent'                                                                  => $step === $s,
-                        'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/50'                                                                       => $step > $s,
-                        'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700'              => $step < $s,
+                        'w-12 h-12 rounded-full flex items-center justify-center text-timestamp font-secondary font-medium shrink-0 border transition-colors',
+                        'bg-primary text-white border-primary'                                                                                              => $step === $s,
+                        'bg-success/10 text-success border-success/30 dark:bg-dark-success/10 dark:text-dark-success dark:border-dark-success/30'          => $step > $s,
+                        'bg-light-subtle dark:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted border-light-bd-default dark:border-dark-bd-default' => $step < $s,
                     ])>
                         @if($step > $s)
                             <flux:icon.check class="w-3 h-3" />
@@ -323,16 +338,16 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         @endif
                     </div>
                     <span @class([
-                        'hidden sm:inline whitespace-nowrap transition-colors',
-                        'text-zinc-900 dark:text-zinc-100 font-medium' => $step === $s,
-                        'text-zinc-400 dark:text-zinc-500'             => $step !== $s,
+                        'hidden sm:inline whitespace-nowrap font-secondary transition-colors',
+                        'text-light-txt-primary dark:text-dark-txt-primary font-medium' => $step === $s,
+                        'text-light-txt-muted dark:text-dark-txt-muted'                  => $step !== $s,
                     ])>{{ $label }}</span>
                 </div>
                 @if(!$loop->last)
                     <div @class([
                         'flex-1 h-px mx-1 transition-colors',
-                        'bg-accent'                    => $step > $s,
-                        'bg-zinc-200 dark:bg-zinc-700' => $step <= $s,
+                        'bg-primary'                                                    => $step > $s,
+                        'bg-light-bd-default dark:bg-dark-bd-default'                    => $step <= $s,
                     ])></div>
                 @endif
             </div>
@@ -340,7 +355,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     </div>
 
     @if($step === 1)
-        <flux:radio.group wire:model="role" variant="cards" class="grid grid-cols-2 w-full">
+        <flux:radio.group wire:model="role" variant="cards" class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
             <flux:radio value="commuter" label="Commuter" description="A commuter who rides and tracks transit routes.">
                 <x-slot name="icon"><flux:icon.user class="w-5 h-5" /></x-slot>
             </flux:radio>
@@ -349,7 +364,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </flux:radio>
         </flux:radio.group>
         @error('role')
-            <p class="text-red-500 text-xs mt-2">{{ $message }}</p>
+            <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-2">{{ $message }}</p>
         @enderror
     @endif
 
@@ -395,72 +410,162 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 <x-input wire:model="phone_number"    label="Phone no."                 placeholder="63+ 912 345 6789"  />
             </x-inputs-container>
 
-            <div class="flex items-center justify-between pt-2 pb-1 border-t border-zinc-200 dark:border-zinc-700">
+            <div class="flex items-center justify-between pt-2 pb-1 border-t border-light-bd-default dark:border-dark-bd-default">
                 <div>
-                    <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Vehicle Registration</p>
-                    <p class="text-xs text-zinc-400 dark:text-zinc-500">
+                    <p class="font-secondary text-table-row font-semibold text-light-txt-primary dark:text-dark-txt-primary">Vehicle Registration</p>
+                    <p class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                         {{ count($vehicles) }} vehicle{{ count($vehicles) !== 1 ? 's' : '' }} added
                     </p>
                 </div>
-                <flux:button wire:click="addVehicle" size="sm" icon="plus" variant="primary">Add Vehicle</flux:button>
+                <flux:button wire:click="addVehicle" size="sm" icon="plus" variant="primary" class="font-secondary">Add Vehicle</flux:button>
             </div>
 
-            @forelse ($vehicles as $index => $vehicle)
-                <div wire:key="vehicle-{{ $index }}"
-                     class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-4 space-y-3">
+        @forelse ($vehicles as $index => $vehicle)
+            @if($this->vehicleIsComplete($vehicle))
+                <div wire:key="vehicle-card-{{ $index }}-{{ md5(json_encode($vehicle)) }}"
+                    class="flex items-center justify-between gap-3 rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-light-secondary dark:bg-dark-surface p-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-9 h-9 rounded-lg bg-light-subtle dark:bg-dark-subtle flex items-center justify-center shrink-0">
+                            <flux:icon.truck class="w-4 h-4 text-light-txt-muted dark:text-dark-txt-muted" />
+                        </div>
+                        <div class="min-w-0">
+                            <p class="font-secondary text-table-row font-medium text-light-txt-primary dark:text-dark-txt-primary truncate">
+                                {{ $vehicle['plate_number'] }}
+                                <span class="font-normal text-light-txt-muted dark:text-dark-txt-muted">· {{ $vehicle['vehicle_type'] }}</span>
+                            </p>
+                            <p class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted truncate">
+                                {{ $vehicle['route'] }} · {{ $vehicle['seat_capacity'] }} seats
+                                @if(!empty($vehicle['group_number'])) · Group {{ $vehicle['group_number'] }} @endif
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <flux:modal.trigger name="edit-vehicle-{{ $index }}">
+                            <flux:button size="sm" variant="ghost" icon="pencil" class="text-light-txt-muted dark:text-dark-txt-muted" />
+                        </flux:modal.trigger>
+                        @if(count($vehicles) > 1)
+                            <flux:button wire:click="removeVehicle({{ $index }})" size="sm" variant="ghost" icon="trash" class="text-danger dark:text-dark-danger" />
+                        @endif
+                    </div>
+                </div>
+
+                <flux:modal name="edit-vehicle-{{ $index }}" class="md:w-[28rem]">
+                    <div class="space-y-4">
+                        <div>
+                            <flux:heading size="lg" class="font-primary text-light-txt-primary dark:text-dark-txt-primary">
+                                Edit Vehicle {{ $index + 1 }}
+                            </flux:heading>
+                            <flux:text class="mt-1 font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                                Update this vehicle's details.
+                            </flux:text>
+                        </div>
+
+                        <x-inputs-container class="grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Vehicle Type</flux:label>
+                                <flux:select wire:model.live="vehicles.{{ $index }}.vehicle_type" placeholder="Choose type..." size="sm">
+                                    @foreach ($this->getVehicleType as $vehicleType)
+                                        <flux:select.option>{{ $vehicleType->vehicle_type }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+
+                            <x-input wire:model.live="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
+
+                            <x-input wire:model.live="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
+
+                            <div>
+                                <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Route</flux:label>
+                                <flux:select wire:model.live="vehicles.{{ $index }}.route" placeholder="Select route for this vehicle..." size="sm">
+                                    @foreach ($this->getRoute as $route)
+                                        @if ($route->operatorTicketRate->vehicle_type === $this->vehicles[$index]['vehicle_type'])
+                                            <flux:select.option value="{{ $route->terminal }}">
+                                                Iriga Terminal to
+                                                <strong>{{ $route->terminal }}</strong>
+                                            </flux:select.option>
+                                        @endif
+                                    @endforeach
+                                </flux:select>
+                            </div>
+
+                            @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'UV-express')
+                                <div>
+                                    <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Group No.</flux:label>
+                                    <flux:select wire:model.live="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm">
+                                        <flux:select.option value="1">1</flux:select.option>
+                                        <flux:select.option value="2">2</flux:select.option>
+                                    </flux:select>
+                                </div>
+                            @else
+                                <div>
+                                    <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Group No.</flux:label>
+                                    <flux:select wire:model.live="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm" disabled>
+                                        <flux:select.option value="1">1</flux:select.option>
+                                        <flux:select.option value="2">2</flux:select.option>
+                                    </flux:select>
+                                </div>
+                            @endif
+                        </x-inputs-container>
+
+                        <div class="flex justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                            <flux:modal.close>
+                                <flux:button variant="primary" class="font-secondary">Done</flux:button>
+                            </flux:modal.close>
+                        </div>
+                    </div>
+                </flux:modal>
+            @else
+                <div wire:key="vehicle-{{ $index }}-{{ md5(json_encode($vehicle)) }}"
+                    class="rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-light-subtle dark:bg-dark-subtle p-4 space-y-3">
                     <div class="flex items-center justify-between">
-                        <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Vehicle {{ $index + 1 }}</span>
+                        <span class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-body">Vehicle {{ $index + 1 }}</span>
                         @if(count($vehicles) > 1)
                             <button wire:click="removeVehicle({{ $index }})" type="button"
-                                class="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded-md transition cursor-pointer">
+                                class="flex items-center gap-1 font-secondary text-timestamp text-danger hover:text-danger dark:text-dark-danger hover:bg-danger/10 dark:hover:bg-dark-danger/10 px-2 py-1 rounded-md transition cursor-pointer">
                                 <flux:icon.trash class="w-3.5 h-3.5" /> Remove
                             </button>
                         @endif
                     </div>
                     <x-inputs-container>
                         <div>
-                            <flux:label class="mb-3">Vehicle Type</flux:label>
+                            <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Vehicle Type</flux:label>
                             <flux:select wire:model.live="vehicles.{{ $index }}.vehicle_type" placeholder="Choose type..." size="sm">
-                                @foreach ($this->getVehicleType as $vehicle)
-                                     <flux:select.option>{{ $vehicle->vehicle_type }}</flux:select.option>
+                                @foreach ($this->getVehicleType as $vehicleType)
+                                    <flux:select.option>{{ $vehicleType->vehicle_type }}</flux:select.option>
                                 @endforeach
                             </flux:select>
                         </div>
 
-                        <x-input wire:model="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
+                        <x-input wire:model.live="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
 
-                        <x-input wire:model="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
+                        <x-input wire:model.live="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
 
                         <div>
-                            <flux:label>Route</flux:label>
-                            <flux:select wire:model="vehicles.{{ $index }}.route" placeholder="Select route for this vehicle..." size="sm">
+                            <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Route</flux:label>
+                            <flux:select wire:model.live="vehicles.{{ $index }}.route" placeholder="Select route for this vehicle..." size="sm">
                                 @foreach ($this->getRoute as $route)
-
                                     @if ($route->operatorTicketRate->vehicle_type === $this->vehicles[$index]['vehicle_type'])
-
-                                    <flux:select.option value="{{ $route->terminal }}">
-                                        Iriga Terminal to 
-                                        <strong>{{ $route->terminal}}</strong>
-                                    </flux:select.option>
-
+                                        <flux:select.option value="{{ $route->terminal }}">
+                                            Iriga Terminal to
+                                            <strong>{{ $route->terminal }}</strong>
+                                        </flux:select.option>
                                     @endif
-
                                 @endforeach
                             </flux:select>
                         </div>
 
                         @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'UV-express')
                             <div>
-                                <flux:label>Group No.</flux:label>
-                                <flux:select wire:model="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm">
+                                <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Group No.</flux:label>
+                                <flux:select wire:model.live="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm">
                                     <flux:select.option value="1">1</flux:select.option>
                                     <flux:select.option value="2">2</flux:select.option>
                                 </flux:select>
                             </div>
                         @else
                             <div>
-                                <flux:label>Group No.</flux:label>
-                                <flux:select wire:model="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm" disabled>
+                                <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Group No.</flux:label>
+                                <flux:select wire:model.live="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm" disabled>
                                     <flux:select.option value="1">1</flux:select.option>
                                     <flux:select.option value="2">2</flux:select.option>
                                 </flux:select>
@@ -468,11 +573,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         @endif
                     </x-inputs-container>
                 </div>
+            @endif
             @empty
-                <div class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
-                    <flux:icon.truck class="w-8 h-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
-                    <p class="text-sm text-zinc-400">No vehicles added yet.</p>
-                    <p class="text-xs text-zinc-400 mt-1">Click "Add Vehicle" to register one.</p>
+                <div class="rounded-lg border border-dashed border-light-bd-strong dark:border-dark-bd-strong p-6 text-center">
+                    <flux:icon.truck class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
+                    <p class="font-secondary text-table-row text-light-txt-muted dark:text-dark-txt-muted">No vehicles added yet.</p>
+                    <p class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted mt-1">Click "Add Vehicle" to register one.</p>
                 </div>
             @endforelse
         </div>
@@ -482,32 +588,32 @@ new #[Layout('layouts.admin-layout')] class extends Component
         <x-card>
 
             <div @class([
-                'flex items-center gap-3 p-4 border-b border-zinc-200 dark:border-zinc-700',
-                'bg-blue-50 dark:bg-blue-950'   => $card_state === 'ready',
-                'bg-green-50 dark:bg-green-950' => $card_state === 'success',
-                'bg-red-50 dark:bg-red-950'     => $card_state === 'warn',
+                'flex items-center gap-3 p-4 border-b border-light-bd-default dark:border-dark-bd-default',
+                'bg-info/10 dark:bg-dark-info/10'       => $card_state === 'ready',
+                'bg-success/10 dark:bg-dark-success/10' => $card_state === 'success',
+                'bg-danger/10 dark:bg-dark-danger/10'   => $card_state === 'warn',
             ])>
                 <div @class([
                     'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
-                    'bg-blue-200 dark:bg-blue-800'   => $card_state === 'ready',
-                    'bg-green-200 dark:bg-green-800' => $card_state === 'success',
-                    'bg-red-200 dark:bg-red-800'     => $card_state === 'warn',
+                    'bg-info/20 dark:bg-dark-info/20'       => $card_state === 'ready',
+                    'bg-success/20 dark:bg-dark-success/20' => $card_state === 'success',
+                    'bg-danger/20 dark:bg-dark-danger/20'   => $card_state === 'warn',
                 ])>
                     @if($card_state === 'ready')
-                        <flux:icon name="credit-card" class="w-5 h-5 text-blue-800 dark:text-blue-200" />
+                        <flux:icon name="credit-card" class="w-5 h-5 text-info dark:text-dark-info" />
                     @elseif($card_state === 'success')
-                        <flux:icon name="check-circle" class="w-5 h-5 text-green-800 dark:text-green-200" />
+                        <flux:icon name="check-circle" class="w-5 h-5 text-success dark:text-dark-success" />
                     @else
-                        <flux:icon name="exclamation-triangle" class="w-5 h-5 text-red-800 dark:text-red-200" />
+                        <flux:icon name="exclamation-triangle" class="w-5 h-5 text-danger dark:text-dark-danger" />
                     @endif
                 </div>
 
                 <div class="flex-1 min-w-0">
                     <p @class([
-                        'text-sm font-medium',
-                        'text-blue-900 dark:text-blue-100'   => $card_state === 'ready',
-                        'text-green-900 dark:text-green-100' => $card_state === 'success',
-                        'text-red-900 dark:text-red-100'     => $card_state === 'warn',
+                        'font-secondary text-table-row font-medium',
+                        'text-info dark:text-dark-info'       => $card_state === 'ready',
+                        'text-success dark:text-dark-success' => $card_state === 'success',
+                        'text-danger dark:text-dark-danger'   => $card_state === 'warn',
                     ])>
                         @if($card_state === 'ready')   Get your RFID card ready
                         @elseif($card_state === 'success') Card scanned successfully!
@@ -515,10 +621,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         @endif
                     </p>
                     <p @class([
-                        'text-xs',
-                        'text-blue-600 dark:text-blue-300'   => $card_state === 'ready',
-                        'text-green-600 dark:text-green-300' => $card_state === 'success',
-                        'text-red-600 dark:text-red-300'     => $card_state === 'warn',
+                        'font-secondary text-timestamp',
+                        'text-info dark:text-dark-info'       => $card_state === 'ready',
+                        'text-success dark:text-dark-success' => $card_state === 'success',
+                        'text-danger dark:text-dark-danger'   => $card_state === 'warn',
                     ])>
                         @if($card_state === 'ready')   
                         
@@ -538,7 +644,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 {{-- Clear button on success --}}
                 @if($card_state === 'success')
                     <button wire:click="clearCard"
-                        class="text-zinc-400 hover:text-zinc-600 transition"
+                        class="text-light-txt-muted hover:text-light-txt-body dark:text-dark-txt-muted dark:hover:text-dark-txt-primary transition"
                         aria-label="Clear card">
                         <flux:icon name="x-mark" class="w-6 h-6" />
                     </button>
@@ -570,62 +676,62 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         <div class="space-y-4">
 
-            <p class="text-xs font-medium uppercase tracking-wide text-zinc-400">Review before saving</p>
+            <p class="font-secondary text-timestamp font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Review before saving</p>
 
             <flux:card>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 mb-2">
 
-                    <div class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">
+                    <div class="w-12 h-12 rounded-full bg-secondary text-primary dark:text-dark-txt-primary flex items-center justify-center font-secondary text-table-row font-medium">
                         {{ strtoupper(substr($first_name, 0, 1) . substr($last_name, 0, 1)) }}
                     </div>
 
                     <div class="flex-1 min-w-0">
-                        <x-text variant="strong" class="text-base">{{ $first_name }} {{ $last_name }}</x-text>
+                        <x-text variant="strong" class="font-primary text-body text-light-txt-primary dark:text-dark-txt-primary">{{ $first_name }} {{ $last_name }}</x-text>
                         {{-- <x-text>{{ $username }}</x-text> --}}
                     </div>
 
                     <div>
                         @if ($this->role === 'operator')
-                            <flux:badge color="blue" size="sm">Operator</flux:badge>
+                            <flux:badge color="blue" size="sm" class="font-secondary text-badge">Operator</flux:badge>
                         @else
-                            <flux:badge color="yellow" size="sm">Commuter</flux:badge>
+                            <flux:badge color="yellow" size="sm" class="font-secondary text-badge">Commuter</flux:badge>
                         @endif
                     </div>
 
                 </div>
 
-                <x-inputs-container class="border-t border-zinc-200 dark:border-zinc-700 pt-3 grid-cols-3">
+                <x-inputs-container class="border-t border-light-bd-default dark:border-dark-bd-default pt-3 grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <x-text size="sm">Username</x-text>
-                        <x-text variant="strong" >{{ $username }}</x-text>
+                        <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Username</x-text>
+                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $username }}</x-text>
                     </div>
                     <div>
-                        <x-text size="sm">Password</x-text>
-                        <x-text variant="strong" >{{ $password }}</x-text>
+                        <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Password</x-text>
+                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $password }}</x-text>
                     </div>
                     <div>
-                        <x-text size="sm">Home address</x-text>
-                        <x-text variant="strong" >{{ $address }}</x-text>
+                        <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Home address</x-text>
+                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $address }}</x-text>
                     </div>
                     @if ($email_address)
                         <div>
-                            <x-text size="sm">Email address</x-text>
-                            <x-text variant="strong" >{{ $email_address }}</x-text>
+                            <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Email address</x-text>
+                            <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $email_address }}</x-text>
                         </div>
                     @endif
                     <div>
-                        <x-text size="sm">Phone no.</x-text>
-                        <x-text variant="strong" >{{ $phone_number }}</x-text>
+                        <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Phone no.</x-text>
+                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $phone_number }}</x-text>
                     </div>
                     @if($role === 'commuter')
                         <div>
-                            <x-text size="sm">Commuter type</x-text>
-                            <x-text variant="strong" >{{ $commuter_type }}</x-text>
+                            <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Commuter type</x-text>
+                            <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $commuter_type }}</x-text>
                         </div>
                     @endif
                     <div>
-                        <x-text size="sm">Has card</x-text>
-                        <x-text variant="strong">{{ $card_number ? 'Yes' : 'No' }}</x-text>
+                        <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Has card</x-text>
+                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $card_number ? 'Yes' : 'No' }}</x-text>
                     </div>
 
                 </x-inputs-container>
@@ -633,8 +739,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
             @if($role === 'operator')
                 <div class="space-y-2">
                     <div class="flex items-center justify-between">
-                        <p class="text-xs font-medium uppercase tracking-wide text-zinc-400">Vehicles</p>
-                        <flux:badge size="sm" color="zinc">
+                        <p class="font-secondary text-timestamp font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Vehicles</p>
+                        <flux:badge size="sm" color="zinc" class="font-secondary text-badge">
                             {{ count($vehicles) }} Vehicle/s
                         </flux:badge>
                     </div>
@@ -643,38 +749,38 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         <flux:card class="!p-4" wire:key="summary-vehicle-{{ $loop->index }}">
                             <div class="flex items-center justify-between mb-3">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                                    <div class="w-9 h-9 rounded-lg bg-light-subtle dark:bg-dark-subtle flex items-center justify-center">
                                         <flux:icon
                                             name="{{ $vehicle['vehicle_type'] === 'Bus' ? 'truck' : ($vehicle['vehicle_type'] === 'Uv-express' ? 'truck' : 'truck') }}"
-                                            class="w-4 h-4 text-zinc-500"
+                                            class="w-4 h-4 text-light-txt-muted dark:text-dark-txt-muted"
                                         />
                                     </div>
                                     <div>
-                                        <x-text variant="strong" class="text-sm">{{ $vehicle['plate_number'] }}</x-text>
-                                        <x-text class="text-xs text-zinc-400">{{ $vehicle['vehicle_type'] }}</x-text>
+                                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $vehicle['plate_number'] }}</x-text>
+                                        <x-text class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">{{ $vehicle['vehicle_type'] }}</x-text>
                                     </div>
                                 </div>
                                 @if(!empty($vehicle['group_number']))
-                                    <flux:badge size="sm" color="zinc">Group {{ $vehicle['group_number'] }}</flux:badge>
+                                    <flux:badge size="sm" color="zinc" class="font-secondary text-badge">Group {{ $vehicle['group_number'] }}</flux:badge>
                                 @endif
                             </div>
 
-                            <x-inputs-container class="border-t border-zinc-200 dark:border-zinc-700 pt-3 grid-cols-2">
+                            <x-inputs-container class="border-t border-light-bd-default dark:border-dark-bd-default pt-3 grid-cols-1 sm:grid-cols-2 gap-4">
 
                                 <div>
-                                    <x-text class="text-xs">Route</x-text>
-                                    <x-text variant="strong">{{ $vehicle['route'] }}</x-text>
+                                    <x-text class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">Route</x-text>
+                                    <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $vehicle['route'] }}</x-text>
                                 </div>
                                 <div>
-                                    <x-text class="text-xs">Seat Capacity</x-text>
-                                    <x-text variant="strong">{{ $vehicle['seat_capacity'] }}</x-text>
+                                    <x-text class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">Seat Capacity</x-text>
+                                    <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $vehicle['seat_capacity'] }}</x-text>
                                 </div>
                             </x-inputs-container>
                         </flux:card>
                     @endforeach
                 </div>
             @endif
-            <x-text class="text-xs text-zinc-400 leading-relaxed">
+            <x-text class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted leading-relaxed">
                 A welcome message with login instructions will be sent to the user. You can edit their profile anytime from the Users page.
             </x-text>
         </div>
@@ -683,16 +789,16 @@ new #[Layout('layouts.admin-layout')] class extends Component
     <div class="flex items-center gap-2 pt-6">
         <flux:spacer />
         @if($step > 1)
-            <flux:button size="sm" variant="ghost" wire:click="back">Back</flux:button>
+            <flux:button size="sm" variant="ghost" wire:click="back" class="font-secondary">Back</flux:button>
         @endif
         @if($step < 5)
             @if ($step === 4 && $this->card_number === '')
-                <flux:button size="sm" variant="primary" wire:click="stepSkipped">Skip</flux:button>
+                <flux:button size="sm" variant="primary" wire:click="stepSkipped" class="font-secondary">Skip</flux:button>
             @else
-                <flux:button size="sm" variant="primary" wire:click="next">Continue</flux:button>
+                <flux:button size="sm" variant="primary" wire:click="next" class="font-secondary">Continue</flux:button>
             @endif
         @else
-            <flux:button size="sm" variant="primary" wire:click="register">
+            <flux:button size="sm" variant="primary" wire:click="register" class="font-secondary">
                 Register this {{ ucfirst($this->role) }}
             </flux:button>
         @endif
