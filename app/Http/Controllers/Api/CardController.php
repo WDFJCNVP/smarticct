@@ -233,7 +233,7 @@ class CardController extends Controller
         try {
             $validated = $request->validate([
                 'uid'              => 'required|string|max:50',
-                'vehicle_id'       => 'required|numeric',
+                'vehicle_id'       => 'nullable|numeric',
                 'name'             => 'nullable|string|max:50',
                 'driver_name'      => 'nullable|string|max:100',
                 'transaction_type' => [
