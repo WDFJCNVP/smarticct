@@ -493,16 +493,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
                             <div>
                                 <x-input wire:model.live="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
-                                @error("vehicles.$index.plate_number")
-                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                                @enderror
                             </div>
 
                             <div>
                                 <x-input wire:model.live="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
-                                @error("vehicles.$index.seat_capacity")
-                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                                @enderror
                             </div>
 
                             <div>
