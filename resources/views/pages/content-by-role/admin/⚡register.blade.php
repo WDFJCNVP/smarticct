@@ -110,6 +110,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 }
             }
         }
+
+        // Clear stale validation errors on the specific vehicle field the user just edited
+        if (str_starts_with($property, 'vehicles.')) {
+            $this->resetValidation($property);
+        }
     }
 
 
@@ -375,14 +380,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 description="Username and temporary numeric PIN are filled automatically based on names." />
                 
             <x-inputs-container>
-                {{-- We add .live.debounce to sync changes gracefully as the admin types --}}
-                <x-input wire:model.live.debounce.500ms="first_name" label="First name" placeholder="e.g. Juan" />
-                <x-input wire:model.live.debounce.500ms="last_name"  label="Last name"  placeholder="e.g. dela Cruz" />
+                <x-input wire:model.live="first_name" label="First name" placeholder="e.g. Juan" />
+                <x-input wire:model.live="last_name"  label="Last name"  placeholder="e.g. dela Cruz" />
                 <x-input wire:model="email_address"   label="Email address (optional)" placeholder="juandelacruz@gmail.com" />
                 <x-input wire:model="age"   label="Age" placeholder="e.g. 25" type="number" />
                 <x-input wire:model="username" label="Username" placeholder="e.g. juandelacruz" />
                 
-                {{-- Changed type to "text" so the admin can see and copy the temporary PIN --}}
                 <x-input wire:model="password" label="Temporary numeric password" type="text" class="font-mono" />
             </x-inputs-container>
         </div>
@@ -449,6 +452,21 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     </div>
                 </div>
 
+                {{-- A: Error summary shown OUTSIDE the modal, under the collapsed vehicle card --}}
+                @php
+                    $vehicleErrors = collect($errors->keys())
+                        ->filter(fn($key) => str_starts_with($key, "vehicles.$index."))
+                        ->map(fn($key) => $errors->first($key));
+                @endphp
+
+                @if($vehicleErrors->isNotEmpty())
+                    <div wire:key="vehicle-errors-{{ $index }}" class="rounded-lg border border-danger/30 bg-danger/5 dark:bg-dark-danger/10 p-3 space-y-1">
+                        @foreach ($vehicleErrors as $message)
+                            <p class="font-secondary text-timestamp text-danger dark:text-dark-danger">{{ $message }}</p>
+                        @endforeach
+                    </div>
+                @endif
+
                 <flux:modal name="edit-vehicle-{{ $index }}" class="md:w-[28rem]">
                     <div class="space-y-4">
                         <div>
@@ -468,11 +486,24 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                         <flux:select.option>{{ $vehicleType->vehicle_type }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
+                                @error("vehicles.$index.vehicle_type")
+                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                                @enderror
                             </div>
 
-                            <x-input wire:model.live="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
+                            <div>
+                                <x-input wire:model.live="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
+                                @error("vehicles.$index.plate_number")
+                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
 
-                            <x-input wire:model.live="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
+                            <div>
+                                <x-input wire:model.live="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
+                                @error("vehicles.$index.seat_capacity")
+                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
 
                             <div>
                                 <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Route</flux:label>
@@ -486,6 +517,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                         @endif
                                     @endforeach
                                 </flux:select>
+                                @error("vehicles.$index.route")
+                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                                @enderror
                             </div>
 
                             @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'UV-express')
@@ -495,6 +529,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                         <flux:select.option value="1">1</flux:select.option>
                                         <flux:select.option value="2">2</flux:select.option>
                                     </flux:select>
+                                    @error("vehicles.$index.group_number")
+                                        <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                                    @enderror
                                 </div>
                             @else
                                 <div>
@@ -503,6 +540,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                         <flux:select.option value="1">1</flux:select.option>
                                         <flux:select.option value="2">2</flux:select.option>
                                     </flux:select>
+                                    @error("vehicles.$index.group_number")
+                                        <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                                    @enderror
                                 </div>
                             @endif
                         </x-inputs-container>
@@ -534,11 +574,24 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     <flux:select.option>{{ $vehicleType->vehicle_type }}</flux:select.option>
                                 @endforeach
                             </flux:select>
+                            @error("vehicles.$index.vehicle_type")
+                                <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                            @enderror
                         </div>
 
-                        <x-input wire:model.live="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
+                        <div>
+                            <x-input wire:model.live="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
+                            @error("vehicles.$index.plate_number")
+                                <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
 
-                        <x-input wire:model.live="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
+                        <div>
+                            <x-input wire:model.live="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
+                            @error("vehicles.$index.seat_capacity")
+                                <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
 
                         <div>
                             <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Route</flux:label>
@@ -552,6 +605,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     @endif
                                 @endforeach
                             </flux:select>
+                            @error("vehicles.$index.route")
+                                <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'UV-express')
@@ -561,6 +617,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     <flux:select.option value="1">1</flux:select.option>
                                     <flux:select.option value="2">2</flux:select.option>
                                 </flux:select>
+                                @error("vehicles.$index.group_number")
+                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                                @enderror
                             </div>
                         @else
                             <div>
@@ -569,6 +628,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     <flux:select.option value="1">1</flux:select.option>
                                     <flux:select.option value="2">2</flux:select.option>
                                 </flux:select>
+                                @error("vehicles.$index.group_number")
+                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
+                                @enderror
                             </div>
                         @endif
                     </x-inputs-container>
