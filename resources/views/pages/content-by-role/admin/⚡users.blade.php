@@ -145,7 +145,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
     <div class="rounded-xl border border-light-bd-default dark:border-dark-bd-default overflow-hidden">
         <div class="overflow-x-auto">
             <flux:table container:class="max-h-160">
-                <flux:table.columns sticky class="bg-light-secondary items-center bg-light-subtle/50 dark:bg-dark-secondary font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
+                <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
                     <flux:table.column align="center" class="px-2! md:px-4! py-2">ID</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Card</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Name</flux:table.column>
