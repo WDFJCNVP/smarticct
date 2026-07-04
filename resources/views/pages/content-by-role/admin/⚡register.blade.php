@@ -65,9 +65,60 @@ new #[Layout('layouts.admin-layout')] class extends Component
          ],
     ];
 
+    // Address modal fields
+    public string $house_subd = '';
+    public ?int $zone_number = null;
+    public string $barangay = '';
+
+    // Iriga City, Camarines Sur barangays
+    public const BARANGAYS = [
+        'Antipolo',
+        'Cristo Rey',
+        'Del Rosario (Banao)',
+        'Francia',
+        'La Anunciacion',
+        'La Medalla',
+        'La Purisima',
+        'La Trinidad',
+        'Niño Jesus',
+        'Perpetual Help',
+        'Sagrada',
+        'Salvacion',
+        'San Agustin',
+        'San Andres',
+        'San Antonio',
+        'San Francisco (Pob.)',
+        'San Isidro',
+        'San Jose',
+        'San Juan',
+        'San Miguel',
+        'San Nicolas',
+        'San Pedro',
+        'San Rafael',
+        'San Ramon',
+        'San Roque (Pob.)',
+        'Santiago',
+        'San Vicente Norte',
+        'San Vicente Sur',
+        'Santa Cruz Norte',
+        'Santa Cruz Sur',
+        'Santa Elena',
+        'Santa Isabel',
+        'Santa Maria',
+        'Santa Teresita',
+        'Santo Domingo',
+        'Santo Niño',
+    ];
+
     #[Computed]
     public function getVehicleType() {  
         return OperatorTicketRate::get('vehicle_type');
+    }
+
+    #[Computed]
+    public function getBarangays()
+    {
+        return self::BARANGAYS;
     }
 
     public function stepSkipped() {
@@ -175,6 +226,28 @@ new #[Layout('layouts.admin-layout')] class extends Component
     {
          return RouteList::with('operatorTicketRate')
             ->get();
+    }
+
+    public function saveAddress(): void
+    {
+        $data = $this->validate([
+            'house_subd'  => 'nullable|string|max:255',
+            'zone_number' => 'required|integer|min:1|max:20',
+            'barangay'    => 'required|string|in:' . implode(',', self::BARANGAYS),
+        ]);
+
+        $parts = array_filter([
+            $data['house_subd'] !== '' ? $data['house_subd'] : null,
+            'Zone ' . $data['zone_number'],
+            $data['barangay'],
+            'Iriga City',
+            'Camarines Sur',
+        ]);
+
+        $this->address = implode(', ', $parts);
+        $this->resetValidation();
+
+        $this->dispatch('address-saved');
     }
 
     public function next(): void
@@ -394,7 +467,25 @@ new #[Layout('layouts.admin-layout')] class extends Component
     @if($step === 3 && $role === 'commuter')
         <div class="space-y-4">
             <x-inputs-container>
-                <x-input wire:model="address"       type="text"   label="Address" placeholder="e.g. Zone 3 San Miguel Nabua Camarines Sur"/>
+                <flux:field>
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
+                        Address
+                    </flux:label>
+                    <flux:modal.trigger name="address-modal">
+                        <button
+                            type="button"
+                            class="w-full text-left font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border border-light-bd-default dark:border-dark-bd-default rounded-lg px-3 py-2.5 transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                        >
+                            @if ($address)
+                                {{ $address }}
+                            @else
+                                <span class="text-light-txt-muted dark:text-dark-txt-muted">Tap to set address</span>
+                            @endif
+                        </button>
+                    </flux:modal.trigger>
+                    <flux:error name="address" />
+                </flux:field>
+
                 <x-input wire:model="phone_number"  type="number" label="Phone number" pattern="[0-9]{10}" placeholder="e.g. 09463637401"/>
                 <x-select wire:model="commuter_type" label="Commuter type" size="lg">
                     <x-select-option>Regular</x-select-option>
@@ -409,7 +500,25 @@ new #[Layout('layouts.admin-layout')] class extends Component
     @if($step === 3 && $role === 'operator')
         <div class="space-y-4">
             <x-inputs-container>
-                <x-input wire:model="address"         label="Home address"              placeholder="e.g. Zone 3 San Miguel Nabua Camarines Sur" />
+                <flux:field>
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
+                        Home Address
+                    </flux:label>
+                    <flux:modal.trigger name="address-modal">
+                        <button
+                            type="button"
+                            class="w-full text-left font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border border-light-bd-default dark:border-dark-bd-default rounded-lg px-3 py-2.5 transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                        >
+                            @if ($address)
+                                {{ $address }}
+                            @else
+                                <span class="text-light-txt-muted dark:text-dark-txt-muted">Tap to set address</span>
+                            @endif
+                        </button>
+                    </flux:modal.trigger>
+                    <flux:error name="address" />
+                </flux:field>
+
                 <x-input wire:model="phone_number"    label="Phone no."                 placeholder="63+ 912 345 6789"  />
             </x-inputs-container>
 
@@ -452,7 +561,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     </div>
                 </div>
 
-                {{-- A: Error summary shown OUTSIDE the modal, under the collapsed vehicle card --}}
                 @php
                     $vehicleErrors = collect($errors->keys())
                         ->filter(fn($key) => str_starts_with($key, "vehicles.$index."))
@@ -697,7 +805,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     </p>
                 </div>
 
-                {{-- Clear button on success --}}
                 @if($card_state === 'success')
                     <button wire:click="clearCard"
                         class="text-light-txt-muted hover:text-light-txt-body dark:text-dark-txt-muted dark:hover:text-dark-txt-primary transition"
@@ -859,6 +966,78 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </flux:button>
         @endif
     </div>
+
+    <flux:modal name="address-modal" class="md:w-[26rem]" x-on:address-saved.window="$flux.modal('address-modal').close()">
+        <div class="space-y-4">
+            <div>
+                <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                    Set your address
+                </flux:heading>
+                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                    All addresses are within Iriga City, Camarines Sur.
+                </flux:text>
+            </div>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
+                    House No. / Subdivision
+                    <span class="ml-2 text-light-txt-muted dark:text-dark-txt-muted font-normal">(optional)</span>
+                </flux:label>
+                <flux:input
+                    wire:model="house_subd"
+                    placeholder="e.g. Blk 3 Lot 5, Hillside Subd."
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="house_subd" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Zone No.</flux:label>
+                <flux:input
+                    type="number"
+                    wire:model="zone_number"
+                    min="1"
+                    max="20"
+                    placeholder="e.g. 3"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="zone_number" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Barangay</flux:label>
+                <flux:select
+                    wire:model="barangay"
+                    placeholder="Select barangay"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
+                >
+                    @foreach ($this->getBarangays as $brgy)
+                        <flux:select.option value="{{ $brgy }}">{{ $brgy }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+                <flux:error name="barangay" />
+            </flux:field>
+
+            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close>
+                    <flux:button type="button" variant="ghost" class="font-secondary w-full sm:w-auto">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+                <flux:button
+                    type="button"
+                    variant="primary"
+                    icon="check"
+                    wire:click="saveAddress"
+                    wire:loading.attr="disabled"
+                    wire:target="saveAddress"
+                    class="font-secondary w-full sm:w-auto"
+                >
+                    Save address
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 
     <script>
         document.addEventListener('livewire:initialized', () => {
