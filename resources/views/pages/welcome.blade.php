@@ -2,7 +2,6 @@
     <div class="relative w-full h-full">
         <x-public.image-overlay />
 
-        {{-- HERO SECTION --}}
         <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10 min-h-full flex items-center">
             <div class="flex flex-col w-full text-white">
                 <div class="text-xl font-bold">SMART</div>

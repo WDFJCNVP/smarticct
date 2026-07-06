@@ -55,6 +55,14 @@ class User extends Authenticatable
         ];
     }
 
+    public function postInterests() {
+        return $this->hasMany(PostInterest::class);
+    }
+
+    public function posts() {
+        return $this->hasMany(Post::class);
+    }
+
     public function travelRecords() {
         return $this->hasMany(TravelRecord::class);
     }

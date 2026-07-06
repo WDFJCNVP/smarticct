@@ -142,6 +142,9 @@ Route::middleware('auth')->group(function () {
 
     Route::livewire('/setting/vehicle/type', 'pages::settings.vehicle-type-page')
         ->name('security.vehicle.type');
+
+    Route::livewire('/feed', 'pages::feed')->name('feed');
+    Route::livewire('/feed/create', 'pages::create-post')->name('post.create');
 });
 
 
