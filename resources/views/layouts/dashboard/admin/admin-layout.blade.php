@@ -31,6 +31,7 @@
             <flux:sidebar.nav>
 
               <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.dashboard') }}" icon="squares-2x2 "> Dashboard </x-dashboard.sidebar-menu.sidebar-item>
+              <x-dashboard.sidebar-menu.sidebar-item href="{{ route('feed') }}" icon="squares-2x2 "> Feed </x-dashboard.sidebar-menu.sidebar-item>
               <x-dashboard.sidebar-menu.sidebar-item href="#" icon="map"> Routes </x-dashboard.sidebar-menu.sidebar-item>
               <x-dashboard.sidebar-menu.sidebar-item href="#" icon="briefcase">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
               <x-dashboard.sidebar-menu.sidebar-item href="{{ route('admin.users') }}" icon="users" wire:navigate>Users</x-dashboard.sidebar-menu.sidebar-item>

@@ -101,7 +101,6 @@ new class extends Component
                 <div class="flex-1">
                     @if (auth()->user()->role === 'admin' || auth()->user()->role === 'cashier')
                         <x-text size="sm" variant="strong" class="block mb-1">Post an announcement</x-text>
-                        <x-text size="sm" class="text-zinc-500 block mb-2">Your role can only post announcements.</x-text>
                     @endif
 
                     <flux:input

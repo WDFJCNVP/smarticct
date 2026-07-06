@@ -32,21 +32,21 @@ class UserFactory extends Factory
             // 'password'          => static::$password ??= Hash::make('password'),
             // 'remember_token'    => Str::random(10),
 
-            'name'              => 'ADMIN',
-            'username'          => 'admin@123',
-            'role'              => 'admin',
-            'address'           => 'null',
-            'email_verified_at' => now(),
-            'password'          => '12345678',
-            'remember_token'    => Str::random(10),
-
-            // 'name'              => 'CASHIER',
-            // 'username'          => 'cashier@123',
-            // 'role'              => 'cashier',
+            // 'name'              => 'ADMIN',
+            // 'username'          => 'admin@123',
+            // 'role'              => 'admin',
             // 'address'           => 'null',
             // 'email_verified_at' => now(),
             // 'password'          => '12345678',
             // 'remember_token'    => Str::random(10),
+
+            'name'              => 'CASHIER',
+            'username'          => 'cashier@123',
+            'role'              => 'cashier',
+            'address'           => 'null',
+            'email_verified_at' => now(),
+            'password'          => '12345678',
+            'remember_token'    => Str::random(10),
         ];
     }
 
