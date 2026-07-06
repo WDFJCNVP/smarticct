@@ -13,14 +13,73 @@ new #[Title('Profile settings')] class extends Component {
 
     public string $name = '';
     public string $username = '';
+    public string $email_address = '';
+    public string $phone_number = '';
+    public string $address = '';
+
+    // Address modal fields (mirrors admin edit-user page)
+    public string $house_subd = '';
+    public ?int $zone_number = null;
+    public string $barangay = '';
+
+    // Iriga City, Camarines Sur barangays
+    public const BARANGAYS = [
+        'Antipolo',
+        'Cristo Rey',
+        'Del Rosario (Banao)',
+        'Francia',
+        'La Anunciacion',
+        'La Medalla',
+        'La Purisima',
+        'La Trinidad',
+        'Niño Jesus',
+        'Perpetual Help',
+        'Sagrada',
+        'Salvacion',
+        'San Agustin',
+        'San Andres',
+        'San Antonio',
+        'San Francisco (Pob.)',
+        'San Isidro',
+        'San Jose',
+        'San Juan',
+        'San Miguel',
+        'San Nicolas',
+        'San Pedro',
+        'San Rafael',
+        'San Ramon',
+        'San Roque (Pob.)',
+        'Santiago',
+        'San Vicente Norte',
+        'San Vicente Sur',
+        'Santa Cruz Norte',
+        'Santa Cruz Sur',
+        'Santa Elena',
+        'Santa Isabel',
+        'Santa Maria',
+        'Santa Teresita',
+        'Santo Domingo',
+        'Santo Niño',
+    ];
 
     /**
      * Mount the component.
      */
     public function mount(): void
     {
-        $this->name = Auth::user()->name;
-        $this->username = Auth::user()->username;
+        $user = Auth::user();
+
+        $this->name          = $user->name;
+        $this->username      = $user->username;
+        $this->email_address = $user->email_address ?? '';
+        $this->phone_number  = $user->phone_number ?? '';
+        $this->address       = $user->address ?? '';
+    }
+
+    #[Computed]
+    public function getBarangays()
+    {
+        return self::BARANGAYS;
     }
 
     /**
@@ -30,7 +89,13 @@ new #[Title('Profile settings')] class extends Component {
     {
         $user = Auth::user();
 
-        $validated = $this->validate($this->profileRules($user->id));
+        $rules = array_merge($this->profileRules($user->id), [
+            'phone_number' => 'required|string|regex:/^09\d{9}$/',
+        ]);
+
+        $validated = $this->validate($rules, [
+            'phone_number.regex' => 'Enter a valid mobile number (e.g. 09171234567).',
+        ]);
 
         $user->fill($validated);
 
@@ -40,7 +105,44 @@ new #[Title('Profile settings')] class extends Component {
 
         $user->save();
 
-        $this->dispatch('profile-updated', name: $user->name);
+        Flux::toast(
+            variant: 'success',
+            heading: 'Changes saved.',
+            text: 'Your profile has been updated.',
+        );
+    }
+
+    /**
+     * Save the formatted address (from the address modal) to the user record.
+     */
+    public function saveAddress(): void
+    {
+        $data = $this->validate([
+            'house_subd'  => 'nullable|string|max:255',
+            'zone_number' => 'required|integer|min:1|max:20',
+            'barangay'    => 'required|string|in:' . implode(',', self::BARANGAYS),
+        ]);
+
+        $parts = array_filter([
+            $data['house_subd'] !== '' ? $data['house_subd'] : null,
+            'Zone ' . $data['zone_number'],
+            $data['barangay'],
+            'Iriga City',
+            'Camarines Sur',
+        ]);
+
+        $this->address = implode(', ', $parts);
+
+        Auth::user()->update(['address' => $this->address]);
+
+        $this->resetValidation();
+        $this->dispatch('address-saved');
+
+        Flux::toast(
+            variant: 'success',
+            heading: 'Address saved.',
+            text: 'Your address has been updated.',
+        );
     }
 
     /**
@@ -89,12 +191,20 @@ new #[Title('Profile settings')] class extends Component {
     <flux:heading class="sr-only">{{ __('Profile settings') }}</flux:heading>
 
     <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
-        
+
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
             <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
+            <flux:input wire:model="username" :label="__('Username')" type="text" required autocomplete="username" />
+
             <div>
-                <flux:input wire:model="username" :label="__('Email')" type="email" required autocomplete="email" />
+                <flux:input
+                    wire:model="email_address"
+                    :label="__('Email')"
+                    type="email"
+                    autocomplete="email"
+                    placeholder="you@example.com (optional)"
+                />
 
                 {{-- @if ($this->hasUnverifiedEmail)
                     <div>
@@ -115,16 +225,45 @@ new #[Title('Profile settings')] class extends Component {
                 @endif --}}
             </div>
 
-            <div class="flex items-center gap-4">
-                <div class="flex items-center justify-end">
-                    <flux:button variant="primary" type="submit" class="w-full" data-test="update-profile-button">
-                        {{ __('Save') }}
-                    </flux:button>
-                </div>
+            <flux:input
+                wire:model="phone_number"
+                :label="__('Mobile number')"
+                type="tel"
+                required
+                autocomplete="tel"
+                placeholder="09XXXXXXXXX"
+            />
 
-                <x-action-message class="me-3" on="profile-updated">
-                    {{ __('Saved.') }}
-                </x-action-message>
+            <flux:field>
+                <flux:label>{{ __('Address') }}</flux:label>
+                <flux:modal.trigger name="address-modal">
+                    <button
+                        type="button"
+                        class="w-full text-left font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border border-light-bd-default dark:border-dark-bd-default rounded-lg px-3 py-2.5 transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                    >
+                        @if ($address)
+                            {{ $address }}
+                        @else
+                            <span class="text-light-txt-muted dark:text-dark-txt-muted">Tap to set address</span>
+                        @endif
+                    </button>
+                </flux:modal.trigger>
+                <flux:error name="address" />
+            </flux:field>
+
+            @if (auth()->user()->role === 'commuter')
+                <flux:input
+                    label="Commuter type"
+                    value="{{ ucfirst(auth()->user()->commuter_type) }}"
+                    icon:trailing="lock-closed"
+                    readonly
+                />
+            @endif
+
+            <div class="flex items-center gap-4">
+                <flux:button variant="primary" type="submit" class="w-full" data-test="update-profile-button">
+                    {{ __('Save') }}
+                </flux:button>
             </div>
         </form>
 
@@ -132,5 +271,77 @@ new #[Title('Profile settings')] class extends Component {
             <livewire:pages::settings.delete-user-form />
         @endif
     </x-pages::settings.layout>
-    
+
+    <flux:modal name="address-modal" class="md:w-[26rem]" x-on:address-saved.window="$flux.modal('address-modal').close()">
+        <div class="space-y-4">
+            <div>
+                <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                    Set address
+                </flux:heading>
+                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                    All addresses are within Iriga City, Camarines Sur.
+                </flux:text>
+            </div>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
+                    House No. / Subdivision
+                    <span class="ml-2 text-light-txt-muted dark:text-dark-txt-muted font-normal">(optional)</span>
+                </flux:label>
+                <flux:input
+                    wire:model="house_subd"
+                    placeholder="e.g. Blk 3 Lot 5, Hillside Subd."
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="house_subd" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Zone No.</flux:label>
+                <flux:input
+                    type="number"
+                    wire:model="zone_number"
+                    min="1"
+                    max="20"
+                    placeholder="e.g. 3"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="zone_number" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Barangay</flux:label>
+                <flux:select
+                    wire:model="barangay"
+                    placeholder="Select barangay"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
+                >
+                    @foreach ($this->getBarangays as $brgy)
+                        <flux:select.option value="{{ $brgy }}">{{ $brgy }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+                <flux:error name="barangay" />
+            </flux:field>
+
+            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close>
+                    <flux:button type="button" variant="ghost" class="font-secondary w-full sm:w-auto">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+                <flux:button
+                    type="button"
+                    variant="primary"
+                    icon="check"
+                    wire:click="saveAddress"
+                    wire:loading.attr="disabled"
+                    wire:target="saveAddress"
+                    class="font-secondary w-full sm:w-auto"
+                >
+                    Save address
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
 </section>
