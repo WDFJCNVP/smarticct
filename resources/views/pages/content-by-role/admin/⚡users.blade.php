@@ -142,8 +142,11 @@ new  #[Layout('layouts.admin-layout')] class extends Component
             </flux:link>
         </div>
     </div>
+    
+    <x-pages-heading>Verified users</x-pages-heading>
 
     <flux:card class="mb-4">
+    
         <div class="overflow-x-auto">
             <flux:table container:class="max-h-160">
                 <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">

@@ -348,6 +348,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'email_address' => $this->email_address,
             'role'         => $this->role,
             'password'     => $this->password, 
+            'type'         => 'verified', 
         ];
 
         if($this->card_number) {
