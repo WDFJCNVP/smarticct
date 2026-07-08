@@ -21,6 +21,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public $name;
     public $username;
+    public $email_address;
+    public $phone_number;
     public $address;
 
     public $confirmingAddVehicle = null;
@@ -122,9 +124,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function mount() {
-        $this->name     = $this->user->name;
-        $this->username = $this->user->username;
-        $this->address  = $this->user->address;
+        $this->name          = $this->user->name;
+        $this->username      = $this->user->username;
+        $this->email_address = $this->user->email_address ?? '';
+        $this->phone_number  = $this->user->phone_number ?? '';
+        $this->address       = $this->user->address;
 
         foreach ($this->getVehicle as $vehicle) {
             $this->editingVehicles[$vehicle->id] = [
@@ -201,9 +205,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function save() {
         $attributes = $this->validate([
-            'name'     => 'required|min:2|string',
-            'username' => 'required|min:1|string',
-            'address'  => 'required|min:1|string',
+            'name'          => 'required|min:2|string',
+            'username'      => 'required|min:1|string',
+            'email_address' => 'nullable|string|email|max:255|unique:users,email_address,' . $this->user->id,
+            'phone_number'  => 'required|string|regex:/^09\d{9}$/',
+            'address'       => 'required|min:1|string',
+        ], [
+            'phone_number.regex' => 'Enter a valid mobile number (e.g. 09171234567).',
         ]);
 
         app(UserService::class)->update($this->user, $attributes);
@@ -596,6 +604,24 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 <div class="grid w-full grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <flux:input label="Name"     wire:model="name"     class="w-full font-secondary" />
                     <flux:input label="Username" wire:model="username" class="w-full font-secondary" />
+                    <div>
+                        <flux:input
+                            label="Email"
+                            wire:model="email_address"
+                            type="email"
+                            placeholder="Optional"
+                            class="w-full font-secondary"
+                        />
+                    </div>
+                    <div>
+                        <flux:input
+                            label="Mobile number"
+                            wire:model="phone_number"
+                            type="tel"
+                            placeholder="09XXXXXXXXX"
+                            class="w-full font-secondary"
+                        />
+                    </div>
                     <div class="sm:col-span-2">
                         {{-- Address field replaced with modal trigger button --}}
                         <flux:field>

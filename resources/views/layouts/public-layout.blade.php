@@ -96,7 +96,7 @@
         </flux:sidebar.nav>
     </flux:sidebar>
 
-        <flux:main class="p-0! flex-1 overflow-y-auto">
+        <flux:main class="p-0!">
 
           {{ $slot }}
 
