@@ -18,10 +18,12 @@ return new class extends Migration
             $table->string('username')->unique();
             $table->string('email_address')->nullable();
             $table->integer('age')->nullable();
-            $table->string('commuter_type')->nullable();
+            $table->enum('commuter_type', ['regular', 'student', 'senior', 'pwd'])->index();
             $table->text('address')->nullable();
             $table->string('phone_number')->nullable();
-            $table->enum('role', ['commuter', 'operator', 'admin', 'cashier'])->default('commuter');
+            $table->enum('role', ['commuter', 'operator', 'admin', 'cashier'])->default('commuter')->index();
+            $table->string('valid_id')->nullable();
+            $table->enum('type', ['pending', 'verified'])->default('pending')->nullable()->index();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();

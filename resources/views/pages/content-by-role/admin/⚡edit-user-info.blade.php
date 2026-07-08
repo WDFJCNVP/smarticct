@@ -71,10 +71,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
         'Santo Niño',
     ];
 
-    // NOTE: these now default to empty strings (not null) to match register.php's
-    // convention. A null-bound Flux select can visually fall back to its first
-    // <option> ("Bus") without that value ever being pushed into the component,
-    // which was the source of the "defaults to Bus" bug.
     public $create_vehicle_type = '';
     public $create_route        = '';
     public $create_plate_number = '';
@@ -186,6 +182,20 @@ new #[Layout('layouts.admin-layout')] class extends Component
             variant: 'success',
             heading: 'Card issued.',
             text: 'RFID card has been linked to ' . $this->user->name . '.',
+        );
+    }
+
+    public function verifyUser() {
+        $attributes = [
+            'type'     => 'verified',
+        ];
+
+        app(UserService::class)->update($this->user, $attributes);
+
+        Flux::toast(
+            variant: 'success',
+            heading: 'User verified.',
+            text: 'Your changes have been saved.'
         );
     }
 
@@ -385,7 +395,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     <x-pages-heading heading="Edit User Information"/>
 
-    @if ($this->user->card === null)
+    @if ($this->user->card === null && $this->user->type === 'verified')
         <flux:callout variant="warning" icon="exclamation-circle">
             <flux:callout.heading>This user has no RFID card assigned</flux:callout.heading>
             <flux:callout.text class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
@@ -401,6 +411,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     Issue card now
                 </flux:button>
             </flux:callout.text>
+        </flux:callout>
+    @elseif($this->user->card === null && $this->user->type === 'pending')
+        <flux:callout variant="warning" icon="clock">
+            <flux:callout.heading>This user's account is pending for verification</flux:callout.heading>
         </flux:callout>
     @endif
 
@@ -618,9 +632,17 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         readonly
                     />
                 </div>
+                @if ($user->type === 'pending')
+                    <div>
+                        <flux:label class="mb-4">Valid Id</flux:label>
+                        <img src="{{ Storage::url($user->valid_id) }}" />
+                    </div>
+                @endif  
 
                 <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full pt-4 border-t border-light-bd-default dark:border-dark-bd-default">
+
                     <flux:modal.trigger name="delete-user">
+
                         <flux:button
                             type="button"
                             variant="ghost"
@@ -628,11 +650,23 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             class="text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-950 w-full sm:w-auto order-2 sm:order-1"
                             icon="trash"
                         >Delete user</flux:button>
+
                     </flux:modal.trigger>
+
                     <flux:spacer class="hidden sm:block" />
+
                     <flux:button size="sm" variant="primary" type="submit" icon="check" class="w-full sm:w-auto order-1 sm:order-2">
                         Save changes
                     </flux:button>
+
+                    @if ($user->type === 'pending')
+
+                        <flux:button size="sm" variant="primary" type="button" icon="check" wire:click="verifyUser" class="w-full sm:w-auto order-1 sm:order-2">
+                            Verify this user
+                        </flux:button>
+
+                    @endif
+
                 </div>
             </div>
         </div>

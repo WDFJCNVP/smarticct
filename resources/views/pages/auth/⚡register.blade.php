@@ -1,6 +1,7 @@
 <?php
 
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\Attributes\Validate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
@@ -9,12 +10,12 @@ use App\Services\UserService;
 
 new #[Layout('layouts::public-layout')] class extends Component
 {
+    use WithFileUploads;
+
     public int $step = 1;
 
     public string $password_confirmation = '';
 
-    // Iriga City, Camarines Sur barangays — used both to populate the
-    // dropdown and to validate the submitted value against a known list.
     public const BARANGAYS = [
         'Antipolo',
         'Cristo Rey',
@@ -60,6 +61,9 @@ new #[Layout('layouts::public-layout')] class extends Component
     #[Validate('string|min:3|in:commuter')]
     public string $role = 'commuter';
 
+    #[Validate('string|min:3|in:pending')]
+    public string $type = 'pending';
+
     #[Validate('required|string|lowercase|alpha_dash|min:3|max:30|unique:users,username')]
     public string $username = '';
 
@@ -80,6 +84,10 @@ new #[Layout('layouts::public-layout')] class extends Component
 
     #[Validate('required|string|max:500')]
     public string $address = '';
+
+  
+    #[Validate('required|image|max:5120')]
+    public $valid_id;
 
     // Address modal fields.
     public string $house_subd = '';
@@ -104,6 +112,11 @@ new #[Layout('layouts::public-layout')] class extends Component
     public function prevStep(): void
     {
         $this->step = 1;
+    }
+
+    public function removeValidId(): void
+    {
+        $this->reset('valid_id');
     }
 
     public function saveAddress(): void
@@ -132,6 +145,8 @@ new #[Layout('layouts::public-layout')] class extends Component
     {
         $userBasicInformation = $this->validate();
 
+        $userBasicInformation['valid_id'] = $userBasicInformation['valid_id']->store('valid-id', 'public');
+
         $user = app(UserService::class)->create($userBasicInformation);
 
         if ($user) {
@@ -144,7 +159,7 @@ new #[Layout('layouts::public-layout')] class extends Component
 };
 ?>
 
-<div class="flex h-full overflow-hidden p-10!" x-data="{ loaded: false }" x-init="setTimeout(() => loaded = true, 100)">
+<div class="flex h-screen overflow-hidden p-10!" x-data="{ loaded: false }" x-init="setTimeout(() => loaded = true, 100)">
 
     {{-- ── FORM PANEL ── --}}
     <div
@@ -152,9 +167,10 @@ new #[Layout('layouts::public-layout')] class extends Component
         x-transition:enter.duration.700
         x-transition:enter.start.opacity-0.-translate-x-5
         x-transition:enter.end.opacity-100.translate-x-0
-        class="flex flex-1 flex-col justify-center px-6 py-8 sm:px-12 bg-light-secondary dark:bg-dark-secondary overflow-y-auto h-full"
+        class="flex flex-1 flex-col px-6 py-8 sm:px-12 bg-light-secondary dark:bg-dark-secondary overflow-y-auto h-full
+               [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
     >
-        <div class="w-full max-w-sm mx-auto">
+        <div class="w-full max-w-sm mx-auto my-auto">
 
             <p class="font-secondary text-nav-label font-semibold uppercase tracking-widest text-secondary mb-1">Register</p>
             <h2 class="font-primary text-page-title font-bold text-light-txt-primary dark:text-dark-txt-primary mb-1">
@@ -287,7 +303,7 @@ new #[Layout('layouts::public-layout')] class extends Component
                         <flux:error name="email_address" />
                     </flux:field>
 
- 
+
                     <flux:field>
                         <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                             Address
@@ -305,6 +321,64 @@ new #[Layout('layouts::public-layout')] class extends Component
                             </button>
                         </flux:modal.trigger>
                         <flux:error name="address" />
+                    </flux:field>
+
+                    <div class="border-t border-light-bd-default dark:border-dark-bd-default pt-1"></div>
+
+                    <flux:field>
+                        <flux:label>
+                            Valid ID
+                            <x-text>(required)</x-text>
+                        </flux:label>
+
+                        @if (! $valid_id)
+                            <label
+                                for="valid_id"
+                                class="flex flex-col items-center justify-center gap-1 w-full cursor-pointer rounded-lg border border-dashed border-light-bd-default dark:border-dark-bd-default bg-light-primary dark:bg-dark-surface px-4 py-5 text-center transition-colors duration-200 hover:border-secondary"
+                            >
+                                <flux:icon name="identification" class="size-6 text-light-txt-muted dark:text-dark-txt-muted" />
+                                <span class="font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">
+                                    Upload a photo of your ID
+                                </span>
+                                <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                                    JPG or PNG, max 5MB
+                                </span>
+                                <input
+                                    id="valid_id"
+                                    type="file"
+                                    accept="image/*"
+                                    wire:model="valid_id"
+                                    class="hidden"
+                                />
+                            </label>
+                        @endif
+
+                        <div wire:loading wire:target="valid_id" class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted mt-1">
+                            Uploading…
+                        </div>
+
+                        @if ($valid_id)
+                            <div class="flex items-center gap-3 rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-light-primary dark:bg-dark-surface px-3 py-2">
+                                <img
+                                    src="{{ $valid_id->temporaryUrl() }}"
+                                    alt="Valid ID preview"
+                                    class="size-10 rounded-md object-cover shrink-0"
+                                />
+                                <span class="font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary truncate flex-1">
+                                    {{ $valid_id->getClientOriginalName() }}
+                                </span>
+                                <flux:icon name="check-circle" class="size-4 text-green-600 shrink-0" />
+                                <button
+                                    type="button"
+                                    wire:click="removeValidId"
+                                    class="shrink-0 text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-body dark:hover:text-dark-txt-primary"
+                                >
+                                    <flux:icon name="x-mark" class="size-4" />
+                                </button>
+                            </div>
+                        @endif
+
+                        <flux:error name="valid_id" />
                     </flux:field>
 
                     <div class="flex gap-2">

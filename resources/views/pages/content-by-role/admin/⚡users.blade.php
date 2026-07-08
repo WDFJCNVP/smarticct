@@ -37,6 +37,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
     public function getUsers() {
         return User::with('card')
             ->whereIn('role', ['operator', 'commuter'])
+            ->where('type', 'verified')
             ->when($this->filtered_role, fn($q) => $q->where('role', $this->filtered_role))
             ->when($this->search, fn($q) => $q->where(function ($q2) {
                 $q2->where('name', 'like', '%' . $this->search . '%')
@@ -142,7 +143,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
         </div>
     </div>
 
-    <div class="rounded-xl border border-light-bd-default dark:border-dark-bd-default overflow-hidden">
+    <flux:card class="mb-4">
         <div class="overflow-x-auto">
             <flux:table container:class="max-h-160">
                 <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
@@ -228,5 +229,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                 {{ $this->getUsers->links() }}
             </div>
         @endif
-    </div>
+    </flux:card>
+
+    <livewire:pages::content-by-role.admin.pending-users />
 </div>

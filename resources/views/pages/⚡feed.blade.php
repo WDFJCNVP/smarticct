@@ -15,7 +15,7 @@ new class extends Component
     {
         $user = auth()->user();
 
-        // You can never express interest in your own post.
+
         if ($user->id === $post->user_id) {
             return false;
         }
@@ -24,17 +24,10 @@ new class extends Component
             return false;
         }
 
-        // Announcements: only admin and cashier can flag one for follow-up,
-        // regardless of which role originally posted it.
         if ($post->type === 'announcement') {
             return in_array($user->role, ['admin', 'cashier']);
         }
 
-        // Rentals: interest only flows across the operator/commuter pair.
-        // An operator can express interest in a commuter's request, and a
-        // commuter can express interest in an operator's listing. Same-role
-        // interest (operator -> operator, commuter -> commuter) is blocked,
-        // and admin/cashier never see this action on rentals.
         if ($post->type === 'rental') {
             if ($user->role === 'operator') {
                 return $post->user->role === 'commuter';
@@ -82,8 +75,6 @@ new class extends Component
     {
         $post = Post::findOrFail($postId);
 
-        // Only rental listings can move to "rented" — an announcement has
-        // no such state.
         if ($post->user_id === auth()->id() && $post->type === 'rental') {
             $post->update(['status' => 'rented']);
         }
@@ -173,11 +164,7 @@ new class extends Component
                         $isAnnouncement = $post->type === 'announcement';
                         $alreadyInterested = in_array($post->id, $this->myInterestedPostIds);
 
-                        // A rental post reads differently depending on who
-                        // posted it: an operator is offering a vehicle, a
-                        // commuter is requesting one. Naming that plainly
-                        // is what tells the reader whether to expect a
-                        // vehicle or a rider on the other end.
+
                         $statusLabel = match(true) {
                             $post->status === 'rented' => 'Rented',
                             $post->status === 'archived' => 'Archived',
@@ -192,10 +179,6 @@ new class extends Component
                             $post->status === 'published' => 'green',
                             default => 'zinc',
                         };
-
-                        // Copy differs by post type: reacting to a listing
-                        // is "interest", reacting to an announcement is a
-                        // staff follow-up action.
                         $actionIcon = $isAnnouncement ? 'flag' : 'check-circle';
                         $actionLabelDone = $isAnnouncement ? 'Following up' : "You're interested";
                         $actionLabelIdle = $isAnnouncement ? 'Mark for follow-up' : "I'm interested";
@@ -391,10 +374,6 @@ new class extends Component
 
         <div class="lg:col-span-3 lg:h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" x-data="{ tab: 'mine' }">
 
-            {{-- One panel, two tabs — this is the fix for the old design
-                 where "your interests" and "people interested in you" sat
-                 in two separate boxes that only got more confusing as each
-                 list grew. Only one list is ever on screen at a time. --}}
             <flux:card class="sticky top-0">
                 <div class="flex gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800">
                     <button
@@ -415,11 +394,6 @@ new class extends Component
                     </button>
                 </div>
 
-                {{-- Tab 1: what you're following — rentals you've marked
-                     interested in (operator/commuter), or announcements
-                     you've flagged for follow-up (admin/cashier).
-                     canExpressInterest already restricts who can populate
-                     this list, so no extra role check is needed here. --}}
                 <div x-show="tab === 'mine'" class="mt-3">
                     @if ($this->myInterests->isNotEmpty())
                         @foreach ($this->myInterests as $interest)
@@ -459,10 +433,6 @@ new class extends Component
                         <x-text size="sm" class="text-zinc-500">You haven't expressed interest in anything yet.</x-text>
                     @endif
                 </div>
-
-                {{-- Tab 2: people interested in one of your own posts.
-                     Ownership is already enforced in activeInterests(),
-                     so this is safe to show to every role. --}}
                 <div x-show="tab === 'replies'" x-cloak class="mt-3">
                     @if ($this->selectedPostId && $this->activeInterests->isNotEmpty())
                         @foreach ($this->activeInterests as $item)
