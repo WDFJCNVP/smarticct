@@ -15,6 +15,12 @@ return new class extends Migration
             $table->id();
             $table->foreignIdFor(\App\Models\Post::class)->constrained()->cascadeOnDelete();
             $table->foreignIdFor(\App\Models\User::class)->constrained()->cascadeOnDelete();
+            $table->string('purpose');
+            $table->int('body_count');
+            $table->string('pick_up_location');
+            $table->string('drop_off_location');
+            $table->date('trip_date');
+            $table->json('metadata')->nullable();
             $table->timestamps();
 
             $table->unique(['post_id', 'user_id']); 

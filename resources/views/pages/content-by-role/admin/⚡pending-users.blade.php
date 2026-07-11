@@ -82,7 +82,7 @@ new class extends Component
                                     <x-text class="font-secondary text-sm md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
                                         No users found.
                                     </x-text>
-                                    @if ($search)
+                                    {{-- @if ($search)
                                         <x-text class="font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                             Try a different search term.
                                         </x-text>
@@ -90,7 +90,7 @@ new class extends Component
                                         <x-text class="font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                             No {{ $filtered_role }}s registered yet.
                                         </x-text>
-                                    @endif
+                                    @endif --}}
                                 </div>
                             </flux:table.cell>
                         </flux:table.row>
