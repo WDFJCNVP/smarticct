@@ -17,14 +17,18 @@ new class extends Component
     public bool $show_interested_modal = false;
     public bool $show_delete_interested_modal = false;
 
-    // public function saveInterest() {
+    public $replies;
+    public bool $showRepliesModal = false;
 
-    //     $validated_attributes = $this->validate();
+    public bool $interested_operator_modal = false;
+
+
+    public function showRepliesToYouModal($interest_id) {
+
+        $this->showRepliesModal = true;
+        $this->replies = PostInterest::where('id', $interest_id)->first();
         
-    //     app(PostService::class)->saveInterestedUser([
-    //         ''
-    //     ]);
-    // }
+    }
 
     public function mount() {
         $this->name = auth()->user()->name;
@@ -63,7 +67,16 @@ new class extends Component
 
     public function getPostInterested($postId)
     {
+         $this->selectedPostId = null;
         $this->selectedPostId = $postId;
+    }
+
+    public function interestedOperator($postId) {
+        $this->selected_post = null;
+        $this->interested_operator_modal = false;
+
+        $this->selected_post = Post::with('user')->find($postId);
+        $this->interested_operator_modal = true;
     }
 
     public function interested($postId)
@@ -118,11 +131,14 @@ new class extends Component
     #[Computed]
     public function posts()
     {
-        return Post::with('user')
-            ->whereIn('status', ['published', 'rented'])
-            ->withCount('postInterest')
-            ->latest()
-            ->get();
+    return Post::with('user', 'postInterest')
+        ->whereIn('status', ['published', 'rented'])
+        ->withCount(['postInterest' => function ($query) {
+            $query->where('status', '!=', 'decline')
+                ->orWhereNull('status');
+            }])
+        ->latest()
+        ->get();
     }
 
     #[Computed]
@@ -156,6 +172,11 @@ new class extends Component
 
         return PostInterest::with('user', 'post')
             ->where('post_id', $this->selectedPostId)
+            ->where(function ($query) {
+                $query->where('status', '!=', 'decline')
+                    ->orWhereNull('status');
+            })
+            ->latest()
             ->get();
     }
 
@@ -167,10 +188,12 @@ new class extends Component
 };
 ?>
 <div>
-    <div class="grid grid-cols-1 lg:grid-cols-10 gap-6 items-start">
+    <div>
         <div class="lg:col-span-7 flex flex-col gap-4 lg:h-[90vh]">
             <div class="shrink-0">
+
                 <livewire:pages::create-post />
+
             </div>
 
             <div class="flex-1 min-h-0 overflow-y-auto space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -186,7 +209,6 @@ new class extends Component
                             @include("partials.feed.actions.{$role}", [
                                 'post' => $post,
                                 'isOwner' => $isOwner,
-                                'alreadyInterested' => $alreadyInterested
                             ])
                         </x-slot>
                     </x-post-card>
@@ -200,95 +222,18 @@ new class extends Component
             </div>
 
         </div>
-
-        <div class="lg:col-span-3 lg:h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" x-data="{ tab: 'mine' }">
-
-            <flux:card class="sticky top-0">
-                <div class="flex gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                    <button
-                        type="button"
-                        @click="tab = 'mine'"
-                        :class="tab === 'mine' ? 'bg-white dark:bg-zinc-700 shadow-sm' : 'text-zinc-500'"
-                        class="flex-1 text-sm font-medium py-1.5 rounded-md cursor-pointer transition-colors"
-                    >
-                        Your interests
-                    </button>
-                    <button
-                        type="button"
-                        @click="tab = 'replies'"
-                        :class="tab === 'replies' ? 'bg-white dark:bg-zinc-700 shadow-sm' : 'text-zinc-500'"
-                        class="flex-1 text-sm font-medium py-1.5 rounded-md cursor-pointer transition-colors"
-                    >
-                        Replies to you
-                    </button>
-                </div>
-
-                <div x-show="tab === 'mine'" class="mt-3">
-                    @if ($this->myInterests->isNotEmpty())
-                        @foreach ($this->myInterests as $interest)
-                            @php $post = $interest->post; @endphp
-                            <div wire:key="my-interest-{{ $interest->id }}">
-                                @if (!$loop->first)
-                                    <flux:separator class="my-3" />
-                                @endif
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <flux:avatar size="xs" name="{{ $post->user->name }}" />
-                                        <x-text class="text-sm font-medium">{{ $post->user->name }}</x-text>
-                                    </div>
-                                    <flux:button icon="x-mark" variant="ghost" size="sm" wire:click="uninterested({{ $post->id }})" />
-                                </div>
-                                <div class="mt-1.5">
-                                    @if ($post->type === 'announcement')
-                                        <flux:badge size="sm" color="zinc">Announcement</flux:badge>
-                                    @elseif ($post->status === 'rented')
-                                        <flux:badge size="sm" color="amber">Rented</flux:badge>
-                                    @elseif ($post->user->role === 'commuter')
-                                        <flux:badge size="sm" color="blue">Looking for a ride</flux:badge>
-                                    @else
-                                        <flux:badge size="sm" color="green">Available to rent</flux:badge>
-                                    @endif
-                                </div>
-                                <x-text class="text-xs text-zinc-500 mt-1.5 block">
-                                    {{ $post->type === 'rental' ? ($post->metadata['vehicle_type'] ?? 'Vehicle') : \Illuminate\Support\Str::limit($post->body, 60) }}
-                                </x-text>
-                                <x-text class="text-xs text-zinc-900 dark:text-white mt-1.5 flex items-center gap-1">
-                                    <flux:icon.phone class="size-3.5" />{{ $post->user->phone_number }}
-                                </x-text>
-                                <x-text class="text-xs text-zinc-400 mt-1">{{ $interest->created_at->diffForHumans(['short' => true]) }}</x-text>
-                            </div>
-                        @endforeach
-                    @else
-                        <x-text size="sm" class="text-zinc-500">You haven't expressed interest in anything yet.</x-text>
-                    @endif
-                </div>
-                <div x-show="tab === 'replies'" x-cloak class="mt-3">
-                    @if ($this->selectedPostId && $this->activeInterests->isNotEmpty())
-                        @foreach ($this->activeInterests as $item)
-                            <div wire:key="interest-{{ $item->id }}">
-                                @if (!$loop->first)
-                                    <flux:separator class="my-3" />
-                                @endif
-                                <div class="flex items-center gap-2">
-                                    <flux:avatar size="xs" name="{{ $item->user->name }}" color="emerald"/>
-                                    <x-text class="text-sm font-medium">{{ $item->user->name }}</x-text>
-                                </div>
-                                <x-text class="text-xs text-zinc-900 dark:text-white mt-1.5 flex items-center gap-1">
-                                    <flux:icon.phone class="size-3.5" />{{ $item->user->phone_number }}
-                                </x-text>
-                                <x-text class="text-xs text-zinc-400 mt-1">{{ $item->created_at->diffForHumans(['short' => true]) }}</x-text>
-                            </div>
-                        @endforeach
-                    @else
-                        <x-text size="sm" class="text-zinc-500">Select "View interested" on one of your posts to see who replied.</x-text>
-                    @endif
-                </div>
-            </flux:card>
-
-        </div>
     </div>
 
     {{-- Modals --}}
+
+    <flux:modal wire:model="interested_operator_modal" class="min-w-196">
+        @if ($this->selected_post)
+            <livewire:pages::interested-operator-modal 
+                :selected_post="$selected_post" 
+                :key="'view-' . $selected_post->id" 
+        />
+        @endif
+    </flux:modal>
 
     <flux:modal wire:model="show_interested_modal" class="min-w-196">
         @if ($this->selected_post)
@@ -308,6 +253,15 @@ new class extends Component
             <livewire:pages::post-delete-interest-modal 
                 :selected_post="$selected_post" 
                 :key="'delete-' . $selected_post->id" 
+        />
+        @endif
+    </flux:modal>
+
+    <flux:modal wire:model="showRepliesModal" class="min-w-96">
+        @if ($this->replies)
+            <livewire:pages::show-replies-modal
+                :replies="$replies" 
+                :key="'view-' . $replies->id" 
         />
         @endif
     </flux:modal>

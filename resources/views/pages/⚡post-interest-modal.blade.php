@@ -24,6 +24,8 @@ new class extends Component
    #[Validate('nullable|string|max:255')]
    public ?string $email_address = null;
 
+   public $trip_type = 'round_trip';
+
    #[Validate('required|string|max:255')]
     public $pick_up_location;
 
@@ -59,6 +61,12 @@ new class extends Component
 
     public bool $has_driver = false;
     
+    public function switchTripType($trip_type) {
+        $this->trip_type = null;
+
+        $this->trip_type = $trip_type;
+    }
+
     public function removeUserAttachment() {
         $this->user_valid_id = null;
     }
@@ -83,6 +91,7 @@ new class extends Component
             'pick_up_location'  => $attributes['pick_up_location'],
             'drop_off_location'  => $attributes['drop_off_location'],
             'trip_date'  => $attributes['trip_date'],
+            'trip_type'  => $this->trip_type,
             'metadata'  => [
                 'valid_ids' => [
                     'user_valid_id' => $user_valid_id_path,
@@ -129,22 +138,63 @@ new class extends Component
 
             <flux:separator variant="subtle" class="mb-4"/>
 
-            <x-heading>Route Information</x-heading>
+            <x-heading>Trip Information</x-heading>
+
+
+            {{-- <flux:select label="Pick-up Location" wire:model="pick_up_location" >
+                <flux:select.option value="" selected>Select pick-up location</flux:select.option>
+                <flux:select.option >Naga</flux:select.option>
+                <flux:select.option >Nabua</flux:select.option>
+            </flux:select> --}}
+
+            <div x-data="{ tab: 'round_trip' }" class="w-full">
+                <div class="flex gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 ">
+                    <button
+                        type="button"
+                        @click="tab = 'round_trip'"
+                        wire:click="switchTripType('round_trip')"
+                        :class="tab === 'round_trip' ? 'bg-white dark:bg-zinc-700 shadow-sm' : 'text-zinc-500'"
+                        class="flex-1 text-sm font-medium py-1.5 rounded-md cursor-pointer transition-colors w-fit"
+                    >
+                        Round Trip
+                    </button>
+                    <button
+                        type="button"
+                        @click="tab = 'one_way'"
+                        wire:click="switchTripType('one_way')"
+                        :class="tab === 'one_way' ? 'bg-white dark:bg-zinc-700 shadow-sm' : 'text-zinc-500'"
+                        class="flex-1 text-sm font-medium py-1.5 rounded-md cursor-pointer transition-colors w-fit"
+                    >
+                        One Way
+                    </button>
+                </div>
+
+                <div x-show="tab === 'round_trip'" class="mt-3 flex items-center gap-2 w-full">
+                    <div class="w-full">
+                        <x-input placeholder="e.g. Nabua" label="From" wire:model="pick_up_location"/>
+                    </div>
+
+                    <flux:icon.arrows-right-left class="shrink-0 mt-8" size="sm"/>
+
+                    <div class="w-full">
+                        <x-input placeholder="e.g. Legaspi" label="To" wire:model="drop_off_location"/>
+                    </div>
+                </div>
+
+                <div x-show="tab === 'one_way'" class="mt-3 flex items-center gap-2 w-full">
+                    <div class="w-full">
+                        <x-input placeholder="e.g. Nabua" label="From"/>
+                    </div>
+
+                    <flux:icon.arrow-right class="shrink-0 mt-8" size="sm"/>
+
+                    <div class="w-full">
+                        <x-input placeholder="e.g. Legaspi" label="To"/>
+                    </div>
+                </div>
+            </div>
 
             <x-inputs-container>
-
-                <flux:select label="Pick-up Location" wire:model="pick_up_location" >
-                    <flux:select.option value="" selected>Select pick-up location</flux:select.option>
-                    <flux:select.option >Naga</flux:select.option>
-                    <flux:select.option >Nabua</flux:select.option>
-                </flux:select>
-
-                <flux:select label="Drop-off Location" wire:model="drop_off_location" >
-                    <flux:select.option value="" selected>Select drop-off location</flux:select.option>
-                    <flux:select.option value="Legaspi">Legaspi</flux:select.option>
-                    <flux:select.option value="Bato">Bato</flux:select.option>
-                </flux:select>
-
 
                 <x-input label="Trip date" placeholder="Date" type="date" wire:model="trip_date"/>
 

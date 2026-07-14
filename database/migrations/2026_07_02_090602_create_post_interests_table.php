@@ -16,10 +16,12 @@ return new class extends Migration
             $table->foreignIdFor(\App\Models\Post::class)->constrained()->cascadeOnDelete();
             $table->foreignIdFor(\App\Models\User::class)->constrained()->cascadeOnDelete();
             $table->string('purpose');
-            $table->int('body_count');
+            $table->integer('body_count');
             $table->string('pick_up_location');
             $table->string('drop_off_location');
             $table->date('trip_date');
+            $table->enum('trip_type', ['round_trip', 'one_way'])->index();
+            $table->enum('status', ['accept', 'decline', 'cancel'])->nullable()->index();
             $table->json('metadata')->nullable();
             $table->timestamps();
 

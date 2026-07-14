@@ -8,6 +8,7 @@ class PostInterest extends Model
 {   
     protected $casts = [
         'metadata' => 'array',
+        'trip_date' => 'date',
     ];
 
     protected $fillable = [
@@ -18,8 +19,15 @@ class PostInterest extends Model
         'pick_up_location',
         'drop_off_location',
         'trip_date',
+        'trip_type',
         'metadata',
+        'status',
     ];
+
+    public function rentTransactions()
+    {
+        return $this->hasMany(RentTransaction::class);
+    }
 
     public function post()
     {

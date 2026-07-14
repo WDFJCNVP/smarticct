@@ -13,7 +13,7 @@
     };
 
     $statusColor = match(true) {
-        $post->status === 'rented' => 'amber',
+        $post->status === 'rented' => 'red',
         $post->status === 'archived' => 'zinc',
         $post->status === 'published' && $post->user->role === 'commuter' => 'blue',
         $post->status === 'published' => 'green',
