@@ -12,4 +12,12 @@ class RentTransaction extends Model
         'post_interest_id',
         'status',
     ];
+
+    public function post() {
+        return $this->belongsTo(Post::class);
+    }
+
+    public function postInterest() {
+        return $this->belongsTo(PostInterest::class);
+    }
 }

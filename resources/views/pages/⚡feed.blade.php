@@ -134,9 +134,8 @@ new class extends Component
     return Post::with('user', 'postInterest')
         ->whereIn('status', ['published', 'rented'])
         ->withCount(['postInterest' => function ($query) {
-            $query->where('status', '!=', 'decline')
-                ->orWhereNull('status');
-            }])
+            $query->whereIn('status',['pending', 'cancel']);
+        }])
         ->latest()
         ->get();
     }

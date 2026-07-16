@@ -91,60 +91,12 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 
         <div x-show="tab === 'active'" x-cloak class="space-y-4">
 
-            <x-card>
-                <div class="flex items-center">
-                    <div class="flex-1">
-                        <x-text size="sm">Client's name</x-text>
-                        <x-text variant="strong" size="xl">Lexos Dacleson</x-text>
-                        <x-text variant="strong" size="lg" color="blue">09463637401</x-text>
-                    </div>
-                    <div>
-                        <x-badge color="orange">On going</x-badge>
-                    </div>
-                </div>
-                <div class="mt-6 grid grid-cols-2 gap-4">
-                    <div>
-                        <div>
-                            <x-text size="sm">Trip date:</x-text>
-                            <x-text size="lg" variant="strong">Mon, Jan 1st 2024</x-text>
-                        </div>
-                        <div class="my-4">
-                            <x-badge size="sm" color="emerald" icon="arrows-right-left">Round trip</x-badge>
-                        </div>
-                        <div class="mt-2">
-                            <x-text size="sm">Pick-up location:</x-text>
-                            <x-text size="lg" variant="strong">Nabua</x-text>
-                        </div>
-                        <div class="mt-2">
-                            <x-text size="sm">Return location:</x-text>
-                            <x-text size="lg" variant="strong">Nabua</x-text>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="mt-2">
-                            <x-text size="sm">Total passenger/s:</x-text>
-                            <x-text size="lg" variant="strong">18</x-text>
-                        </div>
-                        <div class="mt-2">
-                            <x-text size="sm">Destination:</x-text>
-                            <x-text size="lg" variant="strong">Legaspi</x-text>
-                        </div>
-                    </div>
-                </div>
-
-                <x-separator />
-
-                <div class="flex items-center gap-4">
-                    <x-button variant="primary" color="green">Mark as Completed</x-button>
-                    <x-button variant="primary" color="red">Cancel transaction</x-button>
-                </div>
-
-            </x-card>
+            <livewire:pages::partial.active-transaction :post="$this->post" :key="'active-transaction-' . $this->post->id" />
 
         </div>
 
         <div x-show="tab === 'history'" x-cloak>
-            {{-- @include('livewire.transactions.partials.history-table', ['history' => $post->completedTransactions]) --}}
+            <livewire:pages::partial.transaction-history />
         </div>
 
     </div>
