@@ -67,6 +67,15 @@
         @if(!empty($post->metadata['vehicle_type']))
             <flux:badge size="sm" color="blue">{{ $post->metadata['vehicle_type'] }}</flux:badge>
         @endif
+
+        @if(!empty($post->metadata['from']) && !empty($post->metadata['to']))
+            <flux:badge size="sm" color="yellow">
+                {{ $post->metadata['from'] }}
+                <flux:icon.arrow-right class="size-3.5 mx-1" />
+                {{ $post->metadata['to'] }}
+            </flux:badge>
+        @endif
+
     </div>
 
     <x-text size="lg" class="mt-3 block leading-relaxed" variant="strong">

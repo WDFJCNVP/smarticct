@@ -13,34 +13,36 @@ new class extends Component
     use WithFileUploads;
 
     public array $attachments = [];
-
     public string $body = '';
-    public ?string $type = null;
-
+    public ?string $type = 'announcement';
     public string $vehicle_type = "";
+    public bool $is_post_preview = false;
+    public ?string $from = null;
+    public ?string $to = null;
+
+    public function postPreview() {
+        $this->is_post_preview = false;
+        $this->is_post_preview = true;
+    }
+
+    public function isRenting() {
+        $this->type = $this->type === 'announcement' ? 'rental' : 'announcement';
+    }
 
     #[Computed]
     public function getVehicleTypes() {
         return OperatorTicketRate::get('vehicle_type');
     }
 
-    public function mount(): void
-    {
-
-        // dd($this->getVehicleTypes);
-
-        if (in_array(auth()->user()->role, ['operator', 'commuter'])) {
-            $this->type = 'rental';
-        }
-    }
-
     protected function rules(): array
     {
         return [
-            'body' => 'required|string|max:255',
-            'attachments' => 'nullable|array|max:5',
+            'body'          => 'required|string|max:255',
+            'attachments'   => 'nullable|array|max:5',
             'attachments.*' => 'image|max:2048',
-            'vehicle_type' => 'nullable|string|required_if:type,rental',
+            'vehicle_type'  => 'nullable|string|required_if:type,rental',
+            'from'          => 'nullable|string',
+            'to'            => 'nullable|string',
         ];
     }
 
@@ -56,7 +58,7 @@ new class extends Component
 
     public function publish()
     {
-        $this->validate();
+        $validated_attributes  = $this->validate();
 
         $storedAttachments = [];
 
@@ -71,10 +73,12 @@ new class extends Component
         Post::create([
             'user_id'  => auth()->id(),
             'type'     => $this->type,
-            'body'     => $this->body,
+            'body'     => $validated_attributes['body'],
             'status'   => 'published',
             'metadata' => [
-                'vehicle_type' => $this->type === 'rental' ? $this->vehicle_type : null,
+                'from'         => $validated_attributes['from'],
+                'to'           => $validated_attributes['to'],
+                'vehicle_type' => $validated_attributes['vehicle_type'],
                 'attachments'  => $storedAttachments,
             ],
         ]);
@@ -90,41 +94,26 @@ new class extends Component
     }
 };
 ?>
-
-<flux:card class="shrink-0">
-    <form wire:submit="publish">
+<div>
+    <flux:card class="shrink-0">
         <div class="flex items-start gap-3">
             <div class="flex gap-3 flex-1">
                 <div>
                     <flux:avatar size="sm" name="{{ auth()->user()->name }}" />
                 </div>
                 <div class="flex-1">
-                    @if (auth()->user()->role === 'admin' || auth()->user()->role === 'cashier')
-                        <x-text size="sm" variant="strong" class="block mb-1">Post an announcement</x-text>
-                    @endif
-
-                    <flux:input
-                        wire:model.live.debounce.300ms="body"
+                    <x-input
+                        wire:model="body"
                         placeholder="What's on your mind?"
                         class="flex-1 rounded-full"
                     />
-                    @error('body')
-                        <x-text size="sm" class="text-red-500 block mt-2 ml-11">{{ $message }}</x-text>
-                    @enderror
 
                     <div wire:loading wire:target="attachments" class="text-xs text-zinc-400 mt-2 ml-11">
                         Uploading...
                     </div>
 
-                    @error('attachments')
-                        <x-text size="sm" class="text-red-500 block mt-2 ml-11">{{ $message }}</x-text>
-                    @enderror
-                    @error('attachments.*')
-                        <x-text size="sm" class="text-red-500 block mt-2 ml-11">{{ $message }}</x-text>
-                    @enderror
-
                     @if (!empty($attachments))
-                        <div class="grid grid-cols-4 gap-2 mt-3 ml-11">
+                        <div class="grid grid-cols-4 gap-2 mt-3">
                             @foreach ($attachments as $index => $attachment)
                                 @if (is_object($attachment) && str_starts_with($attachment->getMimeType(), 'image/'))
                                     <div class="relative group aspect-square rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900">
@@ -142,53 +131,12 @@ new class extends Component
                             @endforeach
                         </div>
                     @endif
-
-                    <div class="flex gap-3 items-center mt-3">
-
-                        @if (auth()->user()->role === 'operator' || auth()->user()->role === 'commuter')
-                            <flux:radio.group wire:model.live="type" variant="segmented" size="sm">
-                                <flux:radio value="rental" label="{{ auth()->user()->role === 'operator' ? 'Offer a vehicle' : 'Request a vehicle' }}" />
-                                <flux:radio value="announcement" label="Announcement" />
-                            </flux:radio.group>
-                        @endif
-
-                        @if ($type === 'rental' && auth()->user()->role === 'operator')
-                            <div class="w-fit flex-none">
-                                @if ($this->getVehicles->isNotEmpty())
-                                    <flux:select wire:model="vehicle_type" placeholder="Select a vehicle from your fleet" size="sm">
-                                        @foreach ($this->getVehicles as $vehicle)
-
-                                            <flux:select.option value="{{ $vehicle->vehicle_type }}">
-                                                {{ $vehicle->vehicle_type }}
-                                            </flux:select.option>
-                                        @endforeach
-                                    </flux:select>
-                                @else
-                                    <x-text size="sm" class="text-zinc-500">Add a vehicle to your fleet to offer it for rent.</x-text>
-                                @endif
-                            </div>
-                        @endif
-
-                        @if ($type === 'rental' && auth()->user()->role === 'commuter')
-                            <div class="w-fit flex-none">
-                                <flux:select wire:model="vehicle_type" placeholder="Vehicle type you need" size="sm">
-                                    @foreach ($this->getVehicleTypes as $option)
-                                        <flux:select.option value="{{ $option->vehicle_type}}">{{ $option->vehicle_type }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
-                            </div>
-                        @endif
-
-                        @error('vehicle_type')
-                            <x-text size="sm" class="text-red-500">{{ $message }}</x-text>
-                        @enderror
-                    </div>
                 </div>
             </div>
 
             <div class="flex items-center gap-3">
                 <label class="cursor-pointer flex items-center justify-center">
-                    <flux:icon.photo class="size-5 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors" />
+                    <flux:icon.photo class="w-6 h-6"/>
                     <input
                         type="file"
                         wire:model="attachments"
@@ -200,7 +148,8 @@ new class extends Component
 
                 <flux:button
                     variant="primary"
-                    type="submit"
+                    type="button"
+                    wire:click="postPreview"
                     wire:loading.attr="disabled"
                     wire:target="publish"
                     size="sm"
@@ -210,5 +159,85 @@ new class extends Component
             </div>
 
         </div>
-    </form>
-</flux:card>
+    </flux:card>
+
+    <flux:modal wire:model="is_post_preview" class="md:w-196">
+        @if ($this->body)
+            <div class="space-y-6">
+                <flux:textarea wire:model="body" label="Post description" placeholder="Description" />
+
+                @if (!empty($attachments))
+                    <div class="grid grid-cols-4 gap-2 mt-3">
+                        @foreach ($attachments as $index => $attachment)
+                            @if (is_object($attachment) && str_starts_with($attachment->getMimeType(), 'image/'))
+                                <div class="relative group aspect-square rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900">
+                                    <img src="{{ $attachment->temporaryUrl() }}" class="object-cover w-full h-full" alt="Preview">
+                                    <button
+                                        type="button"
+                                        wire:click="removeAttachment({{ $index }})"
+                                        class="absolute top-1 right-1 flex items-center justify-center size-6 rounded-full bg-zinc-900/80 hover:bg-zinc-900 text-white cursor-pointer"
+                                        title="Remove image"
+                                    >
+                                        <flux:icon name="x-mark" class="size-3.5" color="white" />
+                                    </button>
+                                </div>
+                            @endif
+                        @endforeach
+                    </div>
+                @endif
+
+                <div>
+                    <flux:label class="mb-2">Post type</flux:label>
+
+                    <flux:callout 
+                        variant="secondary"
+                        icon="information-circle" 
+                        heading="If the 'Renting' switch is turned off, the post type will default to an announcement. Otherwise, it will be treated as a renting type." 
+                        class="mb-2"
+                    />
+
+                    <flux:switch wire:click="isRenting" label="Renting" align="left" />
+                </div>
+
+                <div>
+                    @if ($type === 'rental' && auth()->user()->role === 'operator')
+                        <div class="flex-none">
+                            @if ($this->getVehicles->isNotEmpty())
+
+                                <flux:label class="mt-4 mb-2" >Vehicle type</flux:label>
+
+                                <flux:select wire:model="vehicle_type" placeholder="Select a vehicle from your fleet">
+                                    @foreach ($this->getVehicles as $vehicle)
+
+                                        <flux:select.option value="{{ $vehicle->vehicle_type }}">
+                                            {{ $vehicle->vehicle_type }}
+                                        </flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            @else
+                                <x-text size="sm" class="text-zinc-500">Add a vehicle to your fleet to offer it for rent.</x-text>
+                            @endif
+                        </div>
+                        <flux:label class="mt-4 mb-2" >Destination range (optional)</flux:label>
+
+                        <x-inputs-container>
+                            
+                            <x-input wire:model="from" placeholder="From" />
+                            <x-input wire:model="to" placeholder="To" />
+
+                        </x-inputs-container>
+
+                    @endif
+                </div>
+
+                <div class="flex">
+                    <flux:spacer />
+                    <flux:button wire:click="publish" variant="primary">Post</flux:button>
+                </div>
+            </div>
+        @else
+        <x-text>Please fill-up the post body</x-text>
+        @endif
+
+    </flux:modal>
+</div>

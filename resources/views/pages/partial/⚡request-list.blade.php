@@ -140,6 +140,10 @@ new class extends Component
             @endif
 
             <x-card class="my-2" variant="subtle" disabled>
+                @if ($post->status === 'cancel')
+                    <flux:badge color="orange" size="sm" class="mb-2">Cancelled</flux:badge>
+                @endif
+
                 <div class="flex items-start gap-2">
                     <div class="flex-1 flex items-start gap-2">
                         <div>
