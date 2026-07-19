@@ -5,6 +5,7 @@ namespace App\Livewire;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Validate;
+use Livewire\Attributes\On;
 use App\Models\Post;
 use App\Models\PostInterest;
 
@@ -69,6 +70,12 @@ new class extends Component
     {
          $this->selectedPostId = null;
         $this->selectedPostId = $postId;
+    }
+
+    #[On('echo:notification-event,.NotificationEvent')]
+    public function reloadNotification() {
+        $this->selected_post = null;
+        $this->interested_operator_modal = false;
     }
 
     public function interestedOperator($postId) {
@@ -229,7 +236,7 @@ new class extends Component
         @if ($this->selected_post)
             <livewire:pages::interested-operator-modal 
                 :selected_post="$selected_post" 
-                :key="'view-' . $selected_post->id" 
+                :key="'view-operator-' . $selected_post->id" 
         />
         @endif
     </flux:modal>
@@ -256,12 +263,4 @@ new class extends Component
         @endif
     </flux:modal>
 
-    <flux:modal wire:model="showRepliesModal" class="min-w-96">
-        @if ($this->replies)
-            <livewire:pages::show-replies-modal
-                :replies="$replies" 
-                :key="'view-' . $replies->id" 
-        />
-        @endif
-    </flux:modal>
 </div>

@@ -1,4 +1,4 @@
-@if ($isOwner && $post->post_interest_count > 0)
+@if ($isOwner && $post->type !== 'announcement')
     <span class="flex items-center gap-1.5 text-sm text-zinc-500">
         <flux:icon.users class="size-4" />
         {{ $post->post_interest_count }} interested
@@ -8,11 +8,11 @@
 @endif
 
 <div class="flex items-center gap-2">
-    @if ($isOwner && $post->post_interest_count > 0)
+    @if ($isOwner && $post->type !== 'announcement')
         @if ($this->selectedPostId === $post->id)
             <x-button variant="ghost" class="cursor-pointer">Viewing</x-button>
         @else
-            <x-button wire:click="getPostInterested({{ $post->id }})" class="cursor-pointer">View interested</x-button>
+            <x-button href="{{ route('commuter.post', [$post, 'post_interest_count' => $post->post_interest_count]) }}" class="cursor-pointer" wire:navigate>View post</x-button>
         @endif
     @endif
 

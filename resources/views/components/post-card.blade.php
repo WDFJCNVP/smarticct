@@ -15,7 +15,7 @@
     $statusColor = match(true) {
         $post->status === 'rented' => 'red',
         $post->status === 'archived' => 'zinc',
-        $post->status === 'published' && $post->user->role === 'commuter' => 'blue',
+        $post->status === 'published' && $post->user->role === 'commuter' => 'green',
         $post->status === 'published' => 'green',
         default => 'zinc',
     };

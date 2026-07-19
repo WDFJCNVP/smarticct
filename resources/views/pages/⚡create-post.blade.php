@@ -228,6 +228,34 @@ new class extends Component
                         </x-inputs-container>
 
                     @endif
+
+                    @if ($type === 'rental' && auth()->user()->role === 'commuter')
+
+                        <div class="flex-none">
+                            @if ($this->getVehicleTypes->isNotEmpty())
+
+                                <flux:label class="mt-4 mb-2" >Vehicle type</flux:label>
+
+                                <flux:select wire:model="vehicle_type" placeholder="Select a vehicle from your fleet">
+                                    @foreach ($this->getVehicleTypes as $vehicle)
+
+                                        <flux:select.option value="{{ $vehicle->vehicle_type }}">
+                                            {{ $vehicle->vehicle_type }}
+                                        </flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            @else
+                                <x-text size="sm" class="text-zinc-500">No record found. Please contact the admin.</x-text>
+                            @endif
+                        </div>
+
+                        <flux:label class="mt-4 mb-2" >Destination range (optional)</flux:label>
+
+                        <x-inputs-container>
+                            <x-input wire:model="from" placeholder="From" />
+                            <x-input wire:model="to" placeholder="To" />
+                        </x-inputs-container>
+                    @endif
                 </div>
 
                 <div class="flex">

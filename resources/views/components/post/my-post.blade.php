@@ -1,17 +1,10 @@
-<?php
+@props(['post'])
 
-use Livewire\Component;
-use Livewire\Attributes\Computed;
-use Livewire\Attributes\Layout;
+@php
+    
+    dd($post);
 
-use App\Models\Post;
-
-new  #[Layout('layouts.operator-layout')] class extends Component
-{
-    public Post $post;
-    public $post_interest_count;
-};
-?>
+@endphp
 
 <div>
     <x-pages-heading heading="My Post" />

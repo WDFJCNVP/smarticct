@@ -20,6 +20,7 @@ new class extends Component
     public bool $is_show_view_more_modal = false;
     public $post_interest_info;
 
+    
     #[Computed]
     public function getPostInterest() {
         return PostInterest::where('post_id', $this->post->id)->whereIn('status', ['pending', 'cancel'])->get();
@@ -70,10 +71,6 @@ new class extends Component
         $this->client = $this->post->postInterest->where('id', $id)->first();
 
     }
-
-    public function viewMore() {
-        dd('hiiii');
-    }
 };
 ?>
 
@@ -123,7 +120,7 @@ new class extends Component
                             <x-button wire:click="showDeclineModal({{ $post->id }})" variant="primary" color="red" disabled>Decline</x-button>
                         </div>
                         <div class="mt-4">
-                            <x-text wire:click="viewMore" class="cursor-pointer hover:underline hover:text-gray-800 transition">View more</x-text>
+                            <x-text wire:click="showViewMoreModal" class="cursor-pointer hover:underline hover:text-gray-800 transition">View more</x-text>
                         </div>
                     </div>
                 </div>
@@ -163,7 +160,7 @@ new class extends Component
 
                             <div class="mt-2">
                                 <x-text>
-                                {{ $post->purpose }}
+                                {{ $post->message }}
                                 </x-text>
                             </div>
 

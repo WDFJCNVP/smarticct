@@ -12,8 +12,23 @@
         @if ($this->selectedPostId === $post->id)
             <x-button variant="ghost" class="cursor-pointer">Viewing</x-button>
         @else
-
             <x-button href="{{ route('operator.post', [$post, 'post_interest_count' => $post->post_interest_count]) }}"  class="cursor-pointer" wire:navigate>View post</x-button>
         @endif
     @endif
+
+    @if ($this->canExpressInterest($post))
+        @if ($alreadyInterested)
+            <x-button icon="check-circle" variant="primary" class="cursor-pointer" wire:click="uninterested({{ $post->id }})" wire:loading.attr="disabled">
+                You're interested
+            </x-button>
+        @else
+            <x-button icon="check-circle" wire:click="interestedOperator({{ $post->id }})" class="cursor-pointer" wire:loading.attr="disabled">
+                I'm interested
+            </x-button>
+
+        @endif
+    @elseif(!$isOwner && $post->type === 'rental' && $post->status === 'rented')
+        <x-button disabled>Interested</x-button>
+    @endif
+
 </div>

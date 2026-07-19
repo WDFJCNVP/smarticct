@@ -15,6 +15,7 @@ class PostInterest extends Model
         'post_id',
         'user_id',
         'purpose',
+        'message',
         'body_count',
         'pick_up_location',
         'drop_off_location',

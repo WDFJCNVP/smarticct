@@ -86,12 +86,13 @@ new class extends Component
         [
             'post_id'  => $this->selected_post->id,
             'user_id'  => auth()->id(),
-            'purpose'  => $attributes['purpose'],
+            'message'  => $attributes['purpose'],
             'body_count'  => $attributes['body_count'],
             'pick_up_location'  => $attributes['pick_up_location'],
             'drop_off_location'  => $attributes['drop_off_location'],
             'trip_date'  => $attributes['trip_date'],
             'trip_type'  => $this->trip_type,
+            'status'  => 'pending',
             'metadata'  => [
                 'valid_ids' => [
                     'user_valid_id' => $user_valid_id_path,
@@ -183,13 +184,13 @@ new class extends Component
 
                 <div x-show="tab === 'one_way'" class="mt-3 flex items-center gap-2 w-full">
                     <div class="w-full">
-                        <x-input placeholder="e.g. Nabua" label="From"/>
+                        <x-input placeholder="e.g. Nabua" label="From" wire:model="pick_up_location"/>
                     </div>
 
                     <flux:icon.arrow-right class="shrink-0 mt-8" size="sm"/>
 
                     <div class="w-full">
-                        <x-input placeholder="e.g. Legaspi" label="To"/>
+                        <x-input placeholder="e.g. Legaspi" label="To" wire:model="drop_off_location"/>
                     </div>
                 </div>
             </div>

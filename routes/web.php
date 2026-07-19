@@ -146,9 +146,13 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/feed', 'pages::feed')->name('feed');
     Route::livewire('/feed/create', 'pages::create-post')->name('post.create');
 
-    Route::livewire('/feed/my/post/{post}/{post_interest_count}', 'pages::post.operator')
+    Route::livewire('/operator/feed/my/post/{post}/{post_interest_count}', 'pages::post.operator')
         ->middleware('role:operator')
         ->name('operator.post');
+
+    Route::livewire('/commuter/feed/my/post/{post}/{post_interest_count}', 'pages::post.commuter')
+        ->middleware('role:commuter')
+        ->name('commuter.post');
 });
 
 
