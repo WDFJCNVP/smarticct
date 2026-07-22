@@ -4,14 +4,14 @@ use Livewire\Component;
 use Livewire\Attributes\Computed;
 
 use App\Models\Post;
-use App\Models\PostInterest;
+use App\Models\RentalOffer;
 use App\Models\RentTransaction;
 
 new class extends Component
 {
     public ?Post $post = null;
     public $is_show_confirm_modal = false;
-    public $client = null;
+    public $interested_user = null;
     public $is_ongoing = false;
     public $post_interest_id;
     public $is_show_decline_modal = false;
@@ -22,31 +22,31 @@ new class extends Component
         $this->is_show_view_more_modal = false;
         $this->is_show_view_more_modal = true;
 
-        $this->post_interest_info = PostInterest::where('id', $id)->first();
+        $this->post_interest_info = RentalOffer::where('id', $id)->first();
     }
 
     public function mount() {
         $rent_transaction_record = RentTransaction::where('status', 'ongoing')->get();
 
         foreach($rent_transaction_record as $record) {
-            if ($record->operator_id === $this->post->user_id) {
+            if ($record->post_owner_id === $this->post->user_id) {
                 $this->is_ongoing = true;
 
-                $this->post_interest_id = $record->post_interest_id;
+                $this->post_interest_id = $record->rental_offer_id;
             }
         }
     }
 
-    public function declineThisClient($id) {
-        PostInterest::where('id', $id)->update(['status' => 'decline']);
+    public function declineThisinterested_user($id) {
+        RentalOffer::where('id', $id)->update(['status' => 'decline']);
     }
 
     public function showDeclineModal($id) {
         $this->is_show_confirm_modal = false;
         $this->is_show_decline_modal = false;
         $this->is_show_decline_modal = true;
-        $this->client = null;
-        $this->client = $this->post->postInterest->where('id', $id)->first();
+        $this->interested_user = null;
+        $this->interested_user = $this->post->rentalOffer->where('id', $id)->first();
 
     }
 
@@ -54,13 +54,13 @@ new class extends Component
 
         $this->is_show_confirm_modal = false;
         $this->is_show_confirm_modal = true;
-        $this->client = null;
-        $this->client = $this->post->postInterest->where('id', $id)->first();
+        $this->interested_user = null;
+        $this->interested_user = $this->post->rentalOffer->where('id', $id)->first();
     }
 
     #[Computed]
-    public function getPostInterest() {
-        return PostInterest::with('user')->where('post_id', $this->post->id)->whereIn('status', ['pending', 'cancel'])->get();
+    public function getRentalOffer() {
+        return RentalOffer::with('user')->where('post_id', $this->post->id)->whereIn('status', ['pending', 'cancel'])->get();
     }
 };
 ?>
@@ -72,40 +72,41 @@ new class extends Component
             icon="exclamation-circle" 
             heading="This vehicle already has an active rental. New requests stay pending until the current transaction ends." 
         />
-        @forelse ($this->getPostInterest as $postInterest)
+        @forelse ($this->getRentalOffer as $rentalOffer)
 
-            @if ($this->post_interest_id === $postInterest->id)
+            @if ($this->post_interest_id === $rentalOffer->id)
                  @continue
             @endif
 
             <x-card class="my-2" variant="subtle" disabled>
+
                 <div class="flex items-start gap-2">
                     <div class="flex-1 flex items-start gap-2">
                         <div>
-                            <x-avatar name="{{ $postInterest->user->name }}" color="lime"/>
+                            <x-avatar name="{{ $rentalOffer->user->name }}" color="lime"/>
                         </div>
                         <div class="flex flex-col gap-1 items-start">
                             <div>
-                                <x-text variant="strong">{{ $postInterest->user->name }}</x-text>
+                                <x-text variant="strong">{{ $rentalOffer->user->name }}</x-text>
                                 <x-text size="sm" variant="subtle">
-                                    {{ $postInterest->created_at->diffForHumans(['short' => true]) }}
+                                    {{ $rentalOffer->created_at->diffForHumans(['short' => true]) }}
                                 </x-text>
                             </div>
 
                             <div class="flex items-center gap-1">
 
                                 <x-badge color="green">
-                                    {{ $postInterest->metadata['vehicle_name'] }}
+                                    {{ $rentalOffer->metadata['vehicle_name'] }}
                                 </x-badge>
                                 
                                 <x-badge color="green" icon="map-pin">
-                                    {{ $postInterest->metadata['destination_coverage'] }}
+                                    {{ $rentalOffer->destination_coverage }}
                                 </x-badge>
 
                                 <x-badge color="green" icon="calendar">
-                                    {{ \Carbon\Carbon::parse($postInterest->metadata['available_from'])->format('D, M j Y') }}
+                                    {{ $rentalOffer->available_from->format('D, M j Y') }}
                                     -
-                                    {{ \Carbon\Carbon::parse($postInterest->metadata['available_until'])->format('D, M j Y') }}
+                                    {{ $rentalOffer->available_until->format('D, M j Y') }}
                                 </x-badge>
                             </div>
 
@@ -119,11 +120,11 @@ new class extends Component
                     </div>
                     <div>
                         <div class="flex flex-col items-center gap-2">
-                            <x-button wire:click="showConfirmModal({{ $postInterest->id }})" variant="primary" color="green" disabled>Accepts</x-button>
-                            <x-button wire:click="showDeclineModal({{ $postInterest->id }})" variant="primary" color="red" disabled>Decline</x-button>
+                            <x-button wire:click="showConfirmModal({{ $rentalOffer->id }})" variant="primary" color="green" disabled>Accepts</x-button>
+                            <x-button wire:click="showDeclineModal({{ $rentalOffer->id }})" variant="primary" color="red" disabled>Decline</x-button>
                         </div>
                         <div class="mt-4">
-                            <x-text wire:click="showViewMoreModal({{ $postInterest->id }})" class="cursor-pointer hover:underline hover:text-gray-800 transition">View more</x-text>
+                            <x-text wire:click="showViewMoreModal({{ $rentalOffer->id }})" class="cursor-pointer hover:underline hover:text-gray-800 transition">View more</x-text>
                         </div>
                     </div>
                 </div>
@@ -132,41 +133,46 @@ new class extends Component
             No record found
         @endforelse
     @else
-        @forelse ($this->getPostInterest as $postInterest)
+        @forelse ($this->getRentalOffer as $rentalOffer)
             <x-card class="my-2" variant="subtle" disabled>
+
+                @if ($rentalOffer->status === 'cancel')
+                    <flux:badge class="my-4" color="red" size="sm">Cancelled</flux:badge>
+                @endif
+
                 <div class="flex items-start gap-2">
                     <div class="flex-1 flex items-start gap-2">
                         <div>
-                            <x-avatar name="{{ $postInterest->user->name }}" color="lime"/>
+                            <x-avatar name="{{ $rentalOffer->user->name }}" color="lime"/>
                         </div>
                         <div class="flex flex-col gap-1 items-start">
                             <div>
-                                <x-text variant="strong">{{ $postInterest->user->name }}</x-text>
+                                <x-text variant="strong">{{ $rentalOffer->user->name }}</x-text>
                                 <x-text size="sm" variant="subtle">
-                                    {{ $postInterest->created_at->diffForHumans(['short' => true]) }}
+                                    {{ $rentalOffer->created_at->diffForHumans(['short' => true]) }}
                                 </x-text>
                             </div>
 
                             <div class="flex items-center gap-1">
 
                                 <x-badge color="green">
-                                    {{ $postInterest->metadata['vehicle_name'] }}
+                                    {{ $rentalOffer->metadata['vehicle_name'] }}
                                 </x-badge>
                                 
                                 <x-badge color="green" icon="map-pin">
-                                    {{ $postInterest->metadata['destination_coverage'] }}
+                                    {{ $rentalOffer->destination_coverage }}
                                 </x-badge>
 
                                 <x-badge color="green" icon="calendar">
-                                    {{ \Carbon\Carbon::parse($postInterest->metadata['available_from'])->format('D, M j Y') }}
+                                    {{ $rentalOffer->available_from->format('D, M j Y') }}
                                     -
-                                    {{ \Carbon\Carbon::parse($postInterest->metadata['available_until'])->format('D, M j Y') }}
+                                    {{ $rentalOffer->available_until->format('D, M j Y') }}
                                 </x-badge>
                             </div>
 
                             <div class="mt-2">
                                 <x-text>
-                                {{ $postInterest->message }}
+                                {{ $rentalOffer->message }}
                                 </x-text>
                             </div>
 
@@ -174,11 +180,11 @@ new class extends Component
                     </div>
                     <div>
                         <div class="flex flex-col items-center gap-2">
-                            <x-button wire:click="showConfirmModal({{ $postInterest->id }})" variant="primary" color="green">Accepts</x-button>
-                            <x-button wire:click="showDeclineModal({{ $postInterest->id }})" variant="primary" color="red">Decline</x-button>
+                            <x-button wire:click="showConfirmModal({{ $rentalOffer->id }})" variant="primary" color="green">Accepts</x-button>
+                            <x-button wire:click="showDeclineModal({{ $rentalOffer->id }})" variant="primary" color="red">Decline</x-button>
                         </div>
                         <div class="mt-4">
-                            <x-text wire:click="showViewMoreModal({{ $postInterest->id }})" class="cursor-pointer hover:underline hover:text-gray-800 transition">View more</x-text>
+                            <x-text wire:click="showViewMoreModal({{ $rentalOffer->id }})" class="cursor-pointer hover:underline hover:text-gray-800 transition">View more</x-text>
                         </div>
                     </div>
                 </div>
@@ -189,12 +195,12 @@ new class extends Component
     @endif
 
     <flux:modal wire:model="is_show_decline_modal" class="min-w-96">
-        @if ($this->client)
+        @if ($this->interested_user)
             <div class="space-y-6">
                 <div>
-                    <flux:heading size="lg">Decline this client?</flux:heading>
+                    <flux:heading size="lg">Decline this interested_user?</flux:heading>
                     <flux:text class="mt-2">
-                        You're about to decline this client.<br>
+                        You're about to decline this interested_user.<br>
                         This will be remove from the list.
                     </flux:text>
                 </div>
@@ -203,17 +209,18 @@ new class extends Component
                     <flux:modal.close>
                         <flux:button variant="ghost">Cancel</flux:button>
                     </flux:modal.close>
-                    <flux:button wire:click="declineThisClient({{ $this->client->id }})" variant="danger">Decline</flux:button>
+                    <flux:button wire:click="declineThisinterested_user({{ $this->interested_user->id }})" variant="danger">Decline</flux:button>
                 </div>
             </div>
         @endif
     </flux:modal>
 
     <flux:modal wire:model="is_show_confirm_modal" class="min-w-96">
-        @if ($this->client)
+        @if ($this->interested_user)
+
             <livewire:pages::partial.create_rental_transaction
-                :client="$this->client"            
-                :key="'create-' . $this->client->id"
+                :interested_user="$this->interested_user"            
+                :key="'create-' . $this->interested_user->id"
             />
         @endif
     </flux:modal>

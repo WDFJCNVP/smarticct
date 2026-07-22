@@ -3,15 +3,15 @@
 namespace App\Services;
 use Illuminate\Support\Facades\DB;
 
-use App\Models\PostInterest;
+use App\Models\TripRequest;
 
 class PostService
 {
 
-    public function saveInterestedUser(array $attributes) {
+    public function saveTripRequest(array $attributes) {
 
         DB::transaction(function () use ($attributes) {
-            PostInterest::create($attributes);
+            TripRequest::create($attributes);
         });
     }
 }

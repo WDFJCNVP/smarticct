@@ -7,7 +7,8 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Validate;
 use Livewire\Attributes\On;
 use App\Models\Post;
-use App\Models\PostInterest;
+use App\Models\RentalOffer;
+use App\Models\TripRequest;
 
 use App\Services\PostService;
 
@@ -15,13 +16,13 @@ new class extends Component
 {
     public ?int $selectedPostId = null;
     public $selected_post;
-    public bool $show_interested_modal = false;
+    public bool $show_trip_request_modal = false;
     public bool $show_delete_interested_modal = false;
 
     public $replies;
     public bool $showRepliesModal = false;
 
-    public bool $interested_operator_modal = false;
+    public bool $rental_offer_modal = false;
 
 
     public function showRepliesToYouModal($interest_id) {
@@ -78,32 +79,50 @@ new class extends Component
         $this->interested_operator_modal = false;
     }
 
-    public function interestedOperator($postId) {
+    public function rentalOfferModal($postId) {
         $this->selected_post = null;
-        $this->interested_operator_modal = false;
+        $this->rental_offer_modal = false;
 
         $this->selected_post = Post::with('user')->find($postId);
-        $this->interested_operator_modal = true;
+        $this->rental_offer_modal = true;
     }
 
-    public function interested($postId)
+    public function tripRequest($postId)
     {   
         $this->selected_post = null;
         $this->show_delete_interested_modal = false;
 
         $this->selected_post = Post::with('user')->find($postId);
-        $this->show_interested_modal = true;
+        $this->show_trip_request_modal = true;
 
     }
+
+    // public function commuterUninterested($postId)
+    // {
+    //     $this->selected_post = null;
+    //     $this->show_interested_modal = false;
+
+    //     $this->selected_post = TripRequest::where('user_id', auth()->id())
+    //             ->where('post_id', $postId)
+    //             ->first();
+
+    //     $this->show_delete_interested_modal = true;
+    // }
 
     public function uninterested($postId)
     {
         $this->selected_post = null;
         $this->show_interested_modal = false;
 
-        $this->selected_post = PostInterest::where('user_id', auth()->id())
+        if(auth()->user()->role === 'operator') {
+            $this->selected_post = RentalOffer::where('user_id', auth()->id())
                 ->where('post_id', $postId)
                 ->first();
+        } elseif(auth()->user()->role === 'commuter') {
+            $this->selected_post = TripRequest::where('user_id', auth()->id())
+                    ->where('post_id', $postId)
+                    ->first();
+        }
 
         $this->show_delete_interested_modal = true;
     }
@@ -138,19 +157,22 @@ new class extends Component
     #[Computed]
     public function posts()
     {
-    return Post::with('user', 'postInterest')
-        ->whereIn('status', ['published', 'rented'])
-        ->withCount(['postInterest' => function ($query) {
-            $query->whereIn('status',['pending', 'cancel']);
-        }])
-        ->latest()
-        ->get();
+        return Post::with('user', 'tripRequest', 'rentalOffer')
+            ->whereIn('status', ['published', 'rented'])
+            ->withCount(['tripRequest' => function ($query) {
+                $query->whereIn('status',['pending', 'cancel']);
+            }])
+            ->withCount(['rentalOffer' => function ($query) {
+                $query->whereIn('status',['pending', 'cancel']);
+            }])
+            ->latest()
+            ->get();
     }
 
     #[Computed]
     public function myInterestedPostIds()
     {
-        return PostInterest::where('user_id', auth()->id())
+        return RentalOffer::where('user_id', auth()->id())
             ->pluck('post_id')
             ->all();
     }
@@ -232,7 +254,7 @@ new class extends Component
 
     {{-- Modals --}}
 
-    <flux:modal wire:model="interested_operator_modal" class="min-w-196">
+    <flux:modal wire:model="rental_offer_modal" class="min-w-196">
         @if ($this->selected_post)
             <livewire:pages::interested-operator-modal 
                 :selected_post="$selected_post" 
@@ -241,9 +263,9 @@ new class extends Component
         @endif
     </flux:modal>
 
-    <flux:modal wire:model="show_interested_modal" class="min-w-196">
+    <flux:modal wire:model="show_trip_request_modal" class="min-w-196">
         @if ($this->selected_post)
-            <livewire:pages::post-interest-modal 
+            <livewire:pages::trip-request-modal 
                 :selected_post="$selected_post" 
                 :key="'view-' . $selected_post->id" 
                 :name="auth()->user()->name" 

@@ -5,7 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use App\Events\NotificationEvent;
 
-use App\Models\PostInterest;
+use App\Models\RentalOffer;
 
 class PostInterestService
 {
@@ -19,17 +19,17 @@ class PostInterestService
                 $storedAttachments[] = $attachment->store('posts', 'public');
             }
 
-            $post_interest = PostInterest::create([
+            $post_interest = RentalOffer::create([
                 'post_id' => $selected_post->id,
                 'user_id' => auth()->id(),
+                'vehicle_id' => $validated_attributes['vehicle_id'],
                 'message' => $validated_attributes['message'],
                 'status' => 'pending',
+                'available_from'        => $validated_attributes['available_from'],
+                'available_until'       => $validated_attributes['available_until'],
+                'destination_coverage'  => $validated_attributes['destination_coverage'],
                 'metadata' => [
-                    'vehicle_id'            => $validated_attributes['selected_vehicle_type'],
                     'vehicle_name'          => $validated_attributes['vehicle_name'],
-                    'destination_coverage'  => $validated_attributes['destination_coverage'],
-                    'available_from'        => $validated_attributes['available_from'],
-                    'available_until'       => $validated_attributes['available_until'],
                     'vehicle_images'        => $storedAttachments,
                 ]
             ]);

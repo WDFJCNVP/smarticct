@@ -20,19 +20,22 @@ new class extends Component
     public $selected_post;
     public $message;
     public $vehicle_images = [];
-    public ?int $selected_vehicle_type;
+    public $selected_vehicle_type = "";
     public ?int $total_seats_capacity = null;
 
     public ?string $vehicle_name = null;
     public ?string $destination_coverage = null;
     public ?string $available_from = null;
     public ?string $available_until = null;
+    public $vehicle_id;
 
 
     public function updatedSelectedVehicleType($vehicleId)
     {
         $vehicle = Vehicle::where('user_id', auth()->id())
             ->find($vehicleId);
+
+        $this->vehicle_id = $vehicle->id;
 
         if ($vehicle) {
             $this->total_seats_capacity = $vehicle->total_seats;
@@ -63,6 +66,7 @@ new class extends Component
             'available_from'        => 'required|date',
             'available_until'       => 'required|date',
             'message'               => 'required|string|max:255',
+            'vehicle_id'            => 'required|integer|exists:vehicles,id',
             'vehicle_images'        => 'nullable|array|max:5',
             'vehicle_images.*'      => 'required|image|max:5120|mimes:jpg,jpeg,png,webp',
         ];
@@ -96,19 +100,18 @@ new class extends Component
 
     <form wire:submit="sendRequest" enctype="multipart/form-data">
         <x-inputs-container>
-            <x-select
+            <flux:select
                 wire:model.live="selected_vehicle_type"
                 label="Vehicle type you want to offer"
                 placeholder="Select vehicle type"
                 required
-                
             >
                 @foreach ($this->getOperatorVehicles as $vehicle)
-                    <x-select-option value="{{ $vehicle->id }}" required>
+                    <flux:select.option value="{{ $vehicle->id }}">
                         {{ $vehicle->vehicle_type }}
-                    </x-select-option>
+                    </flux:select.option>
                 @endforeach
-            </x-select>
+            </flux:select>
 
             <x-input wire:model="vehicle_name" label="Vehicle name/model" placeholder="e.g. Mitsubishi L300" required/>
 

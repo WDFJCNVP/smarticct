@@ -1,7 +1,7 @@
 @if ($isOwner && $post->type !== 'announcement')
     <span class="flex items-center gap-1.5 text-sm text-zinc-500">
         <flux:icon.users class="size-4" />
-        {{ $post->post_interest_count }} interested
+        {{ $post->rental_offer_count}} interested
     </span>
 @else
     <span></span>
@@ -12,17 +12,17 @@
         @if ($this->selectedPostId === $post->id)
             <x-button variant="ghost" class="cursor-pointer">Viewing</x-button>
         @else
-            <x-button href="{{ route('commuter.post', [$post, 'post_interest_count' => $post->post_interest_count]) }}" class="cursor-pointer" wire:navigate>View post</x-button>
+            <x-button href="{{ route('my.post', [$post, 'count' => $post->rental_offer_count]) }}" class="cursor-pointer" wire:navigate>View post</x-button>
         @endif
     @endif
 
     @if ($this->canExpressInterest($post))
         @if ($alreadyInterested)
-            <x-button icon="check-circle" variant="primary" class="cursor-pointer" wire:click="uninterested({{ $post->id }})" wire:loading.attr="disabled">
+            <x-button icon="check-circle" variant="primary" class="cursor-pointer" wire:click="commuterUninterested({{ $post->id }})" wire:loading.attr="disabled">
                 You're interested
             </x-button>
         @else
-            <x-button icon="check-circle" wire:click="interested({{ $post->id }})" class="cursor-pointer" wire:loading.attr="disabled">
+            <x-button icon="check-circle" wire:click="tripRequest({{ $post->id }})" class="cursor-pointer" wire:loading.attr="disabled">
                 I'm interested
             </x-button>
 

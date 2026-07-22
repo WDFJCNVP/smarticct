@@ -2,7 +2,8 @@
 
 use Livewire\Component;
 
-use App\Models\PostInterest;
+use App\Models\TripRequest;
+use App\Models\RentalOffer;
 
 new class extends Component
 {
@@ -10,12 +11,21 @@ new class extends Component
 
     public function destroy()
     {
-        $this->selected_post = PostInterest::where('user_id', auth()->id())
-                ->where('post_id', $this->selected_post->post_id)
-                ->delete();
+        if(auth()->user()->role === 'operator') {
+            $this->selected_post = RentalOffer::where('user_id', auth()->id())
+                    ->where('post_id', $this->selected_post->post_id)
+                    ->delete();
 
-        $this->selected_post = null;
-        $this->show_interested_modal = false;
+            $this->selected_post = null;
+            $this->show_interested_modal = false;
+        } elseif (auth()->user()->role === 'commuter') {
+            $this->selected_post = TripRequest::where('user_id', auth()->id())
+                    ->where('post_id', $this->selected_post->post_id)
+                    ->delete();
+
+            $this->selected_post = null;
+            $this->show_interested_modal = false;
+        }
     }
 
 };

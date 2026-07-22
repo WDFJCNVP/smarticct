@@ -5,7 +5,7 @@ use Livewire\Attributes\Computed;
 
 use App\Models\Post;
 use App\Models\RentTransaction;
-use App\Models\PostInterest;
+use App\Models\TripRequest;
 
 new class extends Component
 {
@@ -13,7 +13,7 @@ new class extends Component
 
     public bool $is_show_confirm_modal = false;
     public bool $is_show_decline_modal = false;
-    public $client = null;
+    public $interested_user = null;
     public bool $is_ongoing = false;
     public ?int $post_interest_id = null;
 
@@ -22,20 +22,20 @@ new class extends Component
 
     
     #[Computed]
-    public function getPostInterest() {
-        return PostInterest::where('post_id', $this->post->id)->whereIn('status', ['pending', 'cancel'])->get();
+    public function getTripRequest() {
+        return TripRequest::where('post_id', $this->post->id)->whereIn('status', ['pending', 'cancel'])->get();
     }
 
     public function showViewMoreModal($id) {
         $this->is_show_view_more_modal = false;
         $this->is_show_view_more_modal = true;
 
-        $this->post_interest_info = PostInterest::where('id', $id)->first();
+        $this->post_interest_info = TripRequest::where('id', $id)->first();
     }
 
-    public function declineThisClient($id) {
+    public function declineThisInterested_user($id) {
 
-        PostInterest::where('id', $id)->update(['status' => 'decline']);
+        TripRequest::where('id', $id)->update(['status' => 'decline']);
 
     }
 
@@ -43,10 +43,10 @@ new class extends Component
         $rent_transaction_record = RentTransaction::where('status', 'ongoing')->get();
 
         foreach($rent_transaction_record as $record) {
-            if ($record->operator_id === $this->post->user_id) {
+            if ($record->post_owner_id === $this->post->user_id) {
                 $this->is_ongoing = true;
 
-                $this->post_interest_id = $record->post_interest_id;
+                $this->post_interest_id = $record->trip_request_id;
             }
         }
     }
@@ -56,10 +56,10 @@ new class extends Component
         $this->is_show_confirm_modal = false;
         $this->is_show_decline_modal = false;
         $this->is_show_decline_modal = true;
-        $this->client = null;
-        $this->client = $this->post->postInterest->where('id', $id)->first();
+        $this->interested_user = null;
+        $this->interested_user = $this->post->tripRequest->where('id', $id)->first();
 
-        // dd($this->client);
+        // dd($this->interested_user);
 
     }
 
@@ -67,8 +67,8 @@ new class extends Component
 
         $this->is_show_confirm_modal = false;
         $this->is_show_confirm_modal = true;
-        $this->client = null;
-        $this->client = $this->post->postInterest->where('id', $id)->first();
+        $this->interested_user = null;
+        $this->interested_user = $this->post->tripRequest->where('id', $id)->first();
 
     }
 };
@@ -82,7 +82,7 @@ new class extends Component
             heading="This vehicle already has an active rental. New requests stay pending until the current transaction ends." 
         />
 
-        @forelse ($this->getPostInterest as $post)
+        @forelse ($this->getTripRequest as $post)
 
             @if ($this->post_interest_id === $post->id)
                 @continue
@@ -130,7 +130,7 @@ new class extends Component
         @endforelse
     @else
 
-        @forelse ($this->getPostInterest as $post)
+        @forelse ($this->getTripRequest as $post)
 
             @if ($this->post_interest_id === $post->id)
                 @continue
@@ -183,21 +183,21 @@ new class extends Component
     @endif
 
     <flux:modal wire:model="is_show_confirm_modal" class="min-w-96">
-        @if ($this->client)
+        @if ($this->interested_user)
             <livewire:pages::partial.create_rental_transaction
-                :client="$this->client"            
-                :key="'create-' . $this->client->id"
+                :interested_user="$this->interested_user"            
+                :key="'create-' . $this->interested_user->id"
             />
         @endif
     </flux:modal>
 
     <flux:modal wire:model="is_show_decline_modal" class="min-w-96">
-        @if ($this->client)
+        @if ($this->interested_user)
             <div class="space-y-6">
                 <div>
-                    <flux:heading size="lg">Decline this client?</flux:heading>
+                    <flux:heading size="lg">Decline this interested user?</flux:heading>
                     <flux:text class="mt-2">
-                        You're about to decline this client.<br>
+                        You're about to decline this interested user.<br>
                         This will be remove from the list.
                     </flux:text>
                 </div>
@@ -206,7 +206,7 @@ new class extends Component
                     <flux:modal.close>
                         <flux:button variant="ghost">Cancel</flux:button>
                     </flux:modal.close>
-                    <flux:button wire:click="declineThisClient({{ $this->client->id }})" variant="danger">Decline</flux:button>
+                    <flux:button wire:click="declineThisInterested_user({{ $this->interested_user->id }})" variant="danger">Decline</flux:button>
                 </div>
             </div>
         @endif
@@ -216,7 +216,7 @@ new class extends Component
         @if ($this->post_interest_info)
             <div class="space-y-6">
                 <div>
-                    <flux:heading size="lg">Client details</flux:heading>
+                    <flux:heading size="lg">interested_user details</flux:heading>
                 </div>
                 <div class="flex-1 flex items-center gap-2">
                     <flux:avatar size="xs" name="{{ $this->post_interest_info->user->name }}" color="emerald"/>
@@ -247,7 +247,7 @@ new class extends Component
                         $url = Storage::url($this->post_interest_info->metadata['valid_ids']['user_valid_id']);
                     @endphp
 
-                    <flux:label class="mb-4">Client's valid id</flux:label>
+                    <flux:label class="mb-4">interested_user's valid id</flux:label>
                     <img src="{{ $url }}" alt="">
                 </div>
 
@@ -304,7 +304,7 @@ new class extends Component
 
                     @else
 
-                    <flux:badge color="orange" size="sm"> Client has no driver. </flux:badge>
+                    <flux:badge color="orange" size="sm"> interested_user has no driver. </flux:badge>
 
                     @endif
                 </div>

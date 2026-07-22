@@ -6,10 +6,16 @@ use Livewire\Attributes\Layout;
 
 use App\Models\Post;
 
-new  #[Layout('layouts.operator-layout')] class extends Component
+new class extends Component
 {
     public Post $post;
-    public $post_interest_count;
+    public $count;
+
+    public function render() {
+        $role = auth()->user()->role;
+
+        return $this->view()->layout('layouts.' . $role . '-layout');
+    }
 };
 ?>
 
@@ -42,7 +48,16 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 
         <div class="flex items-center gap-2">
             <flux:icon.users class="size-4" />
-            <x-text>{{ $this->post_interest_count }} interested</x-text>
+            
+            @if (auth()->user()->role === 'operator')
+
+                <x-text>{{ $this->count }} interested</x-text>
+
+            @elseif(auth()->user()->role === 'commuter')
+
+                <x-text>{{ $this->count }} interested</x-text>
+
+            @endif
         </div>
 
     </x-card>
@@ -84,21 +99,43 @@ new  #[Layout('layouts.operator-layout')] class extends Component
         </div>
 
         <div x-show="tab === 'requests'" x-cloak class="space-y-3">
-            
-            <livewire:pages::partial.commuter-request-list :post="$this->post" :key="'request-list-' . $this->post->id" />
+
+            @if (auth()->user()->role === 'operator')
+
+                <livewire:pages::partial.request-list :post="$this->post" :key="'request-list-' . $this->post->id" />
+
+            @elseif(auth()->user()->role === 'commuter')
+
+                <livewire:pages::partial.commuter-request-list :post="$this->post" :key="'request-list-' . $this->post->id" />
+
+            @endif
 
         </div>
 
         <div x-show="tab === 'active'" x-cloak class="space-y-4">
 
-            <livewire:pages::partial.commuter-active-transaction :post="$this->post" :key="'active-transaction-' . $this->post->id" />
+            @if (auth()->user()->role === 'operator')
 
+                <livewire:pages::partial.active-transaction :post="$this->post" :key="'active-transaction-' . $this->post->id" />
+
+            @elseif(auth()->user()->role === 'commuter')
+
+                <livewire:pages::partial.commuter-active-transaction :post="$this->post" :key="'active-transaction-' . $this->post->id" />
+
+            @endif
         </div>
 
         <div x-show="tab === 'history'" x-cloak>
 
-            <livewire:pages::partial.commuter-transaction-history />
-            
+            @if (auth()->user()->role === 'operator')
+
+               <livewire:pages::partial.transaction-history />
+
+            @elseif(auth()->user()->role === 'commuter')
+
+                <livewire:pages::partial.commuter-transaction-history />
+
+            @endif
         </div>
 
     </div>

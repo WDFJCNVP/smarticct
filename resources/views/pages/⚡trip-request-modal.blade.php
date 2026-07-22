@@ -82,26 +82,26 @@ new class extends Component
     $user_valid_id_path = $this->user_valid_id ? $this->user_valid_id->store('valid_id', 'public') : null;
     $driver_valid_id_path = $this->driver_valid_id ? $this->driver_valid_id->store('valid_id', 'public') : null;
 
-    app(PostService::class)->saveInterestedUser(
+    app(PostService::class)->saveTripRequest(
         [
-            'post_id'  => $this->selected_post->id,
-            'user_id'  => auth()->id(),
-            'message'  => $attributes['purpose'],
-            'body_count'  => $attributes['body_count'],
+            'post_id'           => $this->selected_post->id,
+            'user_id'           => auth()->id(),
+            'message'           => $attributes['purpose'],
+            'body_count'        => $attributes['body_count'],
             'pick_up_location'  => $attributes['pick_up_location'],
-            'drop_off_location'  => $attributes['drop_off_location'],
-            'trip_date'  => $attributes['trip_date'],
-            'trip_type'  => $this->trip_type,
-            'status'  => 'pending',
-            'metadata'  => [
+            'drop_off_location' => $attributes['drop_off_location'],
+            'trip_date'         => $attributes['trip_date'],
+            'trip_type'         => $this->trip_type,
+            'status'            => 'pending',
+            'metadata'          => [
                 'valid_ids' => [
-                    'user_valid_id' => $user_valid_id_path,
-                    'driver_valid_id' => $driver_valid_id_path,
+                    'user_valid_id'     => $user_valid_id_path,
+                    'driver_valid_id'   => $driver_valid_id_path,
                 ],
-                'driver_name'  => $attributes['driver_name'],
-                'driver_age'  => $attributes['driver_age'],
-                'driver_home_address'  => $attributes['driver_home_address'],
-                'driver_contact_number'  => $attributes['driver_contact_number'],
+                'driver_name'           => $attributes['driver_name'],
+                'driver_age'            => $attributes['driver_age'],
+                'driver_home_address'   => $attributes['driver_home_address'],
+                'driver_contact_number' => $attributes['driver_contact_number'],
             ]
         ]);
 

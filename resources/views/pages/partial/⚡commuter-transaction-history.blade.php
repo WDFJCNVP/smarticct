@@ -14,9 +14,9 @@ new class extends Component
     #[Computed]
     public function getCompletedTransactions()
     {
-        return RentTransaction::with('post', 'postInterest')
+        return RentTransaction::with('post', 'rentalOffer')
             ->whereIn('status', ['completed', 'cancelled'])
-            ->where('operator_id', auth()->id())
+            ->where('post_owner_id', auth()->id())
             ->latest()
             ->paginate(10);
     }
@@ -33,7 +33,7 @@ new class extends Component
         <x-table-rows>
             @forelse ($this->getCompletedTransactions as $record)
                 <x-table-row>
-                    <x-table-cell>{{ $record->postInterest->user->name }}</x-table-cell>
+                    <x-table-cell>{{ $record->rentalOffer->user->name }}</x-table-cell>
                     <x-table-cell>{{ $record->created_at->format('D, M j, Y') }}</x-table-cell>
                     <x-table-cell>
                         @if($record->status === 'completed')

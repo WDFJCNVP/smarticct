@@ -29,4 +29,14 @@ class Post extends Model
     {
         return $this->hasMany(PostInterest::class);
     }
+
+    public function tripRequest()
+    {
+        return $this->hasMany(TripRequest::class);
+    }
+
+    public function rentalOffer()
+    {
+        return $this->hasMany(RentalOffer::class);
+    }
 }

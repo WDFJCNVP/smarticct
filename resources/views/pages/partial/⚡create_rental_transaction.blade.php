@@ -3,34 +3,54 @@
 use Livewire\Component;
 
 use App\Models\RentTransaction;
+use App\Models\TripRequest;
+use App\Models\RentalOffer;
 
 new class extends Component
 {   
-    public $client;
+    public $interested_user;
 
     public function createRentalTransaction() {
-        RentTransaction::create([
-            'operator_id'      => $this->client->post->user->id,
-            'client_id'        => $this->client->user_id,
-            'post_interest_id' => $this->client->id,
-            'status'           => 'ongoing'
-        ]);
+
+        if(auth()->user()->role === 'operator') {
+            RentTransaction::create([
+                'post_owner_id'       => $this->interested_user->post->user->id,
+                'interested_user_id'  => $this->interested_user->user_id,
+                'trip_request_id'  => $this->interested_user->id,
+                'status'              => 'ongoing'
+            ]);
+
+            TripRequest::where('id', $this->interested_user->id)->update(['status' => 'accept']);
+        } elseif(auth()->user()->role === 'commuter') {
+            RentTransaction::create([
+                'post_owner_id'       => $this->interested_user->post->user->id,
+                'interested_user_id'  => $this->interested_user->user_id,
+                'rental_offer_id'  => $this->interested_user->id,
+                'status'              => 'ongoing'
+            ]);
+
+            RentalOffer::where('id', $this->interested_user->id)->update(['status' => 'accept']);
+        }
     }
 
     public function cancelAction() {
-        $this->client = null;
+        $this->interested_user = null;
     }
+
+    // public function mount() {
+    //             dd($this->interested_user);
+    // }
 };
 ?>
 
 <div>
     <div class="space-y-6">
         <div>
-            <flux:heading size="lg">Accept this client?</flux:heading>
+            <flux:heading size="lg">Accept this interested user?</flux:heading>
             <flux:text class="mt-2">
-                You're about to accept this client.<br>
-                By accepting client you cannot be able to transact <br> 
-                with another client for the mean while.
+                You're about to accept this interested user.<br>
+                By accepting interested user you cannot be able to transact <br> 
+                with another interested user for the mean while.
             </flux:text>
         </div>
         <div class="flex gap-2">

@@ -13,9 +13,10 @@ return new class extends Migration
     {
         Schema::create('rent_transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('operator_id');
-            $table->foreignId('client_id');
-            $table->foreignIdFor(\App\Models\PostInterest::class);
+            $table->foreignId('post_owner_id');
+            $table->foreignId('interested_user_id');
+            $table->foreignIdFor(\App\Models\RentalOffer::class)->nullable();
+            $table->foreignIdFor(\App\Models\TripRequest::class)->nullable();
             $table->enum('status',['ongoing', 'completed', 'cancelled'])->default('ongoing');
             $table->timestamps();
         });

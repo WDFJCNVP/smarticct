@@ -1,7 +1,7 @@
 @if ($isOwner)
     <span class="flex items-center gap-1.5 text-sm text-zinc-500">
         <flux:icon.users class="size-4" />
-        {{ $post->post_interest_count }} interested
+        {{ $post->trip_request_count }} interested
     </span>
 @else
     <span></span>
@@ -12,7 +12,7 @@
         @if ($this->selectedPostId === $post->id)
             <x-button variant="ghost" class="cursor-pointer">Viewing</x-button>
         @else
-            <x-button href="{{ route('operator.post', [$post, 'post_interest_count' => $post->post_interest_count]) }}"  class="cursor-pointer" wire:navigate>View post</x-button>
+            <x-button href="{{ route('my.post', [$post, 'count' => $post->trip_request_count]) }}"  class="cursor-pointer" wire:navigate>View post</x-button>
         @endif
     @endif
 
@@ -22,7 +22,7 @@
                 You're interested
             </x-button>
         @else
-            <x-button icon="check-circle" wire:click="interestedOperator({{ $post->id }})" class="cursor-pointer" wire:loading.attr="disabled">
+            <x-button icon="check-circle" wire:click="rentalOfferModal({{ $post->id }})" class="cursor-pointer" wire:loading.attr="disabled">
                 I'm interested
             </x-button>
 

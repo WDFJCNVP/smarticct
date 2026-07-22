@@ -7,9 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 class RentTransaction extends Model
 {
     protected $fillable = [
-        'operator_id',
-        'client_id',
-        'post_interest_id',
+        'post_owner_id',
+        'interested_user_id',
+        'trip_request_id',
+        'rental_offer_id',
         'status',
     ];
 
@@ -17,7 +18,11 @@ class RentTransaction extends Model
         return $this->belongsTo(Post::class);
     }
 
-    public function postInterest() {
-        return $this->belongsTo(PostInterest::class);
+    public function tripRequest() {
+        return $this->belongsTo(TripRequest::class);
+    }
+
+    public function rentalOffer() {
+        return $this->belongsTo(RentalOffer::class);
     }
 }
