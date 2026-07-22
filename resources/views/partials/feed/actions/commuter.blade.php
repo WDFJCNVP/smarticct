@@ -18,7 +18,7 @@
 
     @if ($this->canExpressInterest($post))
         @if ($alreadyInterested)
-            <x-button icon="check-circle" variant="primary" class="cursor-pointer" wire:click="commuterUninterested({{ $post->id }})" wire:loading.attr="disabled">
+            <x-button icon="check-circle" variant="primary" class="cursor-pointer" wire:click="uninterested({{ $post->id }})" wire:loading.attr="disabled">
                 You're interested
             </x-button>
         @else

@@ -172,9 +172,18 @@ new class extends Component
     #[Computed]
     public function myInterestedPostIds()
     {
-        return RentalOffer::where('user_id', auth()->id())
-            ->pluck('post_id')
-            ->all();
+
+        if(auth()->user()->role === 'operator') {
+            return RentalOffer::where('user_id', auth()->id())
+                ->pluck('post_id')
+                ->all();
+        } elseif(auth()->user()->role === 'commuter') {
+            return TripRequest::where('user_id', auth()->id())
+                ->pluck('post_id')
+                ->all();
+        }
+
+
     }
 
     #[Computed]
