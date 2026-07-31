@@ -2,15 +2,15 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On; // <-- Import On
 use Livewire\WithPagination;
-
 
 use App\Models\RentTransaction;
 
 new class extends Component
 {
-
     use WithPagination;
+
     #[Computed]
     public function getCompletedTransactions()
     {
@@ -19,6 +19,13 @@ new class extends Component
             ->where('post_owner_id', auth()->id())
             ->latest()
             ->paginate(10);
+    }
+
+    // Listen for the event from Tab 2 and refresh the table!
+    #[On('transaction-updated')]
+    public function refreshHistory()
+    {
+        unset($this->getCompletedTransactions);
     }
 };
 ?>

@@ -2,6 +2,7 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Layout;
 
 use App\Models\Post;
@@ -11,13 +12,18 @@ new class extends Component
     public Post $post;
     public $count;
 
+    #[On('transaction-updated')]
+    public function refereshMyPost() {
+        unset($this->count);
+    }
+
     public function render() {
         $role = auth()->user()->role;
 
         return $this->view()->layout('layouts.' . $role . '-layout');
     }
 };
-?>
+?> 
 
 <div>
     <x-pages-heading heading="My Post" />

@@ -5,7 +5,7 @@
     $isAnnouncement = $post->type === 'announcement';
 
     $statusLabel = match(true) {
-        $post->status === 'rented' => 'Rented',
+        $post->status === 'rented' => 'Not available',
         $post->status === 'archived' => 'Archived',
         $post->status === 'published' && $post->user->role === 'commuter' => 'Looking for a ride',
         $post->status === 'published' => 'Available to rent',
@@ -82,16 +82,24 @@
         {{ $post->body }}
     </x-text>
 
-    @if (!empty($post->metadata['attachments']))
+@if (!empty($post->metadata['attachments']))
         @php
             $urls = array_map(fn($path) => Storage::url($path), $post->metadata['attachments']);
+            $count = count($urls);
         @endphp
         
         <div x-data="{ open: false, index: 0, images: @js($urls) }" class="mt-3">
-            <div class="grid grid-cols-3 gap-1.5 auto-rows-[110px]">
+            {{-- Conditionally set columns and row heights based on image count --}}
+            <div class="grid gap-1.5 
+                {{ $count === 1 ? 'grid-cols-1 auto-rows-[226px]' : '' }}
+                {{ $count === 2 ? 'grid-cols-2 auto-rows-[226px]' : '' }}
+                {{ $count >= 3 ? 'grid-cols-3 auto-rows-[110px]' : '' }}
+            ">
                 @foreach ($urls as $i => $url)
                     @if ($i === 0)
-                        <button type="button" @click="open = true; index = {{ $i }}" class="col-span-2 row-span-2 relative rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 group cursor-pointer">
+                        {{-- Only apply col-span and row-span if there are 3 or more images --}}
+                        <button type="button" @click="open = true; index = {{ $i }}" 
+                            class="{{ $count >= 3 ? 'col-span-2 row-span-2' : '' }} relative rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 group cursor-pointer">
                             <img src="{{ $url }}" alt="Vehicle attachment image" class="w-full h-full object-cover" loading="lazy" />
                             <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center">
                                 <flux:icon.magnifying-glass-plus class="size-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -100,9 +108,9 @@
                     @elseif ($i < 3)
                         <button type="button" @click="open = true; index = {{ $i }}" class="relative rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 group cursor-pointer">
                             <img src="{{ $url }}" alt="Vehicle attachment image" class="w-full h-full object-cover" loading="lazy" />
-                            @if ($i === 2 && count($urls) > 3)
+                            @if ($i === 2 && $count > 3)
                                 <div class="absolute inset-0 bg-black/45 flex items-center justify-center text-white text-sm font-medium">
-                                    +{{ count($urls) - 3 }}
+                                    +{{ $count - 3 }}
                                 </div>
                             @else
                                 <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center">
@@ -113,6 +121,7 @@
                     @endif
                 @endforeach
             </div>
+            
             <div
                 x-show="open"
                 x-cloak

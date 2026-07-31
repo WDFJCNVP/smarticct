@@ -10,6 +10,8 @@ use App\Models\Post;
 use App\Models\RentalOffer;
 use App\Models\TripRequest;
 
+use App\Events\LiveActionEvent;
+
 use App\Services\PostService;
 
 new class extends Component
@@ -24,6 +26,12 @@ new class extends Component
 
     public bool $rental_offer_modal = false;
 
+
+    #[On('echo:live-action-event,.LiveActionEvent')]
+    public function refreshFeed() {
+        unset($this->posts);
+        // dd('reverb detected');
+    }
 
     public function showRepliesToYouModal($interest_id) {
 

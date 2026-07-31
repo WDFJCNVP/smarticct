@@ -2,18 +2,19 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 
 use App\Models\Post;
 use App\Models\RentalOffer;
 use App\Models\RentTransaction;
+
+use App\Events\LiveActionEvent;
 
 new class extends Component
 {
     public ?Post $post = null;
     public $is_show_confirm_modal = false;
     public $interested_user = null;
-    public $is_ongoing = false;
-    public $post_interest_id;
     public $is_show_decline_modal = false;
     public $is_show_view_more_modal = false;
     public $post_interest_info = null;
@@ -25,16 +26,16 @@ new class extends Component
         $this->post_interest_info = RentalOffer::where('id', $id)->first();
     }
 
-    public function mount() {
-        $rent_transaction_record = RentTransaction::where('status', 'ongoing')->get();
 
-        foreach($rent_transaction_record as $record) {
-            if ($record->post_owner_id === $this->post->user_id) {
-                $this->is_ongoing = true;
+    #[Computed]
+    public function activeTransaction() {
+        return RentTransaction::where('post_owner_id', $this->post->user_id)->where('status', 'ongoing')->first();
+    }
 
-                $this->post_interest_id = $record->rental_offer_id;
-            }
-        }
+    #[On('transaction-updated')]
+    public function refreshRequests() {
+        unset($this->getRentalOffer);
+        unset($this->activeTransaction);
     }
 
     public function declineThisinterested_user($id) {
@@ -58,15 +59,17 @@ new class extends Component
         $this->interested_user = $this->post->rentalOffer->where('id', $id)->first();
     }
 
+
     #[Computed]
     public function getRentalOffer() {
         return RentalOffer::with('user')->where('post_id', $this->post->id)->whereIn('status', ['pending', 'cancel'])->get();
     }
+
 };
 ?>
 
 <div>
-    @if ($this->is_ongoing)
+    @if ($this->activeTransaction)
         <flux:callout 
             variant="warning" 
             icon="exclamation-circle" 
@@ -74,7 +77,7 @@ new class extends Component
         />
         @forelse ($this->getRentalOffer as $rentalOffer)
 
-            @if ($this->post_interest_id === $rentalOffer->id)
+            @if ($this->activeTransaction && $this->activeTransaction->rental_offer_id === $rentalOffer->id)
                  @continue
             @endif
 
@@ -134,6 +137,11 @@ new class extends Component
         @endforelse
     @else
         @forelse ($this->getRentalOffer as $rentalOffer)
+
+            @if ($this->activeTransaction && $this->activeTransaction->rental_offer_id === $rentalOffer->id)
+                 @continue
+            @endif
+
             <x-card class="my-2" variant="subtle" disabled>
 
                 @if ($rentalOffer->status === 'cancel')
@@ -215,7 +223,7 @@ new class extends Component
         @endif
     </flux:modal>
 
-    <flux:modal wire:model="is_show_confirm_modal" class="min-w-96">
+    <flux:modal wire:model.live="is_show_confirm_modal" class="min-w-96" name="confirm">
         @if ($this->interested_user)
 
             <livewire:pages::partial.create_rental_transaction

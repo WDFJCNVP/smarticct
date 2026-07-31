@@ -4,6 +4,8 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Computed;
 
+use App\Services\PostService;
+
 use App\Models\Vehicle;
 use App\Models\OperatorTicketRate;
 use App\Models\Post;
@@ -70,7 +72,20 @@ new class extends Component
             $this->type = 'announcement';
         }
 
-        Post::create([
+        // Post::create([
+        //     'user_id'  => auth()->id(),
+        //     'type'     => $this->type,
+        //     'body'     => $validated_attributes['body'],
+        //     'status'   => 'published',
+        //     'metadata' => [
+        //         'from'         => $validated_attributes['from'],
+        //         'to'           => $validated_attributes['to'],
+        //         'vehicle_type' => $validated_attributes['vehicle_type'],
+        //         'attachments'  => $storedAttachments,
+        //     ],
+        // ]);
+
+        $post = app(PostService::class)->createPost([
             'user_id'  => auth()->id(),
             'type'     => $this->type,
             'body'     => $validated_attributes['body'],
@@ -83,7 +98,16 @@ new class extends Component
             ],
         ]);
 
-        $this->reset(['attachments', 'body', 'vehicle_type']);
+        if($post) {
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Posted successfully!',
+                text: 'Your post has been published successfully.',
+            );
+        }
+
+        $this->reset(['attachments', 'body', 'vehicle_type', 'is_post_preview']);
         $this->resetValidation();
     }
 
