@@ -117,6 +117,10 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/operator/queued/vehicle', 'pages::content-by-role.operator.queued-vehicle')
         ->middleware('role:operator')
         ->name('operator.queued.vehicle');
+    
+    Route::livewire('/operator/transaction', 'pages::content-by-role.operator.transaction')
+        ->middleware('role:operator')
+        ->name('operator.transaction');
 
     //commuter Section
     Route::livewire('/commuter/dashboard', 'pages::content-by-role.commuter.index')

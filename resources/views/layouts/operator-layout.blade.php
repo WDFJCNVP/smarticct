@@ -34,6 +34,7 @@
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('feed') }}" icon="squares-2x2 "> Feed </x-dashboard.sidebar-menu.sidebar-item>
                 <x-dashboard.sidebar-menu.sidebar-item href="/operator/vehicles" icon="truck">My Vehicle</x-dashboard.sidebar-menu.sidebar-item>
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.queue') }}" icon="clock">Queueing</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.transaction') }}" icon="credit-card">Transactions</x-dashboard.sidebar-menu.sidebar-item>
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.card') }}" icon="credit-card">My Card</x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>

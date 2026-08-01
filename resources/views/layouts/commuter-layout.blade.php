@@ -35,6 +35,7 @@
                 <x-dashboard.sidebar-menu.sidebar-item href="#" icon="briefcase"> Routes </x-dashboard.sidebar-menu.sidebar-item>
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.queue') }}" icon="truck"> Queue </x-dashboard.sidebar-menu.sidebar-item>
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('commuter.travel.record') }}" icon="truck"> Travel Record </x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="#" icon="truck"> Transactions </x-dashboard.sidebar-menu.sidebar-item>
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.card') }}" icon="credit-card"> Card </x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>
