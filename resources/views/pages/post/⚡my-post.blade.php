@@ -12,10 +12,10 @@ new class extends Component
     public Post $post;
     public $count;
 
-    #[On('transaction-updated')]
-    public function refereshMyPost() {
-        unset($this->count);
-    }
+    // #[On('transaction-updated')]
+    // public function refereshMyPost() {
+    //     unset($this->count);
+    // }
 
     public function render() {
         $role = auth()->user()->role;

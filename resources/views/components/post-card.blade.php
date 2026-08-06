@@ -49,7 +49,7 @@
                         </flux:menu.item>
                     @else
                         <flux:menu.item icon="archive-box" variant="danger" wire:click="archivePost({{ $post->id }})">
-                            Archive listing
+                            Archive Post
                         </flux:menu.item>
                     @endif
                 </flux:menu>

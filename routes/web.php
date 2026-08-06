@@ -152,6 +152,10 @@ Route::middleware('auth')->group(function () {
 
     Route::livewire('/operator/feed/my/post/{post}/{count}', 'pages::post.my-post')
         ->name('my.post');
+    
+    Route::livewire('/commuter/transaction', 'pages::content-by-role.commuter.transaction')
+        ->middleware('role:commuter')
+        ->name('commuter.transaction');
 
     // Route::livewire('/commuter/feed/my/post/{post}/{post_interest_count}', 'pages::post.commuter')
     //     ->middleware('role:commuter')

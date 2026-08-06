@@ -83,7 +83,7 @@ new class extends Component
         />
 
         @forelse ($this->getTripRequest as $post)
-
+             
             @if ($this->activeTransaction?->trip_request_id === $post->id)
                 @continue
             @endif
@@ -131,6 +131,8 @@ new class extends Component
     @else
 
         @forelse ($this->getTripRequest as $post)
+
+            
 
             @if ($this->activeTransaction?->trip_request_id === $post->id)
                 @continue

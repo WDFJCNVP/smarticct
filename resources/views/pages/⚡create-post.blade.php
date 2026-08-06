@@ -23,8 +23,16 @@ new class extends Component
     public ?string $to = null;
 
     public function postPreview() {
-        $this->is_post_preview = false;
-        $this->is_post_preview = true;
+
+        if (auth()->user()->role === 'admin' || auth()->user()->role === 'cashier') {
+            
+            $this->publish();
+
+        } else {
+            $this->is_post_preview = false;
+            $this->is_post_preview = true;
+        }
+
     }
 
     public function isRenting() {
@@ -178,7 +186,11 @@ new class extends Component
                     wire:target="publish"
                     size="sm"
                 >
-                    Post
+                    @if ((auth()->user()->role === 'operator' || auth()->user()->role === 'commuter') && $this->body)
+                        Preview Post
+                    @else
+                        Post
+                    @endif 
                 </flux:button>
             </div>
 

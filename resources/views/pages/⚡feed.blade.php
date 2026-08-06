@@ -191,7 +191,7 @@ new class extends Component
                 ->all();
         }
 
-
+        return [];
     }
 
     #[Computed]

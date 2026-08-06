@@ -59,17 +59,24 @@ new class extends Component
 
     #[Computed]
     public function rentalOffers() {
-        return RentalOffer::with('post.user', 'vehicle')->where('user_id', auth()->id())->where('status', 'accept')->get();
+        return RentalOffer::with('post')->whereHas('post', function ($q) {
+            $q->where('user_id', auth()->id());
+        })
+        ->where('status', 'accept')
+        ->get();
     }
 
     #[Computed]
     public function tripRequests() {
-        return TripRequest::whereHas('post', function ($query) {
-                $query->where('user_id', auth()->id());
-            })
+        return TripRequest::with('post.user', 'user')
+            ->where('user_id', auth()->id())
             ->where('status', 'accept')
             ->get();
     }
+
+    // public function mount() {
+    //     dd($this->rentalOffers);
+    // }
 };
 ?>
 
@@ -83,7 +90,7 @@ new class extends Component
                 <x-card class="w-full border-t-4 border-t-blue-500">
                     <div class="flex items-center justify-between gap-2">
                         <div>
-                            <x-badge size="xs" color="blue">From Client's Post</x-badge>
+                            <x-badge size="xs" color="blue">From your post</x-badge>
                         </div>
                         <div class="flex flex-col items-end gap-1">
                              
@@ -92,13 +99,13 @@ new class extends Component
                     </div>
                     <div class="mt-5">
                         <div class="flex items-center gap-2 justify-between">
-                            <x-text variant="subtle">Requested Vehicle</x-text>
+                            <x-text variant="subtle">Offered Vehicle</x-text>
                             <x-text variant="strong">{{ $item->post->metadata['vehicle_type'] }}</x-text>
                         </div>
                         <div class="flex items-center gap-2 justify-between">
-                            <x-text variant="subtle">Renter: </x-text>
+                            <x-text variant="subtle">Operator Name: </x-text>
                             
-                            <x-text variant="strong">{{ $item->post->user->name ?? 'Unknown' }}</x-text>
+                            <x-text variant="strong">{{ $item->user->name ?? 'Unknown' }}</x-text>
                         </div>
                         <div class="flex items-center gap-2 justify-between">
                             <x-text variant="subtle">Coverage: </x-text>
@@ -152,7 +159,7 @@ new class extends Component
                 <x-card class="w-full border-t-4 border-t-orange-500">
                     <div class="flex items-center justify-between gap-2">
                         <div>
-                            <x-badge size="xs" color="orange">From Your Post</x-badge>
+                            <x-badge size="xs" color="orange">From Operator's Post</x-badge>
                         </div>
                         <div class="flex flex-col items-end gap-1">
                             <x-badge size="sm" color="green">Active</x-badge>
@@ -160,12 +167,12 @@ new class extends Component
                     </div>
                     <div class="mt-5">
                         <div class="flex items-center gap-2 justify-between">
-                            <x-text variant="subtle">Requested Vehicle</x-text>
+                            <x-text variant="subtle">Operator's Offered Vehicle</x-text>
                             <x-text variant="strong">{{ $item->post->metadata['vehicle_type']}}</x-text>
                         </div>
                         <div class="flex items-center gap-2 justify-between">
-                            <x-text variant="subtle">Renter: </x-text>
-                            <x-text variant="strong">{{ $item->user->name ?? 'Unknown' }}</x-text>
+                            <x-text variant="subtle">Name: </x-text>
+                            <x-text variant="strong">{{ $item->post->user->name ?? 'Unknown' }}</x-text>
                         </div>
                         <div class="flex items-center gap-2 justify-between">
                             <x-text variant="subtle">Coverage: </x-text>
@@ -193,12 +200,10 @@ new class extends Component
                             wire:click="showTripRequestViewMoreModal({{ $item->id }})" 
                             class="text-blue-500 hover:text-blue-700 cursor-pointer flex items-center gap-1"
                         >
-                            {{-- 1. This text shows by default, but hides when clicked --}}
                             <span wire:loading.remove wire:target="showTripRequestViewMoreModal({{ $item->id }})">
                                 View more details
                             </span>
 
-                            {{-- 2. This spinner hides by default, but shows when clicked --}}
                             <span wire:loading wire:target="showTripRequestViewMoreModal({{ $item->id }})" class="flex items-center gap-1">
                                 <flux:icon.arrow-path class="animate-spin size-4" /> 
                             </span>
@@ -232,7 +237,7 @@ new class extends Component
 
     <flux:modal wire:model="isShowTripRequestViewMoreModal" class="w-auto" >
         @if ($tripRequestData)
-            <livewire:pages::content-by-role.operator.trip-request-modal
+            <livewire:pages::content-by-role.commuter.trip-request-view-more-modal
                 :tripRequest="$tripRequestData"
                 wire:key="trip-request-modal-{{ $tripRequestData->id }}"
             />
@@ -241,7 +246,7 @@ new class extends Component
 
     <flux:modal wire:model="isShowRentalOfferViewMoreModal" class="w-auto" >
         @if ($rentalOfferData)
-            <livewire:pages::content-by-role.operator.rental-offer-modal
+            <livewire:pages::content-by-role.commuter.active-transaction-view-more-modal
                 :rentalOffer="$rentalOfferData"
                 wire:key="rental-offer-modal-{{ $rentalOfferData->id }}"
             />

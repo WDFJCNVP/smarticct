@@ -3,7 +3,7 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 
-new #[Layout('layouts.operator-layout')]class extends Component
+new #[Layout('layouts.commuter-layout')]class extends Component
 {
     //
 };
@@ -51,13 +51,13 @@ new #[Layout('layouts.operator-layout')]class extends Component
 
         <div x-show="tab === 'active'" x-cloak class="space-y-3">
 
-            <livewire:pages::content-by-role.operator.active-renting-transaction/>
+            <livewire:pages::content-by-role.commuter.active-renting-transaction />
 
         </div>
 
         <div x-show="tab === 'rent-transaction'" x-cloak class="space-y-4">
 
-           <livewire:pages::content-by-role.operator.transaction-history />
+          <livewire:pages::partial.commuter-transaction-history />
 
         </div>
 
