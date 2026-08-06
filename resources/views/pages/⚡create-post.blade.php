@@ -200,7 +200,7 @@ new class extends Component
     <flux:modal wire:model="is_post_preview" class="md:w-196">
         @if ($this->body)
             <div class="space-y-6">
-                <flux:textarea wire:model="body" label="Post description" placeholder="Description" />
+                <flux:textarea wire:model.live="body" label="Post description" placeholder="Description" />
 
                 @if (!empty($attachments))
                     <div class="grid grid-cols-4 gap-2 mt-3">

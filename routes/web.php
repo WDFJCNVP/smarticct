@@ -149,6 +149,8 @@ Route::middleware('auth')->group(function () {
 
     Route::livewire('/feed', 'pages::feed')->name('feed');
     Route::livewire('/feed/create', 'pages::create-post')->name('post.create');
+    Route::livewire('/feed/archived', 'pages::archived-post')->name('post.archived');
+    Route::livewire('/feed/my/posts', 'pages::my-posts')->name('post.my-posts');
 
     Route::livewire('/operator/feed/my/post/{post}/{count}', 'pages::post.my-post')
         ->name('my.post');

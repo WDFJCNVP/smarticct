@@ -234,6 +234,16 @@ new class extends Component
 ?>
 <div>
     <div>
+        <div class="flex items-center justify-between mb-4">
+            <flux:heading size="xl" > Feed </flux:heading>
+            <flux:breadcrumbs>
+                <flux:breadcrumbs.item href="{{ route('feed') }}" wire:navigate>Feed</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item href="{{ route('post.archived') }}" wire:navigate>Archived Post</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item href="{{ route('post.my-posts') }}" wire:navigate>My Posts</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
+        
+
         <div class="lg:col-span-7 flex flex-col gap-4 lg:h-[90vh]">
             <div class="shrink-0">
 
