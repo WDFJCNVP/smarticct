@@ -37,15 +37,9 @@
             <flux:dropdown>
                 <flux:button variant="ghost" size="sm" icon="ellipsis-vertical" inset="top bottom" />
                 <flux:menu>
-                    @if ($post->type === 'rental' && $post->status !== 'rented')
-                        <flux:menu.item icon="check-circle" wire:click="markAsRented({{ $post->id }})">
-                            Mark as rented
-                        </flux:menu.item>
-                    @endif
-
                     @if ($post->status === 'archived')
                         <flux:menu.item icon="arrow-path" wire:click="restorePost({{ $post->id }})">
-                            Restore listing
+                            Unarchive Post
                         </flux:menu.item>
                     @else
                         <flux:menu.item icon="archive-box" variant="danger" wire:click="archivePost({{ $post->id }})">
@@ -89,7 +83,6 @@
         @endphp
         
         <div x-data="{ open: false, index: 0, images: @js($urls) }" class="mt-3">
-            {{-- Conditionally set columns and row heights based on image count --}}
             <div class="grid gap-1.5 
                 {{ $count === 1 ? 'grid-cols-1 auto-rows-[226px]' : '' }}
                 {{ $count === 2 ? 'grid-cols-2 auto-rows-[226px]' : '' }}
@@ -97,7 +90,6 @@
             ">
                 @foreach ($urls as $i => $url)
                     @if ($i === 0)
-                        {{-- Only apply col-span and row-span if there are 3 or more images --}}
                         <button type="button" @click="open = true; index = {{ $i }}" 
                             class="{{ $count >= 3 ? 'col-span-2 row-span-2' : '' }} relative rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 group cursor-pointer">
                             <img src="{{ $url }}" alt="Vehicle attachment image" class="w-full h-full object-cover" loading="lazy" />

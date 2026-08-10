@@ -92,7 +92,7 @@ new class extends Component
                 Active transaction
             </button>
 
-            <button
+            {{-- <button
                 type="button"
                 @click="tab = 'history'"
                 :class="tab === 'history'
@@ -101,7 +101,7 @@ new class extends Component
                 class="pb-3 border-b-2 transition-colors"
             >
                 History
-            </button>
+            </button> --}}
         </div>
 
         <div x-show="tab === 'requests'" x-cloak class="space-y-3">
@@ -131,7 +131,7 @@ new class extends Component
             @endif
         </div>
 
-        <div x-show="tab === 'history'" x-cloak>
+        {{-- <div x-show="tab === 'history'" x-cloak>
 
             @if (auth()->user()->role === 'operator')
 
@@ -142,7 +142,7 @@ new class extends Component
                 <livewire:pages::partial.commuter-transaction-history />
 
             @endif
-        </div>
+        </div> --}}
 
     </div>
 </div>

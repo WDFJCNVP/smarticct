@@ -11,6 +11,15 @@ new class extends Component
 
     public $selectedPostId = null;
 
+        public function restorePost($postId)
+    {
+        $post = Post::findOrFail($postId);
+
+        if ($post->user_id === auth()->id()) {
+            $post->update(['status' => 'published']);
+        }
+    }
+
     public function canExpressInterest(Post $post): bool
     {
         $user = auth()->user();

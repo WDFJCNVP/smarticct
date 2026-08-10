@@ -113,6 +113,8 @@ new class extends Component
                 heading: 'Posted successfully!',
                 text: 'Your post has been published successfully.',
             );
+
+            $this->dispatch('new-post-created');
         }
 
         $this->reset(['attachments', 'body', 'vehicle_type', 'is_post_preview']);

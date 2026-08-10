@@ -117,7 +117,7 @@ new class extends Component
     <div>
         <div class="flex-1 min-h-0 overflow-y-auto space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             @forelse ($this->getArchivedPost as $post)
-                <x-post-card :post="$post" wire:key="archived-post-{{ $post->id }}">
+                <x-post-card :post="$post" wire:key="my-post-{{ $post->id }}">
                     <x-slot name="footer">
                         @php
                             $isOwner = $post->user_id === auth()->id();

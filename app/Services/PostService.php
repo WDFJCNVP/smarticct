@@ -3,6 +3,7 @@
 namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use App\Events\PostActionEvent;
+use App\Events\CreateNewPostEvent;
 
 use App\Models\RentTransaction;
 use App\Models\TripRequest;
@@ -52,7 +53,7 @@ class PostService
             return $post;
         });
 
-        event(new PostActionEvent());
+        broadcast(new CreateNewPostEvent());
 
         return $post;
     }
