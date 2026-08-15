@@ -2,6 +2,7 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On; // <-- Import On
 
 use App\Models\Post;
 use App\Models\RentTransaction;
@@ -10,72 +11,71 @@ use App\Models\TripRequest;
 new class extends Component
 {
     public ?Post $post = null;
-
     public bool $is_show_confirm_modal = false;
     public bool $is_show_decline_modal = false;
     public $interested_user = null;
-    public bool $is_ongoing = false;
-    public ?int $post_interest_id = null;
-
     public bool $is_show_view_more_modal = false;
     public $post_interest_info;
 
-    
+    // REMOVED: public $is_ongoing, $post_interest_id, and mount()
+
     #[Computed]
     public function getTripRequest() {
         return TripRequest::where('post_id', $this->post->id)->whereIn('status', ['pending', 'cancel'])->get();
     }
 
+    // 1. Dynamically check for an ongoing transaction instead of using mount()
+    #[Computed]
+    public function activeTransaction() {
+        return RentTransaction::where('post_owner_id', $this->post->user_id)->where('status', 'ongoing')->first();
+    }
+
     public function showViewMoreModal($id) {
         $this->is_show_view_more_modal = false;
         $this->is_show_view_more_modal = true;
-
         $this->post_interest_info = TripRequest::where('id', $id)->first();
     }
 
-    public function declineThisInterested_user($id) {
-
-        TripRequest::where('id', $id)->update(['status' => 'decline']);
-
-    }
-
-    public function mount() {
-        $rent_transaction_record = RentTransaction::where('status', 'ongoing')->get();
-
-        foreach($rent_transaction_record as $record) {
-            if ($record->post_owner_id === $this->post->user_id) {
-                $this->is_ongoing = true;
-
-                $this->post_interest_id = $record->trip_request_id;
-            }
-        }
-    }
-
     public function showDeclineModal($id) {
-
         $this->is_show_confirm_modal = false;
         $this->is_show_decline_modal = false;
         $this->is_show_decline_modal = true;
         $this->interested_user = null;
         $this->interested_user = $this->post->tripRequest->where('id', $id)->first();
-
-        // dd($this->interested_user);
-
     }
 
     public function showConfirmModal($id) {
-
         $this->is_show_confirm_modal = false;
         $this->is_show_confirm_modal = true;
         $this->interested_user = null;
         $this->interested_user = $this->post->tripRequest->where('id', $id)->first();
+    }
 
+    public function declineThisInterestedUser($id) {
+        TripRequest::where('id', $id)->update(['status' => 'decline']);
+        // Refresh this specific list so the declined user disappears instantly
+        unset($this->getTripRequest); 
+    }
+
+    // ... [keep your modal functions here] ...
+
+    public function declineThisInterested_user($id) {
+        TripRequest::where('id', $id)->update(['status' => 'decline']);
+        // Refresh this specific list
+        unset($this->getTripRequest); 
+    }
+
+    // 2. Listen for the event dispatched by Tab 2!
+    #[On('transaction-updated')]
+    public function refreshRequests() {
+        unset($this->getTripRequest);
+        unset($this->activeTransaction);
     }
 };
 ?>
 
 <div>
-    @if ($this->is_ongoing)
+    @if ($this->activeTransaction)
         <flux:callout 
             variant="warning" 
             icon="exclamation-circle" 
@@ -83,8 +83,8 @@ new class extends Component
         />
 
         @forelse ($this->getTripRequest as $post)
-
-            @if ($this->post_interest_id === $post->id)
+             
+            @if ($this->activeTransaction?->trip_request_id === $post->id)
                 @continue
             @endif
 
@@ -132,7 +132,9 @@ new class extends Component
 
         @forelse ($this->getTripRequest as $post)
 
-            @if ($this->post_interest_id === $post->id)
+            
+
+            @if ($this->activeTransaction?->trip_request_id === $post->id)
                 @continue
             @endif
 

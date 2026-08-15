@@ -2,6 +2,7 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\WithPagination;
 
 
@@ -12,6 +13,7 @@ new class extends Component
 
     use WithPagination;
     #[Computed]
+    #[On('transaction-updated')]
     public function getCompletedTransactions()
     {
         return RentTransaction::with('post', 'rentalOffer')
@@ -26,7 +28,7 @@ new class extends Component
 <div>
     <x-table>
         <x-table-columns>
-            <x-table-column>Commuter</x-table-column>
+            <x-table-column>Operator</x-table-column>
             <x-table-column>Date Accepted</x-table-column>
             <x-table-column>Status</x-table-column>
         </x-table-columns>

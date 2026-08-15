@@ -31,7 +31,8 @@ class User extends Authenticatable
         'username',
         'password',
         'valid_id',
-        'type'
+        'type',
+        'last_feed_viewed_at'
     ];
 
     /**
@@ -54,6 +55,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'last_feed_viewed_at' => 'datetime',
         ];
     }
 

@@ -117,6 +117,10 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/operator/queued/vehicle', 'pages::content-by-role.operator.queued-vehicle')
         ->middleware('role:operator')
         ->name('operator.queued.vehicle');
+    
+    Route::livewire('/operator/transaction', 'pages::content-by-role.operator.transaction')
+        ->middleware('role:operator')
+        ->name('operator.transaction');
 
     //commuter Section
     Route::livewire('/commuter/dashboard', 'pages::content-by-role.commuter.index')
@@ -145,9 +149,15 @@ Route::middleware('auth')->group(function () {
 
     Route::livewire('/feed', 'pages::feed')->name('feed');
     Route::livewire('/feed/create', 'pages::create-post')->name('post.create');
+    Route::livewire('/feed/archived', 'pages::archived-post')->name('post.archived');
+    Route::livewire('/feed/my/posts', 'pages::my-posts')->name('post.my-posts');
 
     Route::livewire('/operator/feed/my/post/{post}/{count}', 'pages::post.my-post')
         ->name('my.post');
+    
+    Route::livewire('/commuter/transaction', 'pages::content-by-role.commuter.transaction')
+        ->middleware('role:commuter')
+        ->name('commuter.transaction');
 
     // Route::livewire('/commuter/feed/my/post/{post}/{post_interest_count}', 'pages::post.commuter')
     //     ->middleware('role:commuter')

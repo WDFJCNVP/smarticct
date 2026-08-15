@@ -6,31 +6,59 @@ use App\Models\RentTransaction;
 use App\Models\TripRequest;
 use App\Models\RentalOffer;
 
+use Illuminate\Database\Eloquent\Model;
+
+use App\Services\PostService;
+use App\Events\LiveActionEvent;
+
 new class extends Component
 {   
-    public $interested_user;
+    public ?Model $interested_user = null;
 
     public function createRentalTransaction() {
 
         if(auth()->user()->role === 'operator') {
-            RentTransaction::create([
+            $rental_transaction = app(PostService::class)->createRentalTransaction([
                 'post_owner_id'       => $this->interested_user->post->user->id,
                 'interested_user_id'  => $this->interested_user->user_id,
                 'trip_request_id'  => $this->interested_user->id,
                 'status'              => 'ongoing'
-            ]);
+                
+            ], $this->interested_user);
 
-            TripRequest::where('id', $this->interested_user->id)->update(['status' => 'accept']);
+
+            if($rental_transaction) {
+                $this->dispatch('transaction-updated');
+                
+                Flux::toast(
+                    duration: 0,
+                    variant: 'success',
+                    heading: 'Request Accepted',
+                    text: 'You have been successfully accepted the request.',
+                );
+            }
+
         } elseif(auth()->user()->role === 'commuter') {
-            RentTransaction::create([
+            $rental_transaction = app(PostService::class)->createRentalTransaction([
                 'post_owner_id'       => $this->interested_user->post->user->id,
                 'interested_user_id'  => $this->interested_user->user_id,
-                'rental_offer_id'  => $this->interested_user->id,
+                'rental_offer_id'     => $this->interested_user->id,
                 'status'              => 'ongoing'
-            ]);
+                
+            ], $this->interested_user);
 
-            RentalOffer::where('id', $this->interested_user->id)->update(['status' => 'accept']);
+            if($rental_transaction) {
+                $this->dispatch('transaction-updated');
+                
+                Flux::toast(
+                    duration: 0,
+                    variant: 'success',
+                    heading: 'Request Accepted',
+                    text: 'You have been successfully accepted the request.',
+                );
+            }
         }
+
     }
 
     public function cancelAction() {

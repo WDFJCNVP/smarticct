@@ -4,6 +4,8 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Computed;
 
+use App\Services\PostService;
+
 use App\Models\Vehicle;
 use App\Models\OperatorTicketRate;
 use App\Models\Post;
@@ -21,8 +23,16 @@ new class extends Component
     public ?string $to = null;
 
     public function postPreview() {
-        $this->is_post_preview = false;
-        $this->is_post_preview = true;
+
+        if (auth()->user()->role === 'admin' || auth()->user()->role === 'cashier') {
+            
+            $this->publish();
+
+        } else {
+            $this->is_post_preview = false;
+            $this->is_post_preview = true;
+        }
+
     }
 
     public function isRenting() {
@@ -70,7 +80,20 @@ new class extends Component
             $this->type = 'announcement';
         }
 
-        Post::create([
+        // Post::create([
+        //     'user_id'  => auth()->id(),
+        //     'type'     => $this->type,
+        //     'body'     => $validated_attributes['body'],
+        //     'status'   => 'published',
+        //     'metadata' => [
+        //         'from'         => $validated_attributes['from'],
+        //         'to'           => $validated_attributes['to'],
+        //         'vehicle_type' => $validated_attributes['vehicle_type'],
+        //         'attachments'  => $storedAttachments,
+        //     ],
+        // ]);
+
+        $post = app(PostService::class)->createPost([
             'user_id'  => auth()->id(),
             'type'     => $this->type,
             'body'     => $validated_attributes['body'],
@@ -83,7 +106,18 @@ new class extends Component
             ],
         ]);
 
-        $this->reset(['attachments', 'body', 'vehicle_type']);
+        if($post) {
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Posted successfully!',
+                text: 'Your post has been published successfully.',
+            );
+
+            $this->dispatch('new-post-created');
+        }
+
+        $this->reset(['attachments', 'body', 'vehicle_type', 'is_post_preview']);
         $this->resetValidation();
     }
 
@@ -154,7 +188,11 @@ new class extends Component
                     wire:target="publish"
                     size="sm"
                 >
-                    Post
+                    @if ((auth()->user()->role === 'operator' || auth()->user()->role === 'commuter') && $this->body)
+                        Preview Post
+                    @else
+                        Post
+                    @endif 
                 </flux:button>
             </div>
 
@@ -164,7 +202,7 @@ new class extends Component
     <flux:modal wire:model="is_post_preview" class="md:w-196">
         @if ($this->body)
             <div class="space-y-6">
-                <flux:textarea wire:model="body" label="Post description" placeholder="Description" />
+                <flux:textarea wire:model.live="body" label="Post description" placeholder="Description" />
 
                 @if (!empty($attachments))
                     <div class="grid grid-cols-4 gap-2 mt-3">

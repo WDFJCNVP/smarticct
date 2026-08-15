@@ -10,6 +10,8 @@ use App\Models\Post;
 use App\Models\RentalOffer;
 use App\Models\TripRequest;
 
+use App\Events\CreateNewPostEvent;
+
 use App\Services\PostService;
 
 new class extends Component
@@ -24,6 +26,11 @@ new class extends Component
 
     public bool $rental_offer_modal = false;
 
+    #[On('echo:create-new-post-event,.CreateNewPostEvent')]
+    #[On('new-post-created')]
+    public function refreshFeed() {
+        unset($this->posts); 
+    }
 
     public function showRepliesToYouModal($interest_id) {
 
@@ -183,7 +190,7 @@ new class extends Component
                 ->all();
         }
 
-
+        return [];
     }
 
     #[Computed]
@@ -226,6 +233,16 @@ new class extends Component
 ?>
 <div>
     <div>
+        <div class="flex items-center justify-between mb-4">
+            <flux:heading size="xl" > Feed </flux:heading>
+            <flux:breadcrumbs>
+                <flux:breadcrumbs.item href="{{ route('feed') }}" wire:navigate>Feed</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item href="{{ route('post.archived') }}" wire:navigate>Archived Post</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item href="{{ route('post.my-posts') }}" wire:navigate>My Posts</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
+        
+
         <div class="lg:col-span-7 flex flex-col gap-4 lg:h-[90vh]">
             <div class="shrink-0">
 

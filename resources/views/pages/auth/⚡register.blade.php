@@ -1,10 +1,16 @@
 <?php
 
+namespace App\Livewire;
+
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Validate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
+
+use App\Mail\RegistrationOtpMail;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
 
 use App\Services\UserService;
 
@@ -67,9 +73,6 @@ new #[Layout('layouts::public-layout')] class extends Component
     #[Validate('required|string|lowercase|alpha_dash|min:3|max:30|unique:users,username')]
     public string $username = '';
 
-    #[Validate('nullable|string|email|max:255|unique:users,email_address')]
-    public string $email_address = '';
-
     #[Validate('required|string|confirmed')]
     public string $password = '';
 
@@ -93,6 +96,68 @@ new #[Layout('layouts::public-layout')] class extends Component
     public string $house_subd = '';
     public ?int $zone_number = null;
     public string $barangay = '';
+
+    #[Validate('required|string|email|max:255|unique:users,email_address')]
+    public string $email_address = '';
+
+    public string $otp = '';
+
+
+    public function verifyAndRegister()
+    {
+        // First, check if OTP is empty
+        if (empty($this->otp)) {
+            $this->addError('otp', 'Please enter the 6-digit code sent to your email.');
+            return;
+        }
+
+        // Fetch the saved OTP from the cache
+        $cachedOtp = Cache::get('registration_otp_' . $this->email_address);
+
+        // Verify it matches
+        if (!$cachedOtp || $cachedOtp != $this->otp) {
+            $this->addError('otp', 'The verification code is invalid or has expired.');
+            return;
+        }
+
+        // OTP IS VALID! Process the registration...
+        $userBasicInformation = $this->validate();
+
+        // ⚠️ CRITICAL: Remove the OTP from the array so UserService doesn't try to insert it into the database
+        unset($userBasicInformation['otp']);
+
+        $userBasicInformation['valid_id'] = $this->valid_id->store('valid-id', 'public');
+
+        $user = app(UserService::class)->create($userBasicInformation);
+
+        if ($user) {
+            // Forget the OTP so it can't be reused
+            Cache::forget('registration_otp_' . $this->email_address);
+
+            auth()->login($user);
+            request()->session()->regenerate();
+
+            return $this->redirect('/' . auth()->user()->role . '/dashboard');
+        }
+    }
+
+    public function sendOtp()
+    {
+        // Validate everything from Step 1 and 2
+        $this->validate();
+
+        // Generate a random 6 digit code [cite: 33]
+        $generatedOtp = rand(100000, 999999);
+
+        // Store it temporarily in Laravel's Cache for 10 minutes [cite: 35]
+        Cache::put('registration_otp_' . $this->email_address, $generatedOtp, now()->addMinutes(10));
+
+        // Send Email [cite: 37]
+        Mail::to($this->email_address)->send(new RegistrationOtpMail($generatedOtp));
+
+        // Move to OTP step
+        $this->step = 3;
+    }
 
     #[Computed]
     public function getBarangays()
@@ -389,14 +454,66 @@ new #[Layout('layouts::public-layout')] class extends Component
                             ← Back
                         </flux:button>
                         <flux:button
-                            wire:click="register"
+                            wire:click="sendOtp"
+                            wire:loading.attr="disabled"
+                            wire:target="sendOtp"
                             class="font-primary hover:bg-secondary! dark:hover:bg-secondary! text-table-row !bg-primary !text-white !font-semibold flex-[3] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.97]"
                             variant="filled"
                         >
-                            Create account
+                            <span wire:loading.remove wire:target="sendOtp">Verify Email →</span>
+                            <span wire:loading wire:target="sendOtp">Sending Code...</span>
                         </flux:button>
                     </div>
 
+                </div>
+            @endif
+
+            @if ($step === 3)
+                <div class="flex flex-col gap-6 text-center mt-4">
+                    
+                    <div class="mx-auto rounded-full bg-secondary/10 p-4">
+                        <flux:icon name="envelope-open" class="size-10 text-secondary" />
+                    </div>
+
+                    <div>
+                        <h3 class="font-primary text-xl font-bold text-light-txt-primary dark:text-dark-txt-primary">Check your email</h3>
+                        <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted mt-2">
+                            We've sent a 6-digit verification code to <br>
+                            <span class="font-semibold text-secondary">{{ $email_address }}</span>
+                        </p>
+                    </div>
+
+                    <flux:field>
+                        <flux:input 
+                            type="text" 
+                            wire:model="otp" 
+                            placeholder="000000" 
+                            maxlength="6"
+                            class="text-center font-primary text-3xl tracking-[0.5em] font-bold py-4 bg-light-primary dark:bg-dark-surface border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted/50"
+                        />
+                        <flux:error name="otp" />
+                    </flux:field>
+
+                    <div class="flex flex-col gap-3 mt-4">
+                        <flux:button
+                            wire:click="verifyAndRegister"
+                            wire:loading.attr="disabled"
+                            wire:target="verifyAndRegister"
+                            class="font-primary text-lg !bg-primary !text-white !font-semibold w-full py-2 transition-transform duration-200 hover:scale-[1.02] active:scale-[0.97]"
+                            variant="filled"
+                        >
+                            <span wire:loading.remove wire:target="verifyAndRegister">Create Account</span>
+                            <span wire:loading wire:target="verifyAndRegister">Verifying...</span>
+                        </flux:button>
+
+                        <button wire:click="sendOtp" class="text-sm text-light-txt-muted hover:text-secondary transition-colors">
+                            Didn't receive the code? <span class="underline">Resend</span>
+                        </button>
+                        
+                        <button wire:click="prevStep" class="text-xs text-light-txt-muted mt-2 hover:text-secondary transition-colors">
+                            ← Change email address
+                        </button>
+                    </div>
                 </div>
             @endif
 

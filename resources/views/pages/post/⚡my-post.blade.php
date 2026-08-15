@@ -2,6 +2,7 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Layout;
 
 use App\Models\Post;
@@ -11,13 +12,18 @@ new class extends Component
     public Post $post;
     public $count;
 
+    // #[On('transaction-updated')]
+    // public function refereshMyPost() {
+    //     unset($this->count);
+    // }
+
     public function render() {
         $role = auth()->user()->role;
 
         return $this->view()->layout('layouts.' . $role . '-layout');
     }
 };
-?>
+?> 
 
 <div>
     <x-pages-heading heading="My Post" />
@@ -86,7 +92,7 @@ new class extends Component
                 Active transaction
             </button>
 
-            <button
+            {{-- <button
                 type="button"
                 @click="tab = 'history'"
                 :class="tab === 'history'
@@ -95,7 +101,7 @@ new class extends Component
                 class="pb-3 border-b-2 transition-colors"
             >
                 History
-            </button>
+            </button> --}}
         </div>
 
         <div x-show="tab === 'requests'" x-cloak class="space-y-3">
@@ -125,7 +131,7 @@ new class extends Component
             @endif
         </div>
 
-        <div x-show="tab === 'history'" x-cloak>
+        {{-- <div x-show="tab === 'history'" x-cloak>
 
             @if (auth()->user()->role === 'operator')
 
@@ -136,7 +142,7 @@ new class extends Component
                 <livewire:pages::partial.commuter-transaction-history />
 
             @endif
-        </div>
+        </div> --}}
 
     </div>
 </div>

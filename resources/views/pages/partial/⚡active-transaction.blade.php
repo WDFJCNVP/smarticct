@@ -2,7 +2,8 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
-
+use Livewire\Attributes\On;
+use Illuminate\Support\Facades\DB;
 use App\Models\RentTransaction;
 use App\Models\TripRequest;
 use App\Models\User;
@@ -11,25 +12,69 @@ new class extends Component
 {
     public $post;
 
-    public $interested_user;
-    public $post_owner;
+    public $isMarkAsCompleteModalOpen = false;
+    public $isMarkAsCancelModalOpen = false;
 
-    public function mount() {
-        if($this->getActiveTransactionRecord) {
-            $this->interested_user = User::find($this->getActiveTransactionRecord->interested_user_id);
-            $this->post_owner = User::find($this->getActiveTransactionRecord->post_owner_id);
-        }
+    public function markAsCancelModal() {
+        $this->isMarkAsCancelModalOpen = true;
+    }
+
+    public function markAsCompleteModal() {
+        $this->isMarkAsCompleteModalOpen = true;
     }
 
     public function markAsCancel() {
-        $this->getActiveTransactionRecord->update(['status' => 'cancelled']);
-        TripRequest::where('id', $this->getActiveTransactionRecord->trip_request_id)->update(['status' => 'cancel']);
+
+        $getActiveTransactionRecord = $this->getActiveTransactionRecord;
+        $post = $this->post;
+
+        $tripRequest = DB::transaction(function () use ($getActiveTransactionRecord, $post){
+
+            $getActiveTransactionRecord->update(['status' => 'cancelled']);
+            $tripRequest = TripRequest::where('id', $getActiveTransactionRecord->trip_request_id)->update(['status' => 'cancel']);
+            $post->update(['status' => 'published']);
+
+            return $tripRequest;
+        });
+
+        unset($getActiveTransactionRecord);
+        unset($this->interestedUser);
+
+        $this->dispatch('transaction-updated');
+        
+        if ($tripRequest) {
+
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Marked as cancelled',
+                text: 'Transaction has been marked as cancelled.',
+            );
+
+        }
     }
 
     public function markAsComplete() {
-        
+
         $this->getActiveTransactionRecord->update(['status' => 'completed']);
-        TripRequest::where('id', $this->getActiveTransactionRecord->trip_requests_id)->update(['status' => 'completed']);
+
+        $tripRequest = TripRequest::where('id', $this->getActiveTransactionRecord->trip_request_id)->update(['status' => 'completed']);
+
+        unset($this->getActiveTransactionRecord);
+        unset($this->interestedUser);
+
+        $this->dispatch('transaction-updated'); 
+
+        if ($tripRequest) {
+
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Marked as complete',
+                text: 'Transaction has been marked as complete.',
+            );
+
+        }
     }   
 
     #[Computed]
@@ -37,6 +82,17 @@ new class extends Component
         return RentTransaction::with('tripRequest')->where('post_owner_id', $this->post->user_id)->where('status', 'ongoing')->first();
     }
 
+    #[Computed]
+    public function interestedUser() {
+        if (!$this->getActiveTransactionRecord) return null;
+        return User::find($this->getActiveTransactionRecord->interested_user_id);
+    }
+
+    #[On('transaction-updated')]
+    public function refreshActiveTransaction() {
+        unset($this->getActiveTransactionRecord);
+        unset($this->interestedUser);
+    }
 };
 ?>
 
@@ -46,8 +102,8 @@ new class extends Component
             <div class="flex items-center">
                 <div class="flex-1">
                     <x-text size="sm">Client's name</x-text>
-                    <x-text variant="strong" size="xl">{{ $this->interested_user->name }}</x-text>
-                    <x-text variant="strong" size="lg" color="blue">{{ $this->interested_user->phone_number }}</x-text>
+                    <x-text variant="strong" size="xl">{{ $this->interestedUser->name }}</x-text>
+                    <x-text variant="strong" size="lg" color="blue">{{ $this->interestedUser->phone_number }}</x-text>
                 </div>
                 <div>
                     <x-badge color="orange">{{ ucfirst($this->getActiveTransactionRecord->status) }}</x-badge>
@@ -86,13 +142,55 @@ new class extends Component
             <x-separator />
 
             <div class="flex items-center gap-4">
-                <x-button wire:click="markAsComplete" variant="primary" color="green">Mark as Completed</x-button>
-                <x-button wire:click="markAsCancel" variant="primary" color="red">Cancel transaction</x-button>
+                <x-button wire:click="markAsCompleteModal" variant="primary" color="green">Mark as Completed</x-button>
+                <x-button wire:click="markAsCancelModal" variant="primary" color="red">Cancel transaction</x-button>
             </div>
 
         </x-card>
     @else
         <x-text>No record found</x-text>
     @endif
+
+    <flux:modal wire:model="isMarkAsCompleteModalOpen" class="min-w-96">
+        @if ($this->isMarkAsCompleteModalOpen)
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">Complete this transaction?</flux:heading>
+                    <flux:text class="mt-2">
+                        You're about to mark this transaction as complete.<br>
+                        This action cannot be undone.
+                    </flux:text>
+                </div>
+                <div class="flex gap-2">
+                    <flux:spacer />
+                    <flux:modal.close>
+                        <flux:button variant="ghost">Cancel</flux:button>
+                    </flux:modal.close>
+                    <flux:button wire:click="markAsComplete" type="button" color="green" variant="primary">Complete</flux:button>
+                </div>
+            </div>
+        @endif
+    </flux:modal>
+
+    <flux:modal wire:model="isMarkAsCancelModalOpen" class="min-w-96">
+        @if ($this->isMarkAsCancelModalOpen)
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">Cancel this transaction?</flux:heading>
+                    <flux:text class="mt-2">
+                        You're about to mark this transaction as cancelled.<br>
+                        This action cannot be undone.
+                    </flux:text>
+                </div>
+                <div class="flex gap-2">
+                    <flux:spacer />
+                    <flux:modal.close>
+                        <flux:button variant="ghost">Cancel</flux:button>
+                    </flux:modal.close>
+                    <flux:button wire:click="markAsCancel" type="button" color="red" variant="primary">Cancel</flux:button>
+                </div>
+            </div>
+        @endif
+    </flux:modal>
 
 </div>
