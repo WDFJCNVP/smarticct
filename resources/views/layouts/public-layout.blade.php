@@ -15,13 +15,13 @@
         <flux:sidebar.toggle class="lg:hidden mr-3" icon="bars-2" inset="left" />
 
         <div class="flex-1 flex items-center gap-3 lg:gap-3 md:ml-4 lg:ml-6">
-    <a href="/">
-        <img 
-            src="{{ Vite::asset('resources/images/logo.png') }}" 
-            alt="SmartICCT" 
-            class="h-9 w-auto lg:h-10"
-        >
-    </a>
+        <a href="/">
+            <img
+                src="{{ asset('images/logo.png') }}"
+                alt="SmartICCT" 
+                class="h-9 w-auto lg:h-10"
+            >
+        </a>
 
     <div class="flex flex-col leading-tight">
         <a href="/" class="text-base font-bold font-primary text-light-txt-primary dark:text-dark-txt-primary lg:text-lg">
@@ -37,6 +37,7 @@
         <flux:navbar.item href="/" wire:navigate>Explore</flux:navbar.item>
         <flux:navbar.item href="{{ route('route') }}" wire:navigate>Routes</flux:navbar.item>
         <flux:navbar.item href="{{ route('live.queue') }}" wire:navigate>Queue</flux:navbar.item>
+        <flux:navbar.item wire:navigate>Feed</flux:navbar.item>
         <flux:navbar.item href="{{ route('help.center') }}" wire:navigate>Help</flux:navbar.item>
     </flux:navbar>
 
@@ -86,6 +87,8 @@
             <flux:sidebar.item href="/" wire:navigate icon="magnifying-glass">Explore</flux:sidebar.item>
             <flux:sidebar.item href="/routes" wire:navigate icon="map-pin">Routes</flux:sidebar.item>
             <flux:sidebar.item href="/queue" wire:navigate icon="queue-list">Queue</flux:sidebar.item>
+            <flux:sidebar.item wire:navigate icon="rectangle-stack">Feed</flux:navbar.item>
+            <flux:sidebar.item href="/help" wire:navigate icon="question-mark-circle">Help</flux:navbar.item>
         </flux:sidebar.nav>
 
         <flux:sidebar.spacer />
