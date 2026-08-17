@@ -20,7 +20,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public User $user;
 
     public $name;
-    public $username;
     public $email_address;
     public $phone_number;
     public $address;
@@ -125,7 +124,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function mount() {
         $this->name          = $this->user->name;
-        $this->username      = $this->user->username;
         $this->email_address = $this->user->email_address ?? '';
         $this->phone_number  = $this->user->phone_number ?? '';
         $this->address       = $this->user->address;
@@ -189,24 +187,23 @@ new #[Layout('layouts.admin-layout')] class extends Component
         );
     }
 
-    public function verifyUser() {
-        $attributes = [
-            'type'     => 'verified',
-        ];
+    // public function verifyUser() {
+    //     $attributes = [
+    //         'type'     => 'verified',
+    //     ];
 
-        app(UserService::class)->update($this->user, $attributes);
+    //     app(UserService::class)->update($this->user, $attributes);
 
-        Flux::toast(
-            variant: 'success',
-            heading: 'User verified.',
-            text: 'Your changes have been saved.'
-        );
-    }
+    //     Flux::toast(
+    //         variant: 'success',
+    //         heading: 'User verified.',
+    //         text: 'Your changes have been saved.'
+    //     );
+    // }
 
     public function save() {
         $attributes = $this->validate([
             'name'          => 'required|min:2|string',
-            'username'      => 'required|min:1|string',
             'email_address' => 'nullable|string|email|max:255|unique:users,email_address,' . $this->user->id,
             'phone_number'  => 'required|string|regex:/^09\d{9}$/',
             'address'       => 'required|min:1|string',
@@ -403,7 +400,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     <x-pages-heading heading="Edit User Information"/>
 
-    @if ($this->user->card === null && $this->user->type === 'verified')
+    @if ($this->user->card === null)
         <flux:callout variant="warning" icon="exclamation-circle">
             <flux:callout.heading>This user has no RFID card assigned</flux:callout.heading>
             <flux:callout.text class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
@@ -419,10 +416,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     Issue card now
                 </flux:button>
             </flux:callout.text>
-        </flux:callout>
-    @elseif($this->user->card === null && $this->user->type === 'pending')
-        <flux:callout variant="warning" icon="clock">
-            <flux:callout.heading>This user's account is pending for verification</flux:callout.heading>
         </flux:callout>
     @endif
 
@@ -603,7 +596,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
             <div class="p-4 sm:p-6 space-y-4">
                 <div class="grid w-full grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <flux:input label="Name"     wire:model="name"     class="w-full font-secondary" />
-                    <flux:input label="Username" wire:model="username" class="w-full font-secondary" />
                     <div>
                         <flux:input
                             label="Email"
@@ -622,8 +614,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             class="w-full font-secondary"
                         />
                     </div>
-                    <div class="sm:col-span-2">
-                        {{-- Address field replaced with modal trigger button --}}
+                    <div>
                         <flux:field>
                             <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                                 Address
@@ -657,15 +648,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         icon:trailing="lock-closed"
                         readonly
                     />
-                </div>
-                @if ($user->type === 'pending')
-                    <div>
-                        <flux:label class="mb-4">Valid Id</flux:label>
-                        <img src="{{ Storage::url($user->valid_id) }}" />
-                    </div>
-                @endif  
+                </div> 
 
-                <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full pt-4 border-t border-light-bd-default dark:border-dark-bd-default">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full pt-4 dark:border-dark-bd-default">
 
                     <flux:modal.trigger name="delete-user">
 
@@ -684,14 +669,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     <flux:button size="sm" variant="primary" type="submit" icon="check" class="w-full sm:w-auto order-1 sm:order-2">
                         Save changes
                     </flux:button>
-
-                    @if ($user->type === 'pending')
-
-                        <flux:button size="sm" variant="primary" type="button" icon="check" wire:click="verifyUser" class="w-full sm:w-auto order-1 sm:order-2">
-                            Verify this user
-                        </flux:button>
-
-                    @endif
 
                 </div>
             </div>

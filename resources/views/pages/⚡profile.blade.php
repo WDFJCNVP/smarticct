@@ -12,7 +12,7 @@ new #[Title('Profile settings')] class extends Component {
     use ProfileValidationRules;
 
     public string $name = '';
-    public string $username = '';
+    // public string $username = '';
     public string $email_address = '';
     public string $phone_number = '';
     public string $address = '';
@@ -70,7 +70,7 @@ new #[Title('Profile settings')] class extends Component {
         $user = Auth::user();
 
         $this->name          = $user->name;
-        $this->username      = $user->username;
+        // $this->username      = $user->username;
         $this->email_address = $user->email_address ?? '';
         $this->phone_number  = $user->phone_number ?? '';
         $this->address       = $user->address ?? '';
@@ -193,46 +193,59 @@ new #[Title('Profile settings')] class extends Component {
     <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
 
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
-            <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
-            <flux:input wire:model="username" :label="__('Username')" type="text" required autocomplete="username" />
+            <x-inputs-container>
 
-            <div>
+                <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
+
+                {{-- <flux:input wire:model="username" :label="__('Username')" type="text" required autocomplete="username" /> --}}
+
+                    <flux:input
+                        wire:model="email_address"
+                        :label="__('Email')"
+                        type="email"
+                        autocomplete="email"
+                        placeholder="you@example.com (optional)"
+                    />
+
+                        {{-- @if ($this->hasUnverifiedEmail)
+                            <div>
+                                <flux:text class="mt-4">
+                                    {{ __('Your email address is unverified.') }}
+
+                                    <flux:link class="text-sm cursor-pointer" wire:click.prevent="resendVerificationNotification">
+                                        {{ __('Click here to re-send the verification email.') }}
+                                    </flux:link>
+                                </flux:text>
+
+                                @if (session('status') === 'verification-link-sent')
+                                    <flux:text class="mt-2 font-medium !dark:text-green-400 !text-green-600">
+                                        {{ __('A new verification link has been sent to your email address.') }}
+                                    </flux:text>
+                                @endif
+                            </div>
+                        @endif --}}
+
                 <flux:input
-                    wire:model="email_address"
-                    :label="__('Email')"
-                    type="email"
-                    autocomplete="email"
-                    placeholder="you@example.com (optional)"
+                    wire:model="phone_number"
+                    :label="__('Mobile number')"
+                    type="tel"
+                    required
+                    autocomplete="tel"
+                    placeholder="09XXXXXXXXX"
                 />
 
-                {{-- @if ($this->hasUnverifiedEmail)
-                    <div>
-                        <flux:text class="mt-4">
-                            {{ __('Your email address is unverified.') }}
+                @if (auth()->user()->role === 'commuter')
+                    <flux:input
+                        label="Commuter type"
+                        value="{{ ucfirst(auth()->user()->commuter_type) }}"
+                        icon:trailing="lock-closed"
+                        readonly
+                    />
+                @endif
 
-                            <flux:link class="text-sm cursor-pointer" wire:click.prevent="resendVerificationNotification">
-                                {{ __('Click here to re-send the verification email.') }}
-                            </flux:link>
-                        </flux:text>
+            </x-inputs-container>
 
-                        @if (session('status') === 'verification-link-sent')
-                            <flux:text class="mt-2 font-medium !dark:text-green-400 !text-green-600">
-                                {{ __('A new verification link has been sent to your email address.') }}
-                            </flux:text>
-                        @endif
-                    </div>
-                @endif --}}
-            </div>
-
-            <flux:input
-                wire:model="phone_number"
-                :label="__('Mobile number')"
-                type="tel"
-                required
-                autocomplete="tel"
-                placeholder="09XXXXXXXXX"
-            />
 
             <flux:field>
                 <flux:label>{{ __('Address') }}</flux:label>
@@ -251,15 +264,6 @@ new #[Title('Profile settings')] class extends Component {
                 <flux:error name="address" />
             </flux:field>
 
-            @if (auth()->user()->role === 'commuter')
-                <flux:input
-                    label="Commuter type"
-                    value="{{ ucfirst(auth()->user()->commuter_type) }}"
-                    icon:trailing="lock-closed"
-                    readonly
-                />
-            @endif
-
             <div class="flex items-center gap-4">
                 <flux:button variant="primary" type="submit" class="w-full" data-test="update-profile-button">
                     {{ __('Save') }}
@@ -270,6 +274,7 @@ new #[Title('Profile settings')] class extends Component {
         @if ($this->showDeleteUser)
             <livewire:pages::settings.delete-user-form />
         @endif
+        
     </x-pages::settings.layout>
 
     <flux:modal name="address-modal" class="md:w-[26rem]" x-on:address-saved.window="$flux.modal('address-modal').close()">

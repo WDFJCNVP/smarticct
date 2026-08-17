@@ -17,7 +17,8 @@ use App\Http\Controllers\Web\User\{
 
 //Public Registration Route
 
-Route::livewire('/register', 'pages::auth.register')->name('public.register');
+Route::livewire('/register', 'pages::public.public-registration')->name('public.register');
+Route::livewire('/register/setup', 'pages::public.public-registration-setup')->name('registration.setup');
 
 //Public Controller
 Route::controller(PublicController::class)->group(function () {
@@ -36,6 +37,7 @@ Route::controller(SessionUserController::class)->group(function () {
 }); 
 
 Route::livewire('/login', 'pages::auth.login')->name('login');
+Route::livewire('/forgot/password', 'pages::auth.forgot-password')->name('forgot.password');
 
 Route::livewire('/user/queue', 'pages::queue-page')
     ->name('user.queue');

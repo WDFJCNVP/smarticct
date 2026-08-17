@@ -19,6 +19,10 @@ use App\Models\Route;
 use App\Models\RouteList;
 use App\Models\OperatorTicketRate;
 
+use App\Mail\WelcomeUserMail;
+use Illuminate\Support\Facades\Mail;
+use Flux\Flux;
+
 use App\Services\UserService;
 
 new #[Layout('layouts.admin-layout')] class extends Component
@@ -31,10 +35,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $first_name = '';
     public string $last_name = '';
     public string $age;
-    public string $username = '';
     public string $email_address = '';
     public string $phone_number;
-    public string $password = '';
 
     // commuter details
     public string $date_of_birth = '';
@@ -126,61 +128,61 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->next();
     }
 
-    public function updated($property)
-    {
-        if (in_array($property, ['first_name', 'last_name'])) {
+    // public function updated($property)
+    // {
+    //     if (in_array($property, ['first_name', 'last_name'])) {
 
-            if (!empty($this->first_name) && !empty($this->last_name)) {
+    //         if (!empty($this->first_name) && !empty($this->last_name)) {
 
-                $prefix = match ($this->role) {
-                    'commuter' => '11284711',
-                    'operator' => '11284712',
-                    'cashier'  => '11284713',
-                    'admin'    => '11284714',
-                    default    => '11284710',
-                };
+    //             $prefix = match ($this->role) {
+    //                 'commuter' => '11284711',
+    //                 'operator' => '11284712',
+    //                 'cashier'  => '11284713',
+    //                 'admin'    => '11284714',
+    //                 default    => '11284710',
+    //             };
 
-                $sequence = str_pad(
-                    random_int(1, 9999),
-                    4,
-                    '0',
-                    STR_PAD_LEFT
-                );
+    //             $sequence = str_pad(
+    //                 random_int(1, 9999),
+    //                 4,
+    //                 '0',
+    //                 STR_PAD_LEFT
+    //             );
 
-                $baseUsername = $prefix . $sequence;
+    //             $baseUsername = $prefix . $sequence;
 
-                $this->username = $this->ensureUniqueUsername($baseUsername);
+    //             $this->username = $this->ensureUniqueUsername($baseUsername);
 
-                if (empty($this->password)) {
-                    $this->password = str_pad(
-                        random_int(0, 99999999),
-                        8,
-                        '0',
-                        STR_PAD_LEFT
-                    );
-                }
-            }
-        }
+    //             if (empty($this->password)) {
+    //                 $this->password = str_pad(
+    //                     random_int(0, 99999999),
+    //                     8,
+    //                     '0',
+    //                     STR_PAD_LEFT
+    //                 );
+    //             }
+    //         }
+    //     }
 
-        // Clear stale validation errors on the specific vehicle field the user just edited
-        if (str_starts_with($property, 'vehicles.')) {
-            $this->resetValidation($property);
-        }
-    }
+    //     // Clear stale validation errors on the specific vehicle field the user just edited
+    //     if (str_starts_with($property, 'vehicles.')) {
+    //         $this->resetValidation($property);
+    //     }
+    // }
 
 
-    protected function ensureUniqueUsername(string $username): string
-    {
-        $original = $username;
-        $counter = 1;
+    // protected function ensureUniqueUsername(string $username): string
+    // {
+    //     $original = $username;
+    //     $counter = 1;
 
-        while (User::where('username', $username)->exists()) {
-            $username = $original . $counter;
-            $counter++;
-        }
+    //     while (User::where('username', $username)->exists()) {
+    //         $username = $original . $counter;
+    //         $counter++;
+    //     }
 
-        return $username;
-    }
+    //     return $username;
+    // }
 
     #[On('echo:registration-tap-card,.RegistrationTapCardEvent')]
     public function getUid($event): void
@@ -260,9 +262,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             $this->validate([
                 'first_name'    => 'required|min:2',
                 'last_name'     => 'required|min:2',
-                'username'      => 'required|unique:users,username',
-                'password'      => 'required|min:8',
-                'email_address' => 'nullable|email|unique:users,email_address',
+                'email_address' => 'required|email|unique:users,email_address',
                 'age'           => 'required|min:2|numeric',
             ]);
         }
@@ -338,17 +338,17 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public function register(): void
     {
 
+        $rawPassword = Str::password(10, true, true, true, false);
+
         $userBasicInformation = [
             'name'         => $this->first_name . ' ' . $this->last_name,
             'age'          => $this->age,
             'commuter_type'=> $this->commuter_type,
-            'username'     => $this->username,
             'phone_number' => $this->phone_number,
             'address'      => $this->address,
             'email_address' => $this->email_address,
+            'password' => $rawPassword,
             'role'         => $this->role,
-            'password'     => $this->password, 
-            'type'         => 'verified', 
         ];
 
         if($this->card_number) {
@@ -360,23 +360,32 @@ new #[Layout('layouts.admin-layout')] class extends Component
             $cardInformation = [];
         }
 
-
-
-        app(UserService::class)->create(
+        $user = app(UserService::class)->create(
             $userBasicInformation,
             $cardInformation,
             $this->vehicles,
         );
 
-        Flux::toast(
-            variant: 'success',
-            heading: 'User Registered',
-            text: 'User has been successfully registered.'
-        );
+        if($user) {
 
-        $this->dispatch('user-registered');
-        $this->reset();
-        $this->step = 1;
+            Mail::to($user->email_address)->send(new WelcomeUserMail(
+                $user->name, 
+                $user->email_address, 
+                $rawPassword
+            ));
+
+            Flux::toast(
+                variant: 'success',
+                heading: 'User Registered',
+                text: 'User has been successfully registered.'
+            );
+
+            $this->dispatch('user-registered');
+            $this->reset();
+            $this->step = 1;
+        }
+
+
     }
 
     public function isStepDone(int $s): bool
@@ -449,18 +458,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     @if($step === 2)
         <div class="space-y-4">
-            <flux:callout variant="info" icon="information-circle"
-                heading="Credentials Auto-Generated" 
-                description="Username and temporary numeric PIN are filled automatically based on names." />
                 
             <x-inputs-container>
-                <x-input wire:model.live="first_name" label="First name" placeholder="e.g. Juan" />
-                <x-input wire:model.live="last_name"  label="Last name"  placeholder="e.g. dela Cruz" />
-                <x-input wire:model="email_address"   label="Email address (optional)" placeholder="juandelacruz@gmail.com" />
-                <x-input wire:model="age"   label="Age" placeholder="e.g. 25" type="number" />
-                <x-input wire:model="username" label="Username" placeholder="e.g. juandelacruz" />
-                
-                <x-input wire:model="password" label="Temporary numeric password" type="text" class="font-mono" />
+                <x-input wire:model="first_name" label="First name" placeholder="e.g. Juan" />
+                <x-input wire:model="last_name"  label="Last name"  placeholder="e.g. dela Cruz" />
+                <x-input wire:model="email_address"   label="Email address" placeholder="juandelacruz@gmail.com" />
+                <x-input wire:model="age"   label="Age" placeholder="e.g. 25" type="number" /> 
             </x-inputs-container>
         </div>
     @endif
@@ -866,12 +869,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
                 <x-inputs-container class="border-t border-light-bd-default dark:border-dark-bd-default pt-3 grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Username</x-text>
-                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $username }}</x-text>
+                        {{-- <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Username</x-text>
+                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $username }}</x-text> --}}
                     </div>
                     <div>
-                        <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Password</x-text>
-                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $password }}</x-text>
+                        {{-- <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Password</x-text>
+                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $password }}</x-text> --}}
                     </div>
                     <div>
                         <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Home address</x-text>

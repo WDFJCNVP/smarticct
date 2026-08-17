@@ -28,7 +28,6 @@ class User extends Authenticatable
         'commuter_type',
         'phone_number',
         'age',
-        'username',
         'password',
         'valid_id',
         'type',
