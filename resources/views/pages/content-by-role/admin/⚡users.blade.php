@@ -26,6 +26,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
     public $user;
 
     public function mount() {
+
         app(QueueManagementService::class)->generateSchedule(today());
     }
 
@@ -37,11 +38,10 @@ new  #[Layout('layouts.admin-layout')] class extends Component
     public function getUsers() {
         return User::with('card')
             ->whereIn('role', ['operator', 'commuter'])
-            ->where('type', 'verified')
             ->when($this->filtered_role, fn($q) => $q->where('role', $this->filtered_role))
             ->when($this->search, fn($q) => $q->where(function ($q2) {
                 $q2->where('name', 'like', '%' . $this->search . '%')
-                ->orWhere('username', 'like', '%' . $this->search . '%')
+                ->orWhere('email_address', 'like', '%' . $this->search . '%')
                 ->orWhere('user_code', 'like', '%' . $this->search . '%');
             }))
             ->paginate(10);
@@ -127,7 +127,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                 class="w-full sm:w-64 font-secondary text-table-row"
                 size="sm"
                 icon="magnifying-glass"
-                placeholder="Search name, ID, username…"
+                placeholder="Search name, ID, email"
                 wire:model.live.debounce.300ms="search"
             />
             <flux:select wire:model.live="filtered_role" size="sm" class="w-full sm:w-36 font-secondary text-table-row">
@@ -143,8 +143,6 @@ new  #[Layout('layouts.admin-layout')] class extends Component
         </div>
     </div>
     
-    <x-pages-heading>Verified users</x-pages-heading>
-
     <flux:card class="mb-4">
     
         <div class="overflow-x-auto">
@@ -153,7 +151,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                     <flux:table.column align="center" class="px-2! md:px-4! py-2">ID</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Card</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Name</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Username</flux:table.column>
+                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Email Address</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Address</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Role</flux:table.column>
                     <flux:table.column align="center" class="px-2! md:px-4! py-2">Actions</flux:table.column>
@@ -180,7 +178,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ $user->username }}
+                                {{ $user->email_address }}
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted max-w-48 truncate">
@@ -234,5 +232,5 @@ new  #[Layout('layouts.admin-layout')] class extends Component
         @endif
     </flux:card>
 
-    <livewire:pages::content-by-role.admin.pending-users />
+    {{-- <livewire:pages::content-by-role.admin.pending-users /> --}}
 </div>

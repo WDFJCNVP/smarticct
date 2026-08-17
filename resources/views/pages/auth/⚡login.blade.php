@@ -12,8 +12,8 @@ use App\Services\AuditLogsService;
 
 new #[Layout('layouts::public-layout')] class extends Component
 {
-    #[Validate('required|string')]
-    public $username = '';
+    #[Validate('required|string|max:255')]
+    public $email_address = '';
 
     #[Validate('required|string')]
     public $password = '';
@@ -24,7 +24,7 @@ new #[Layout('layouts::public-layout')] class extends Component
 
     private function throttleKey(): string
     {
-        return Str::lower($this->username) . '|' . request()->ip();
+        return Str::lower($this->email_address) . '|' . request()->ip();
     }
 
     private function ensureIsNotRateLimited(): void
@@ -38,7 +38,7 @@ new #[Layout('layouts::public-layout')] class extends Component
         $attributes = [
             'user' => null,
             'action' => 'login_failed',
-            'subject' => "Failed login - $this->username",
+            'subject' => "Failed login - $this->email_address",
             'channel' => "Web",
             'metadata' => json_encode([
                 'ip_address' => request()->ip(),
@@ -48,9 +48,8 @@ new #[Layout('layouts::public-layout')] class extends Component
 
         app(AuditLogsService::class)->create($attributes);
 
-
         throw ValidationException::withMessages([
-            'username' => 'Too many login attempts.',
+            'email_address' => 'Too many login attempts.',
         ]);
     }
 
@@ -64,8 +63,8 @@ new #[Layout('layouts::public-layout')] class extends Component
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'username' => 'Sorry, those credentials do not match.',
-            ]);
+                'email_adddress' => 'Sorry, those credentials do not match.',
+            ]); 
         }
 
         RateLimiter::clear($this->throttleKey());
@@ -123,17 +122,17 @@ new #[Layout('layouts::public-layout')] class extends Component
                 @csrf
 
                 <flux:field class="mt-3">
-                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Username</flux:label>
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Email Address</flux:label>
                     <flux:input
                         type="text"
-                        wire:model.blur.live="username"
-                        name="username"
-                        placeholder="Enter your username"
+                        wire:model="email_address"
+                        name="email_address"
+                        placeholder="Enter your email address"
                         required
                         class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                     />
 
-                    <flux:error name="username" />
+                    <flux:error name="email_address" />
 
                     <p
                         x-show="secondsLeft > 0"
@@ -155,13 +154,21 @@ new #[Layout('layouts::public-layout')] class extends Component
                     <flux:error name="password" />
                 </flux:field>
 
-                <flux:field class="mt-3">
+                <flux:field class="mt-3 flex items-center justify-between">
                     <flux:checkbox
                         wire:model="remember"
                         label="Remember me"
                         class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-muted"
                         />
-                    </flux:field>
+
+                    <flux:link href="{{ route('forgot.password') }}">
+                        <x-text class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-muted  dark:hover:text-secondary font-medium cursor-pointer">
+                            Forgot password ?
+                        </x-text>
+                    </flux:link>
+                </flux:field>
+
+                    
 
                 <flux:button
                     type="submit"

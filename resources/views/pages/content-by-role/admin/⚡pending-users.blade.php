@@ -25,7 +25,7 @@ new class extends Component
                     <flux:table.column align="center" class="px-2! md:px-4! py-2">ID</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Card</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Name</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Username</flux:table.column>
+                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Email Address</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Address</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Role</flux:table.column>
                     <flux:table.column align="center" class="px-2! md:px-4! py-2">Actions</flux:table.column>
@@ -52,7 +52,7 @@ new class extends Component
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ $user->username }}
+                                {{ $user->email_address }}
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted max-w-48 truncate">
