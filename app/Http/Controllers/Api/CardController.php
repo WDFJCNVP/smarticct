@@ -200,9 +200,12 @@ class CardController extends Controller
             return;
         }
 
+        Log::info('Queuing vehicle type: [' . $vehicle->vehicle_type . ']');
+
         $departs_in = match ($vehicle->vehicle_type) {
             'Bus'       => Carbon::now()->addMinutes(15),
             'Multi-cab' => Carbon::now()->addMinutes(2),
+            'Jeep'      => !in_array($validated['destination'], ['Buhi', 'Mountain-unit']) ? Carbon::now()->addMinutes(30) : null,
             default     => null,
         };
 
@@ -356,11 +359,9 @@ class CardController extends Controller
                         ]);
 
                         if (
-                            ($queue->vehicle_type === 'UV-express' && ($queue->seat_count >= 9 && $queue->departs_at === null)) || 
-                            (($queue->vehicle_type === 'Jeep' && ($queue->destination === 'Buhi' || $queue->destination === 'Mountain-unit')) && $queue->seat_count >= $queue->seat_capacity)
-                            ) 
-                        {
-
+                            $queue->seat_count >= $queue->seat_capacity || 
+                            ($queue->vehicle_type === 'UV-express' && $queue->seat_count >= 9 && $queue->departs_at === null)
+                        ) {
                             broadcast(new TriggerDepartingEvent($queue->id));
                         }
                     }
@@ -389,7 +390,7 @@ class CardController extends Controller
                     if (!$isGroupActive) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'No active schedule for this vehicle today.',
+                            'message' => 'Your turn has passed for this round. Please wait for the rest of your group to depart before the next round begins.',
                         ], 404);
                     }
 

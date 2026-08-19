@@ -25,12 +25,16 @@ new #[Layout('layouts.admin-layout')] class extends Component
             })
             ->get();
     }
+
+    // public function mount() {
+    //     dd($this->getUsers->user->card);
+    // }
 };
+
 ?>
 
 <div>
     <x-pages-heading heading="Cards" description="View all registered cards in the system." />
-
     <div class="grid grid-cols-3 gap-3 mt-6 mb-5">
         <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
             <p class="text-xs text-zinc-400 mb-1">Total cards</p>
