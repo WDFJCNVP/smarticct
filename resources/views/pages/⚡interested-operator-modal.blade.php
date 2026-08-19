@@ -86,6 +86,7 @@ new class extends Component
                 text: 'You can see the updates in your notifications.',
             );
         }
+        $this->dispatch('interest-deleted');
     }
 };
 ?>

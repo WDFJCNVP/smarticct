@@ -14,9 +14,16 @@ new class extends Component
     #[Computed]
     public function getCompletedTransactions()
     {
-        return RentTransaction::with('tripRequest')
+        return RentTransaction::with([
+                'tripRequest.user', 'tripRequest.post.user', 
+                'rentalOffer.user', 'rentalOffer.post.user'
+            ])
             ->whereIn('status', ['completed', 'cancelled'])
-            ->where('post_owner_id', auth()->id())
+            ->where(function ($query) {
+                // Fetch if the user is the post owner OR the interested user
+                $query->where('post_owner_id', auth()->id())
+                      ->orWhere('interested_user_id', auth()->id());
+            })
             ->latest()
             ->paginate(10);
     }
@@ -38,9 +45,29 @@ new class extends Component
         </x-table-columns>
         <x-table-rows>
             @forelse ($this->getCompletedTransactions as $record)
+                @php
+                    // Determine if the current user is the post owner
+                    $isPostOwner = $record->post_owner_id === auth()->id();
+                    $counterpartyName = 'Unknown User';
+
+                    // Extract the other person's name dynamically based on the relation
+                    if ($record->tripRequest) {
+                        $counterpartyName = $isPostOwner 
+                            ? $record->tripRequest->user->name 
+                            : $record->tripRequest->post->user->name;
+                    } elseif ($record->rentalOffer) {
+                        $counterpartyName = $isPostOwner 
+                            ? $record->rentalOffer->user->name 
+                            : $record->rentalOffer->post->user->name;
+                    }
+                @endphp
+
                 <x-table-row>
-                    <x-table-cell>{{ $record->tripRequest->user->name }}</x-table-cell>
+                    {{-- Dynamically output the correct counterparty name --}}
+                    <x-table-cell>{{ $counterpartyName }}</x-table-cell>
+                    
                     <x-table-cell>{{ $record->created_at->format('D, M j, Y') }}</x-table-cell>
+                    
                     <x-table-cell>
                         @if($record->status === 'completed')
                             <x-badge size="sm" color="green">Completed</x-badge>
