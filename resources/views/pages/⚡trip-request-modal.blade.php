@@ -104,7 +104,7 @@ new class extends Component
                 'driver_contact_number' => $attributes['driver_contact_number'],
             ]
         ]);
-
+     $this->dispatch('interest-deleted');
    }
 };
 ?>
@@ -115,12 +115,6 @@ new class extends Component
         @csrf
 
         <div class="space-y-6">
-            <div>
-                <flux:heading size="lg">Update profile</flux:heading>
-                <flux:text class="mt-2">Make changes to your personal details.</flux:text>
-            </div>
-
-            <flux:separator variant="subtle" class="mb-4"/>
 
             <x-heading>Personal Information</x-heading>
 
@@ -299,7 +293,7 @@ new class extends Component
             <div class="flex">
                 <flux:spacer />
 
-                <flux:button type="submit" variant="primary">Save changes</flux:button>
+                <flux:button type="submit" variant="primary">Send</flux:button>
             </div>
         </div>
     </form>

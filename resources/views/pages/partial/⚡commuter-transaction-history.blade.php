@@ -5,25 +5,32 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\WithPagination;
 
-
 use App\Models\RentTransaction;
 
 new class extends Component
 {
-
     use WithPagination;
+
     #[Computed]
     #[On('transaction-updated')]
     public function getCompletedTransactions()
     {
-        return RentTransaction::with('post', 'rentalOffer')
+        return RentTransaction::with([
+                'tripRequest.user', 'tripRequest.post.user', 
+                'rentalOffer.user', 'rentalOffer.post.user'
+            ])
             ->whereIn('status', ['completed', 'cancelled'])
-            ->where('post_owner_id', auth()->id())
+            ->where(function ($query) {
+                // Fetch if the current user is the post owner OR the interested user
+                $query->where('post_owner_id', auth()->id())
+                      ->orWhere('interested_user_id', auth()->id());
+            })
             ->latest()
             ->paginate(10);
     }
 };
 ?>
+
 
 <div>
     <x-table>
@@ -34,9 +41,24 @@ new class extends Component
         </x-table-columns>
         <x-table-rows>
             @forelse ($this->getCompletedTransactions as $record)
+                @php
+                    $operatorName = 'Unknown Operator';
+
+                    // Extract strictly the Operator's name based on the table origin
+                    if ($record->tripRequest) {
+                        // For trip requests, the Operator is the one who posted the vehicle
+                        $operatorName = $record->tripRequest->post->user->name;
+                    } elseif ($record->rentalOffer) {
+                        // For rental offers, the Operator is the one who offered their vehicle
+                        $operatorName = $record->rentalOffer->user->name;
+                    }
+                @endphp
+
                 <x-table-row>
-                    <x-table-cell>{{ $record->rentalOffer->user->name }}</x-table-cell>
+                    <x-table-cell>{{ $operatorName }}</x-table-cell>
+                    
                     <x-table-cell>{{ $record->created_at->format('D, M j, Y') }}</x-table-cell>
+                    
                     <x-table-cell>
                         @if($record->status === 'completed')
                             <x-badge size="sm" color="green">Completed</x-badge>
@@ -54,6 +76,7 @@ new class extends Component
             @endforelse
         </x-table-rows>
     </x-table>
+    
     @if ($this->getCompletedTransactions->hasPages())
         <div class="flex flex-wrap items-center justify-end gap-2 px-3 sm:px-4 py-2 border-t border-light-bd-default dark:border-dark-bd-default bg-light-secondary dark:bg-dark-secondary">
             {{ $this->getCompletedTransactions->links() }}

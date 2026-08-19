@@ -18,6 +18,8 @@ new class extends Component
 
             $this->selected_post = null;
             $this->show_interested_modal = false;
+
+            $this->dispatch('interest-deleted');
         } elseif (auth()->user()->role === 'commuter') {
             $this->selected_post = TripRequest::where('user_id', auth()->id())
                     ->where('post_id', $this->selected_post->post_id)
@@ -25,6 +27,8 @@ new class extends Component
 
             $this->selected_post = null;
             $this->show_interested_modal = false;
+
+            $this->dispatch('interest-deleted');
         }
     }
 

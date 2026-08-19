@@ -26,6 +26,32 @@ new class extends Component
 
     public bool $rental_offer_modal = false;
 
+
+    #[On('interest-deleted')]
+    public function closeModals()
+    {
+        // 1. Close ALL possible modals first
+        $this->show_delete_interested_modal = false;
+        $this->show_trip_request_modal = false;
+        $this->rental_offer_modal = false;
+        
+        // 2. Clear the selected post data so the form resets
+        $this->selected_post = null;
+        
+        // 3. Refresh the feed
+        unset($this->posts); 
+    }
+
+    // #[On('interest-deleted')]
+    // public function closeDeleteModal()
+    // {
+    //     $this->show_delete_interested_modal = false;
+        
+    //     $this->selected_post = null;
+        
+    //     unset($this->posts); 
+    // }
+
     #[On('echo:create-new-post-event,.CreateNewPostEvent')]
     #[On('new-post-created')]
     public function refreshFeed() {
