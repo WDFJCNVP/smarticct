@@ -7,10 +7,8 @@ use App\Events\RegistrationTapCardEvent;
 use Livewire\Component;
 use Illuminate\Support\Str;
 
-//facades
 use Illuminate\Support\Facades\DB;
 
-//models
 use App\Models\User;
 use App\Models\Card;
 use App\Models\Vehicle;
@@ -30,7 +28,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public int $step = 1;
     public bool $skipped = false;
 
-    // Basic info
     public string $role = '';
     public string $first_name = '';
     public string $last_name = '';
@@ -38,18 +35,15 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $email_address = '';
     public string $phone_number;
 
-    // commuter details
     public string $date_of_birth = '';
     public string $commuter_type = 'Regular';
     public string $address = '';
     public string $card_number = '';
     public string $new_card_id = '';
 
-    // Card scan state
     public bool $card_focused = true;
-    public string $card_state = 'warn'; 
+    public string $card_state = 'warn';
 
-    // Operator details
     public string $employee_id = '';
     public string $license_number = '';
     public string $assigned_route = '';
@@ -63,64 +57,36 @@ new #[Layout('layouts.admin-layout')] class extends Component
          'plate_number' => '',
          'group_number' => '',
          'route' => '',
-         'seat_capacity' => ''
+         'seat_capacity' => '',
+         'driver_name' => '',
+         'has_or_cr' => false,
+         'or_cr_expiry_date' => '',
+         'has_franchise' => false,
+         'franchise_expiry_date' => '',
          ],
     ];
 
-    // Address modal fields
     public string $house_subd = '';
     public ?int $zone_number = null;
     public string $barangay = '';
+    public string $municipality = '';
 
-    // Iriga City, Camarines Sur barangays
-    public const BARANGAYS = [
-        'Antipolo',
-        'Cristo Rey',
-        'Del Rosario (Banao)',
-        'Francia',
-        'La Anunciacion',
-        'La Medalla',
-        'La Purisima',
-        'La Trinidad',
-        'Niño Jesus',
-        'Perpetual Help',
-        'Sagrada',
-        'Salvacion',
-        'San Agustin',
-        'San Andres',
-        'San Antonio',
-        'San Francisco (Pob.)',
-        'San Isidro',
-        'San Jose',
-        'San Juan',
-        'San Miguel',
-        'San Nicolas',
-        'San Pedro',
-        'San Rafael',
-        'San Ramon',
-        'San Roque (Pob.)',
-        'Santiago',
-        'San Vicente Norte',
-        'San Vicente Sur',
-        'Santa Cruz Norte',
-        'Santa Cruz Sur',
-        'Santa Elena',
-        'Santa Isabel',
-        'Santa Maria',
-        'Santa Teresita',
-        'Santo Domingo',
-        'Santo Niño',
+    protected $validationAttributes = [
+        'vehicles.*.seat_capacity'  => 'seat capacity',
+        'vehicles.*.driver_name'    => 'driver name',
+        'vehicles.*.plate_number'   => 'plate number',
+        'vehicles.*.vehicle_type'   => 'vehicle type',
+        'vehicles.*.route'          => 'route',
+        'vehicles.*.has_or_cr'      => 'OR/CR verification',
+        'vehicles.*.or_cr_expiry_date' => 'OR/CR expiry date',
+        'vehicles.*.has_franchise'  => 'franchise verification',
+        'vehicles.*.franchise_expiry_date' => 'franchise expiry date',
+        'vehicles.*.group_number'   => 'group number',
     ];
 
     #[Computed]
-    public function getVehicleType() {  
+    public function getVehicleType() {
         return OperatorTicketRate::get('vehicle_type');
-    }
-
-    #[Computed]
-    public function getBarangays()
-    {
-        return self::BARANGAYS;
     }
 
     public function stepSkipped() {
@@ -128,61 +94,29 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->next();
     }
 
-    // public function updated($property)
-    // {
-    //     if (in_array($property, ['first_name', 'last_name'])) {
+    public function updated($property)
+    {
+        // Clear vehicle errors when typing in vehicle fields
+        if (str_starts_with($property, 'vehicles.')) {
+            $this->resetValidation($property);
 
-    //         if (!empty($this->first_name) && !empty($this->last_name)) {
+            // If a vehicle drops from complete -> incomplete while its modal
+            // is open (e.g. clearing seat capacity), close that modal so the
+            // page falls back to the inline open-form branch cleanly instead
+            // of leaving stale modal DOM behind.
+            if (preg_match('/^vehicles\.(\d+)\./', $property, $m)) {
+                $idx = (int) $m[1];
+                if (isset($this->vehicles[$idx]) && !$this->vehicleIsComplete($this->vehicles[$idx])) {
+                    $this->dispatch('close-vehicle-modal', index: $idx);
+                }
+            }
+        }
 
-    //             $prefix = match ($this->role) {
-    //                 'commuter' => '11284711',
-    //                 'operator' => '11284712',
-    //                 'cashier'  => '11284713',
-    //                 'admin'    => '11284714',
-    //                 default    => '11284710',
-    //             };
-
-    //             $sequence = str_pad(
-    //                 random_int(1, 9999),
-    //                 4,
-    //                 '0',
-    //                 STR_PAD_LEFT
-    //             );
-
-    //             $baseUsername = $prefix . $sequence;
-
-    //             $this->username = $this->ensureUniqueUsername($baseUsername);
-
-    //             if (empty($this->password)) {
-    //                 $this->password = str_pad(
-    //                     random_int(0, 99999999),
-    //                     8,
-    //                     '0',
-    //                     STR_PAD_LEFT
-    //                 );
-    //             }
-    //         }
-    //     }
-
-    //     // Clear stale validation errors on the specific vehicle field the user just edited
-    //     if (str_starts_with($property, 'vehicles.')) {
-    //         $this->resetValidation($property);
-    //     }
-    // }
-
-
-    // protected function ensureUniqueUsername(string $username): string
-    // {
-    //     $original = $username;
-    //     $counter = 1;
-
-    //     while (User::where('username', $username)->exists()) {
-    //         $username = $original . $counter;
-    //         $counter++;
-    //     }
-
-    //     return $username;
-    // }
+        // Clear Step 2 errors when typing in those fields
+        if (in_array($property, ['first_name', 'last_name', 'email_address', 'age', 'phone_number'])) {
+            $this->resetValidation($property);
+        }
+    }
 
     #[On('echo:registration-tap-card,.RegistrationTapCardEvent')]
     public function getUid($event): void
@@ -233,16 +167,17 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public function saveAddress(): void
     {
         $data = $this->validate([
-            'house_subd'  => 'nullable|string|max:255',
-            'zone_number' => 'required|integer|min:1|max:20',
-            'barangay'    => 'required|string|in:' . implode(',', self::BARANGAYS),
+            'house_subd'   => 'nullable|string|max:255',
+            'zone_number'  => 'required|integer|min:1|max:20',
+            'barangay'     => 'required|string|max:255',
+            'municipality' => 'required|string|max:255',
         ]);
 
         $parts = array_filter([
             $data['house_subd'] !== '' ? $data['house_subd'] : null,
             'Zone ' . $data['zone_number'],
             $data['barangay'],
-            'Iriga City',
+            $data['municipality'],
             'Camarines Sur',
         ]);
 
@@ -254,8 +189,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function next(): void
     {
+        $this->resetValidation();
+
         if ($this->step === 1) {
-            $this->validate(['role' => 'required|in:commuter,operator']);
+            $this->validate([
+                'role' => 'required|in:commuter,operator'
+            ]);
         }
 
         if ($this->step === 2) {
@@ -272,19 +211,51 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 $this->validate([
                     'address'       => 'required|min:5',
                     'phone_number'  => 'required|numeric',
-                    'commuter_type'  => 'required',
+                    'commuter_type' => 'required',
                 ]);
             } else {
-                $this->validate([
-                    'address'                    => 'required|min:5',
-                    'phone_number'               => 'required|numeric',
-                    'vehicles'                   => 'required|array|min:1',
-                    'vehicles.*.vehicle_type'    => 'required|string',
-                    'vehicles.*.plate_number'    => 'required|unique:vehicles,plate_number',
-                    'vehicles.*.route'           => 'required|string',
-                    'vehicles.*.seat_capacity'   => 'required|integer|min:10|max:50',
-                    'vehicles.*.group_number'    => 'nullable|integer|min:1|max:2',
-                ]);
+                $rules = [
+                    'address'                         => 'required|min:5',
+                    'phone_number'                    => 'required|numeric',
+                    'vehicles'                        => 'required|array|min:1',
+                    'vehicles.*.vehicle_type'         => 'required|string',
+                    'vehicles.*.plate_number'         => 'required|unique:vehicles,plate_number',
+                    'vehicles.*.route'                => 'required|string',
+                    'vehicles.*.seat_capacity'        => 'required|integer|min:10|max:50',
+                    'vehicles.*.driver_name'          => 'required|string|min:2',
+                    'vehicles.*.has_or_cr'            => 'required|accepted',
+                    'vehicles.*.or_cr_expiry_date'    => 'required|date|after:today',
+                    'vehicles.*.has_franchise'        => 'required|accepted',
+                    'vehicles.*.franchise_expiry_date' => 'required|date|after:today',
+                ];
+
+                $rules['vehicles.*.group_number'] = [
+                    'required_if:vehicles.*.vehicle_type,Bus,UV-express',
+                    'integer',
+                    'min:1',
+                    'max:2'
+                ];
+
+                try {
+                    $this->validate($rules);
+                } catch (\Illuminate\Validation\ValidationException $e) {
+                    // Only vehicles rendered as a collapsed card + modal (i.e.
+                    // "complete" by our basic check) can hide an error from
+                    // view — e.g. a duplicate plate number even though every
+                    // required field is filled. Open that vehicle's modal so
+                    // the error is visible. Incomplete vehicles already show
+                    // their fields inline, so no action needed there.
+                    foreach ($e->validator->errors()->keys() as $key) {
+                        if (preg_match('/^vehicles\.(\d+)\./', $key, $m)) {
+                            $idx = (int) $m[1];
+                            if (isset($this->vehicles[$idx]) && $this->vehicleIsComplete($this->vehicles[$idx])) {
+                                $this->dispatch('open-vehicle-modal', index: $idx);
+                            }
+                            break;
+                        }
+                    }
+                    throw $e;
+                }
             }
         }
 
@@ -310,7 +281,18 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function addVehicle(): void
     {
-        $this->vehicles[] = ['vehicle_type' => '', 'plate_number' => '', 'group_number' => '', 'route'=>''];
+        $this->vehicles[] = [
+            'vehicle_type' => '',
+            'plate_number' => '',
+            'group_number' => '',
+            'route' => '',
+            'seat_capacity' => '',
+            'driver_name' => '',
+            'has_or_cr' => false,
+            'or_cr_expiry_date' => '',
+            'has_franchise' => false,
+            'franchise_expiry_date' => '',
+        ];
     }
 
     public function removeVehicle(int $index): void
@@ -321,11 +303,19 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function vehicleIsComplete(array $vehicle): bool {
-        $required = ['vehicle_type', 'plate_number', 'route', 'seat_capacity'];
+        $required = ['vehicle_type', 'plate_number', 'route', 'seat_capacity', 'driver_name'];
         foreach ($required as $field) {
             if (!filled($vehicle[$field] ?? null)) {
                 return false;
             }
+        }
+
+        if (empty($vehicle['has_or_cr']) || !filled($vehicle['or_cr_expiry_date'] ?? null)) {
+            return false;
+        }
+
+        if (empty($vehicle['has_franchise']) || !filled($vehicle['franchise_expiry_date'] ?? null)) {
+            return false;
         }
 
         if (in_array($vehicle['vehicle_type'] ?? '', ['Bus', 'UV-express'])) {
@@ -369,15 +359,16 @@ new #[Layout('layouts.admin-layout')] class extends Component
         if($user) {
 
             Mail::to($user->email_address)->send(new WelcomeUserMail(
-                $user->name, 
-                $user->email_address, 
+                $user->name,
+                $user->email_address,
                 $rawPassword
             ));
 
             Flux::toast(
                 variant: 'success',
                 heading: 'User Registered',
-                text: 'User has been successfully registered.'
+                duration: 3000, 
+                text: 'User registered successfully. Confirmation email sent to the registered user.'
             );
 
             $this->dispatch('user-registered');
@@ -393,13 +384,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
         return $this->step > $s;
     }
 
-    // public function mount() {
-    //     dd($this->getRoute());
-    // }
 };
 ?>
 
-<div>
+<div class="mx-auto max-w-5xl px-4 py-8 sm:px-10"
+     x-on:open-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).show()"
+     x-on:close-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).close()">
     <flux:breadcrumbs>
         <flux:breadcrumbs.item href="{{ route('admin.users') }}" wire:navigate>Users</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>Registration</flux:breadcrumbs.item>
@@ -451,19 +441,16 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 <x-slot name="icon"><flux:icon.identification class="w-5 h-5" /></x-slot>
             </flux:radio>
         </flux:radio.group>
-        @error('role')
-            <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-2">{{ $message }}</p>
-        @enderror
+        <flux:error name="role" />
     @endif
 
     @if($step === 2)
         <div class="space-y-4">
-                
             <x-inputs-container>
-                <x-input wire:model="first_name" label="First name" placeholder="e.g. Juan" />
-                <x-input wire:model="last_name"  label="Last name"  placeholder="e.g. dela Cruz" />
-                <x-input wire:model="email_address"   label="Email address" placeholder="juandelacruz@gmail.com" />
-                <x-input wire:model="age"   label="Age" placeholder="e.g. 25" type="number" /> 
+                <x-input wire:model.blur="first_name" label="First name" placeholder="e.g. Juan" />
+                <x-input wire:model.blur="last_name"  label="Last name"  placeholder="e.g. dela Cruz" />
+                <x-input wire:model.blur="email_address"   label="Email address" placeholder="juandelacruz@gmail.com" />
+                <x-input wire:model.blur="age"   label="Age" placeholder="e.g. 25" type="number" />
             </x-inputs-container>
         </div>
     @endif
@@ -490,8 +477,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     <flux:error name="address" />
                 </flux:field>
 
-                <x-input wire:model="phone_number"  type="number" label="Phone number" pattern="[0-9]{10}" placeholder="e.g. 09463637401"/>
-                <x-select wire:model="commuter_type" label="Commuter type" size="lg">
+                <x-input wire:model.blur="phone_number"  type="number" label="Phone number" pattern="[0-9]{10}" placeholder="e.g. 09463637401"/>
+                <x-select wire:model.live="commuter_type" label="Commuter type" size="lg">
                     <x-select-option>Regular</x-select-option>
                     <x-select-option>Senior Citizen</x-select-option>
                     <x-select-option>PWD</x-select-option>
@@ -523,7 +510,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     <flux:error name="address" />
                 </flux:field>
 
-                <x-input wire:model="phone_number"    label="Phone no."                 placeholder="63+ 912 345 6789"  />
+                <x-input wire:model.blur="phone_number" label="Phone no." placeholder="63+ 912 345 6789"/>
             </x-inputs-container>
 
             <div class="flex items-center justify-between pt-2 pb-1 border-t border-light-bd-default dark:border-dark-bd-default">
@@ -538,6 +525,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         @forelse ($vehicles as $index => $vehicle)
             @if($this->vehicleIsComplete($vehicle))
+                {{-- Collapsed summary card + Edit modal, once all required fields are filled --}}
                 <div wire:key="vehicle-card-{{ $index }}-{{ md5(json_encode($vehicle)) }}"
                     class="flex items-center justify-between gap-3 rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-light-secondary dark:bg-dark-surface p-3">
                     <div class="flex items-center gap-3 min-w-0">
@@ -552,44 +540,54 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <p class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted truncate">
                                 {{ $vehicle['route'] }} · {{ $vehicle['seat_capacity'] }} seats
                                 @if(!empty($vehicle['group_number'])) · Group {{ $vehicle['group_number'] }} @endif
+                                · Driver: {{ $vehicle['driver_name'] }}
+                            </p>
+                            <p class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted truncate">
+                                OR/CR exp. {{ \Illuminate\Support\Carbon::parse($vehicle['or_cr_expiry_date'])->format('M d, Y') }}
+                                · Franchise exp. {{ \Illuminate\Support\Carbon::parse($vehicle['franchise_expiry_date'])->format('M d, Y') }}
                             </p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-1 shrink-0">
+                    <div class="flex items-center gap-2 shrink-0">
                         <flux:modal.trigger name="edit-vehicle-{{ $index }}">
-                            <flux:button size="sm" variant="ghost" icon="pencil" class="text-light-txt-muted dark:text-dark-txt-muted" />
+                            <button type="button"
+                                class="font-secondary text-timestamp font-medium px-2.5 py-1 rounded-md text-light-txt-muted dark:text-dark-txt-muted hover:bg-light-subtle dark:hover:bg-dark-subtle cursor-pointer">
+                                Edit
+                            </button>
                         </flux:modal.trigger>
                         @if(count($vehicles) > 1)
-                            <flux:button wire:click="removeVehicle({{ $index }})" size="sm" variant="ghost" icon="trash" class="text-danger dark:text-dark-danger" />
+                            <button wire:click="removeVehicle({{ $index }})" type="button"
+                                class="font-secondary text-timestamp font-medium px-2.5 py-1 rounded-md border border-danger/40 dark:border-dark-danger/40 bg-danger/10 dark:bg-dark-danger/10 text-danger dark:text-dark-danger hover:bg-danger/20 dark:hover:bg-dark-danger/20 cursor-pointer">
+                                Delete
+                            </button>
                         @endif
                     </div>
                 </div>
 
-                @php
-                    $vehicleErrors = collect($errors->keys())
-                        ->filter(fn($key) => str_starts_with($key, "vehicles.$index."))
-                        ->map(fn($key) => $errors->first($key));
-                @endphp
-
-                @if($vehicleErrors->isNotEmpty())
-                    <div wire:key="vehicle-errors-{{ $index }}" class="rounded-lg border border-danger/30 bg-danger/5 dark:bg-dark-danger/10 p-3 space-y-1">
-                        @foreach ($vehicleErrors as $message)
-                            <p class="font-secondary text-timestamp text-danger dark:text-dark-danger">{{ $message }}</p>
-                        @endforeach
-                    </div>
-                @endif
-
-                <flux:modal name="edit-vehicle-{{ $index }}" class="md:w-[28rem]">
-                    <div class="space-y-4">
-                        <div>
-                            <flux:heading size="lg" class="font-primary text-light-txt-primary dark:text-dark-txt-primary">
-                                Edit Vehicle {{ $index + 1 }}
-                            </flux:heading>
-                            <flux:text class="mt-1 font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
-                                Update this vehicle's details.
-                            </flux:text>
+                <flux:modal
+                    name="edit-vehicle-{{ $index }}"
+                    :closable="false"
+                    class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+                >
+                    <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
+                        <!-- Header -->
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                                    Edit Vehicle #{{ $index + 1 }}
+                                </flux:heading>
+                                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                                    Update this vehicle's details.
+                                </flux:text>
+                            </div>
+                            <flux:modal.close>
+                                <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                                    <flux:icon name="x-mark" class="w-5 h-5" />
+                                </button>
+                            </flux:modal.close>
                         </div>
 
+                        <!-- Vehicle fields (unchanged) -->
                         <x-inputs-container class="grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Vehicle Type</flux:label>
@@ -598,17 +596,15 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                         <flux:select.option>{{ $vehicleType->vehicle_type }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
-                                @error("vehicles.$index.vehicle_type")
-                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                                @enderror
+                                <flux:error name="vehicles.{{ $index }}.vehicle_type" />
                             </div>
 
                             <div>
-                                <x-input wire:model.live="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
+                                <x-input wire:model.blur="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
                             </div>
 
                             <div>
-                                <x-input wire:model.live="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
+                                <x-input wire:model.blur="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10" />
                             </div>
 
                             <div>
@@ -623,52 +619,98 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                         @endif
                                     @endforeach
                                 </flux:select>
-                                @error("vehicles.$index.route")
-                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                                @enderror
+                                <flux:error name="vehicles.{{ $index }}.route" />
                             </div>
 
-                            @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'UV-express')
+                            @if(in_array($this->vehicles[$index]['vehicle_type'], ['Bus', 'UV-express']))
                                 <div>
                                     <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Group No.</flux:label>
                                     <flux:select wire:model.live="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm">
                                         <flux:select.option value="1">1</flux:select.option>
                                         <flux:select.option value="2">2</flux:select.option>
                                     </flux:select>
-                                    @error("vehicles.$index.group_number")
-                                        <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                            @else
-                                <div>
-                                    <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Group No.</flux:label>
-                                    <flux:select wire:model.live="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm" disabled>
-                                        <flux:select.option value="1">1</flux:select.option>
-                                        <flux:select.option value="2">2</flux:select.option>
-                                    </flux:select>
-                                    @error("vehicles.$index.group_number")
-                                        <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                                    @enderror
+                                    <flux:error name="vehicles.{{ $index }}.group_number" />
                                 </div>
                             @endif
+
+                            <div class="sm:col-span-2">
+                                <x-input wire:model.blur="vehicles.{{ $index }}.driver_name" label="Dedicated driver" placeholder="e.g. Juan dela Cruz" size="sm" />
+                            </div>
                         </x-inputs-container>
 
-                        <div class="flex justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
-                            <flux:modal.close>
-                                <flux:button variant="primary" class="font-secondary">Done</flux:button>
+                        <!-- Compliance documents (unchanged) -->
+                        <div class="border-t border-light-bd-default dark:border-dark-bd-default pt-3 space-y-3">
+                            <p class="font-secondary text-timestamp font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Compliance documents</p>
+
+                            <div class="flex items-start gap-3">
+                                <flux:checkbox wire:model.live="vehicles.{{ $index }}.has_or_cr" />
+                                <div class="flex-1 min-w-0 space-y-1">
+                                    <flux:label class="font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">
+                                        OR/CR verified
+                                    </flux:label>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
+                                        <flux:input
+                                            type="date"
+                                            wire:model.live="vehicles.{{ $index }}.or_cr_expiry_date"
+                                            :disabled="!$this->vehicles[$index]['has_or_cr']"
+                                            size="sm"
+                                            class="flex-1"
+                                        />
+                                    </div>
+                                    <flux:error name="vehicles.{{ $index }}.has_or_cr" />
+                                    <flux:error name="vehicles.{{ $index }}.or_cr_expiry_date" />
+                                </div>
+                            </div>
+
+                            <div class="flex items-start gap-3">
+                                <flux:checkbox wire:model.live="vehicles.{{ $index }}.has_franchise" />
+                                <div class="flex-1 min-w-0 space-y-1">
+                                    <flux:label class="font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">
+                                        Franchise verified
+                                    </flux:label>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
+                                        <flux:input
+                                            type="date"
+                                            wire:model.live="vehicles.{{ $index }}.franchise_expiry_date"
+                                            :disabled="!$this->vehicles[$index]['has_franchise']"
+                                            size="sm"
+                                            class="flex-1"
+                                        />
+                                    </div>
+                                    <flux:error name="vehicles.{{ $index }}.has_franchise" />
+                                    <flux:error name="vehicles.{{ $index }}.franchise_expiry_date" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                            <flux:modal.close class="w-full sm:w-auto">
+                                <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
+                                    Cancel
+                                </flux:button>
+                            </flux:modal.close>
+                            <flux:modal.close class="w-full sm:w-auto">
+                                <flux:button type="button" variant="primary" class="w-full sm:w-auto justify-center font-secondary">
+                                    Done
+                                </flux:button>
                             </flux:modal.close>
                         </div>
                     </div>
                 </flux:modal>
+
             @else
-                <div wire:key="vehicle-{{ $index }}-{{ md5(json_encode($vehicle)) }}"
+                {{-- Open inline form, visible immediately, no modal needed --}}
+                <div wire:key="vehicle-{{ $index }}"
                     class="rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-light-subtle dark:bg-dark-subtle p-4 space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-body">Vehicle {{ $index + 1 }}</span>
                         @if(count($vehicles) > 1)
                             <button wire:click="removeVehicle({{ $index }})" type="button"
-                                class="flex items-center gap-1 font-secondary text-timestamp text-danger hover:text-danger dark:text-dark-danger hover:bg-danger/10 dark:hover:bg-dark-danger/10 px-2 py-1 rounded-md transition cursor-pointer">
-                                <flux:icon.trash class="w-3.5 h-3.5" /> Remove
+                                class="font-secondary text-timestamp font-medium px-2.5 py-1 rounded-md border border-danger/40 dark:border-dark-danger/40 bg-danger/10 dark:bg-dark-danger/10 text-danger dark:text-dark-danger hover:bg-danger/20 dark:hover:bg-dark-danger/20 cursor-pointer">
+                                Delete
                             </button>
                         @endif
                     </div>
@@ -680,23 +722,15 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     <flux:select.option>{{ $vehicleType->vehicle_type }}</flux:select.option>
                                 @endforeach
                             </flux:select>
-                            @error("vehicles.$index.vehicle_type")
-                                <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                            @enderror
+                            <flux:error name="vehicles.{{ $index }}.vehicle_type" />
                         </div>
 
                         <div>
-                            <x-input wire:model.live="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
-                            @error("vehicles.$index.plate_number")
-                                <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                            @enderror
+                            <x-input wire:model.blur="vehicles.{{ $index }}.plate_number" label="Plate number" placeholder="e.g. ABC-123" size="sm" />
                         </div>
 
                         <div>
-                            <x-input wire:model.live="vehicles.{{ $index }}.seat_capacity" type="number" label="Seat capacity" max="50" min="10"/>
-                            @error("vehicles.$index.seat_capacity")
-                                <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                            @enderror
+                            <x-input wire:model.blur="vehicles.{{ $index }}.seat_capacity" size="sm" type="number" label="Seat capacity" max="50" min="10"/>
                         </div>
 
                         <div>
@@ -711,50 +745,86 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     @endif
                                 @endforeach
                             </flux:select>
-                            @error("vehicles.$index.route")
-                                <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                            @enderror
+                            <flux:error name="vehicles.{{ $index }}.route" />
                         </div>
 
-                        @if ($this->vehicles[$index]['vehicle_type'] === 'Bus' || $this->vehicles[$index]['vehicle_type'] === 'UV-express')
+                        @if(in_array($this->vehicles[$index]['vehicle_type'], ['Bus', 'UV-express']))
                             <div>
                                 <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Group No.</flux:label>
                                 <flux:select wire:model.live="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm">
                                     <flux:select.option value="1">1</flux:select.option>
                                     <flux:select.option value="2">2</flux:select.option>
                                 </flux:select>
-                                @error("vehicles.$index.group_number")
-                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                                @enderror
-                            </div>
-                        @else
-                            <div>
-                                <flux:label class="mb-3 font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">Group No.</flux:label>
-                                <flux:select wire:model.live="vehicles.{{ $index }}.group_number" placeholder="Select group for this vehicle..." size="sm" disabled>
-                                    <flux:select.option value="1">1</flux:select.option>
-                                    <flux:select.option value="2">2</flux:select.option>
-                                </flux:select>
-                                @error("vehicles.$index.group_number")
-                                    <p class="font-secondary text-timestamp text-danger dark:text-dark-danger mt-1">{{ $message }}</p>
-                                @enderror
+                                <flux:error name="vehicles.{{ $index }}.group_number" />
                             </div>
                         @endif
+
+                        <div class="sm:col-span-2">
+                            <x-input wire:model.blur="vehicles.{{ $index }}.driver_name" label="Dedicated driver" placeholder="e.g. Juan dela Cruz" size="sm" />
+                        </div>
                     </x-inputs-container>
+
+                    <div class="border-t border-light-bd-default dark:border-dark-bd-default pt-3 space-y-3">
+                        <p class="font-secondary text-timestamp font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Compliance documents</p>
+
+                        <div class="flex items-start gap-3">
+                            <flux:checkbox wire:model.live="vehicles.{{ $index }}.has_or_cr" />
+                            <div class="flex-1 min-w-0 space-y-1">
+                                <flux:label class="font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">
+                                    OR/CR verified
+                                    <span class="ml-1 font-normal text-light-txt-muted dark:text-dark-txt-muted">(admin confirms document was submitted)</span>
+                                </flux:label>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
+                                    <flux:input
+                                        type="date"
+                                        wire:model.live="vehicles.{{ $index }}.or_cr_expiry_date"
+                                        :disabled="!$this->vehicles[$index]['has_or_cr']"
+                                        size="sm"
+                                        class="flex-1"
+                                    />
+                                </div>
+                                <flux:error name="vehicles.{{ $index }}.has_or_cr" />
+                                <flux:error name="vehicles.{{ $index }}.or_cr_expiry_date" />
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-3">
+                            <flux:checkbox wire:model.live="vehicles.{{ $index }}.has_franchise" />
+                            <div class="flex-1 min-w-0 space-y-1">
+                                <flux:label class="font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">
+                                    Franchise verified
+                                    <span class="ml-1 font-normal text-light-txt-muted dark:text-dark-txt-muted">(admin confirms document was submitted)</span>
+                                </flux:label>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
+                                    <flux:input
+                                        type="date"
+                                        wire:model.live="vehicles.{{ $index }}.franchise_expiry_date"
+                                        :disabled="!$this->vehicles[$index]['has_franchise']"
+                                        size="sm"
+                                        class="flex-1"
+                                    />
+                                </div>
+                                <flux:error name="vehicles.{{ $index }}.has_franchise" />
+                                <flux:error name="vehicles.{{ $index }}.franchise_expiry_date" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
             @endif
-            @empty
-                <div class="rounded-lg border border-dashed border-light-bd-strong dark:border-dark-bd-strong p-6 text-center">
-                    <flux:icon.truck class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
-                    <p class="font-secondary text-table-row text-light-txt-muted dark:text-dark-txt-muted">No vehicles added yet.</p>
-                    <p class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted mt-1">Click "Add Vehicle" to register one.</p>
-                </div>
-            @endforelse
+        @empty
+            <div class="rounded-lg border border-dashed border-light-bd-strong dark:border-dark-bd-strong p-6 text-center">
+                <flux:icon.truck class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
+                <p class="font-secondary text-table-row text-light-txt-muted dark:text-dark-txt-muted">No vehicles added yet.</p>
+                <p class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted mt-1">Click "Add Vehicle" to register one.</p>
+            </div>
+        @endforelse
         </div>
     @endif
 
     @if($step === 4)
         <x-card>
-
             <div @class([
                 'flex items-center gap-3 p-4 border-b border-light-bd-default dark:border-dark-bd-default',
                 'bg-info/10 dark:bg-dark-info/10'       => $card_state === 'ready',
@@ -794,17 +864,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         'text-success dark:text-dark-success' => $card_state === 'success',
                         'text-danger dark:text-dark-danger'   => $card_state === 'warn',
                     ])>
-                        @if($card_state === 'ready')   
-                        
-                        Hold the card near the reader — the number fills in automatically.
-
-                        @elseif($card_state === 'success') 
-                        
-                        UID {{ $card_number }} captured. Click × to scan a different card.
-
-                        @else 
-                        Click the input field below to re-focus, then tap the rfid card.
-
+                        @if($card_state === 'ready')
+                            Hold the card near the reader — the number fills in automatically.
+                        @elseif($card_state === 'success')
+                            UID {{ $card_number }} captured. Click × to scan a different card.
+                        @else
+                            Click the input field below to re-focus, then tap the rfid card.
                         @endif
                     </p>
                 </div>
@@ -818,7 +883,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 @endif
             </div>
 
-            {{-- Input --}}
             <div class="p-4">
                 <flux:field>
                     <x-input
@@ -834,29 +898,29 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         class="font-mono tracking-widest"
                         autofocus
                     />
+                    <flux:error name="card_number" />
                 </flux:field>
             </div>
         </x-card>
     @endif
 
     @if($step === 5)
-
         <div class="space-y-4">
+            <p class="font-secondary text-timestamp font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">
+                Review before saving
+            </p>
 
-            <p class="font-secondary text-timestamp font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Review before saving</p>
-
-            <flux:card>
-                <div class="flex items-center gap-3 mb-2">
-
+            <div class="border border-light-bd-default dark:border-dark-bd-default rounded-md p-5">
+            {{-- Identity header --}}
+                <div class="pb-5 border-b border-light-bd-default dark:border-dark-bd-default flex items-center gap-3">
                     <div class="w-12 h-12 rounded-full bg-secondary text-primary dark:text-dark-txt-primary flex items-center justify-center font-secondary text-table-row font-medium">
                         {{ strtoupper(substr($first_name, 0, 1) . substr($last_name, 0, 1)) }}
                     </div>
-
                     <div class="flex-1 min-w-0">
-                        <x-text variant="strong" class="font-primary text-body text-light-txt-primary dark:text-dark-txt-primary">{{ $first_name }} {{ $last_name }}</x-text>
-                        {{-- <x-text>{{ $username }}</x-text> --}}
+                        <span class="font-primary text-lg font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                            {{ $first_name }} {{ $last_name }}
+                        </span>
                     </div>
-
                     <div>
                         @if ($this->role === 'operator')
                             <flux:badge color="blue" size="sm" class="font-secondary text-badge">Operator</flux:badge>
@@ -864,91 +928,135 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <flux:badge color="yellow" size="sm" class="font-secondary text-badge">Commuter</flux:badge>
                         @endif
                     </div>
-
                 </div>
 
-                <x-inputs-container class="border-t border-light-bd-default dark:border-dark-bd-default pt-3 grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                        {{-- <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Username</x-text>
-                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $username }}</x-text> --}}
-                    </div>
-                    <div>
-                        {{-- <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Password</x-text>
-                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $password }}</x-text> --}}
-                    </div>
-                    <div>
-                        <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Home address</x-text>
-                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $address }}</x-text>
-                    </div>
-                    @if ($email_address)
-                        <div>
-                            <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Email address</x-text>
-                            <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $email_address }}</x-text>
-                        </div>
-                    @endif
-                    <div>
-                        <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Phone no.</x-text>
-                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $phone_number }}</x-text>
-                    </div>
-                    @if($role === 'commuter')
-                        <div>
-                            <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Commuter type</x-text>
-                            <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $commuter_type }}</x-text>
-                        </div>
-                    @endif
-                    <div>
-                        <x-text class="font-secondary text-stat-label text-light-txt-muted dark:text-dark-txt-muted">Has card</x-text>
-                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $card_number ? 'Yes' : 'No' }}</x-text>
-                    </div>
 
-                </x-inputs-container>
-            </flux:card>
+
+                {{-- Account details table --}}
+                <flux:table>
+                    <flux:table.columns>
+                        <flux:table.column>Field</flux:table.column>
+                        <flux:table.column>Details</flux:table.column>
+                    </flux:table.columns>
+                    <flux:table.rows>
+                        <flux:table.row>
+                            <flux:table.cell class="flex items-center gap-2 font-secondary font-medium text-light-txt-body dark:text-dark-txt-primary">
+                                <flux:icon.home class="w-4 h-4 text-light-txt-muted dark:text-dark-txt-muted shrink-0" />
+                                Home address
+                            </flux:table.cell>
+                            <flux:table.cell class="font-secondary break-words">{{ $address }}</flux:table.cell>
+                        </flux:table.row>
+
+                        <flux:table.row>
+                            <flux:table.cell class="flex items-center gap-2 font-secondary font-medium text-light-txt-body dark:text-dark-txt-primary">
+                                <flux:icon.envelope class="w-4 h-4 text-light-txt-muted dark:text-dark-txt-muted shrink-0" />
+                                Email
+                            </flux:table.cell>
+                            <flux:table.cell class="font-secondary break-words">{{ $email_address ?: '—' }}</flux:table.cell>
+                        </flux:table.row>
+
+                        <flux:table.row>
+                            <flux:table.cell class="flex items-center gap-2 font-secondary font-medium text-light-txt-body dark:text-dark-txt-primary">
+                                <flux:icon.phone class="w-4 h-4 text-light-txt-muted dark:text-dark-txt-muted shrink-0" />
+                                Phone
+                            </flux:table.cell>
+                            <flux:table.cell class="font-secondary">{{ $phone_number }}</flux:table.cell>
+                        </flux:table.row>
+
+                        @if($role === 'commuter')
+                            <flux:table.row>
+                                <flux:table.cell class="flex items-center gap-2 font-secondary font-medium text-light-txt-body dark:text-dark-txt-primary">
+                                    <flux:icon.user class="w-4 h-4 text-light-txt-muted dark:text-dark-txt-muted shrink-0" />
+                                    Commuter type
+                                </flux:table.cell>
+                                <flux:table.cell class="font-secondary">{{ $commuter_type }}</flux:table.cell>
+                            </flux:table.row>
+                        @endif
+
+                        <flux:table.row>
+                            <flux:table.cell class="flex items-center gap-2 font-secondary font-medium text-light-txt-body dark:text-dark-txt-primary">
+                                <flux:icon.credit-card class="w-4 h-4 text-light-txt-muted dark:text-dark-txt-muted shrink-0" />
+                                Has card
+                            </flux:table.cell>
+                            <flux:table.cell class="font-secondary">
+                                @if($card_number)
+                                    <flux:badge color="green" size="sm">Yes</flux:badge>
+                                @else
+                                    <flux:badge color="zinc" size="sm">No</flux:badge>
+                                @endif
+                            </flux:table.cell>
+                        </flux:table.row>
+                    </flux:table.rows>
+                </flux:table>
+            </div>
+
+            {{-- Operator vehicles table --}}
             @if($role === 'operator')
-                <div class="space-y-2">
+                <div class="space-y-2 pt-2">
                     <div class="flex items-center justify-between">
-                        <p class="font-secondary text-timestamp font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Vehicles</p>
+                        <div class="flex items-center gap-2">
+                            <p class="font-secondary text-timestamp font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">
+                                Vehicles
+                            </p>
+                        </div>
                         <flux:badge size="sm" color="zinc" class="font-secondary text-badge">
-                            {{ count($vehicles) }} Vehicle/s
+                            {{ count($vehicles) }} Vehicle{{ count($vehicles) !== 1 ? 's' : '' }}
                         </flux:badge>
                     </div>
 
-                    @foreach ($vehicles as $vehicle)
-                        <flux:card class="!p-4" wire:key="summary-vehicle-{{ $loop->index }}">
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-9 h-9 rounded-lg bg-light-subtle dark:bg-dark-subtle flex items-center justify-center">
-                                        <flux:icon
-                                            name="{{ $vehicle['vehicle_type'] === 'Bus' ? 'truck' : ($vehicle['vehicle_type'] === 'Uv-express' ? 'truck' : 'truck') }}"
-                                            class="w-4 h-4 text-light-txt-muted dark:text-dark-txt-muted"
-                                        />
-                                    </div>
-                                    <div>
-                                        <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $vehicle['plate_number'] }}</x-text>
-                                        <x-text class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">{{ $vehicle['vehicle_type'] }}</x-text>
-                                    </div>
-                                </div>
-                                @if(!empty($vehicle['group_number']))
-                                    <flux:badge size="sm" color="zinc" class="font-secondary text-badge">Group {{ $vehicle['group_number'] }}</flux:badge>
-                                @endif
-                            </div>
-
-                            <x-inputs-container class="border-t border-light-bd-default dark:border-dark-bd-default pt-3 grid-cols-1 sm:grid-cols-2 gap-4">
-
-                                <div>
-                                    <x-text class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">Route</x-text>
-                                    <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $vehicle['route'] }}</x-text>
-                                </div>
-                                <div>
-                                    <x-text class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">Seat Capacity</x-text>
-                                    <x-text variant="strong" class="font-secondary text-table-row text-light-txt-primary dark:text-dark-txt-primary">{{ $vehicle['seat_capacity'] }}</x-text>
-                                </div>
-                            </x-inputs-container>
-                        </flux:card>
-                    @endforeach
+                    <div class="rounded-lg border border-light-bd-default dark:border-dark-bd-default overflow-hidden">
+                        <flux:table>
+                            <flux:table.columns class="bg-light-subtle dark:bg-dark-subtle">
+                                <flux:table.column align="center">Plate No.</flux:table.column>
+                                <flux:table.column align="center">Type</flux:table.column>
+                                <flux:table.column align="center">Route</flux:table.column>
+                                <flux:table.column align="center">Seats</flux:table.column>
+                                <flux:table.column align="center">Group</flux:table.column>
+                                <flux:table.column align="center">Driver</flux:table.column>
+                                <flux:table.column align="center">OR/CR Exp.</flux:table.column>
+                                <flux:table.column align="center">Franchise Exp.</flux:table.column>
+                            </flux:table.columns>
+                            <flux:table.rows>
+                                @foreach ($vehicles as $index => $vehicle)
+                                    <flux:table.row :key="'summary-vehicle-' . $index">
+                                        <flux:table.cell align="center" variant="strong" class="font-secondary text-table-row whitespace-nowrap">
+                                            {{ $vehicle['plate_number'] }}
+                                        </flux:table.cell>
+                                        <flux:table.cell align="center" class="font-secondary text-table-row whitespace-nowrap">
+                                            {{ $vehicle['vehicle_type'] }}
+                                        </flux:table.cell>
+                                        <flux:table.cell align="center" class="font-secondary text-table-row">
+                                            {{ $vehicle['route'] }}
+                                        </flux:table.cell>
+                                        <flux:table.cell align="center" class="font-secondary text-table-row">
+                                            {{ $vehicle['seat_capacity'] }}
+                                        </flux:table.cell>
+                                        <flux:table.cell align="center" class="py-0">
+                                            @if(!empty($vehicle['group_number']))
+                                                <flux:badge size="sm" color="zinc">{{ $vehicle['group_number'] }}</flux:badge>
+                                            @else
+                                                <span class="font-secondary text-table-row text-light-txt-muted dark:text-dark-txt-muted">—</span>
+                                            @endif
+                                        </flux:table.cell>
+                                        <flux:table.cell align="center" class="font-secondary text-table-row whitespace-nowrap">
+                                            {{ $vehicle['driver_name'] }}
+                                        </flux:table.cell>
+                                        <flux:table.cell align="center" class="font-secondary text-table-row whitespace-nowrap">
+                                            {{ \Illuminate\Support\Carbon::parse($vehicle['or_cr_expiry_date'])->format('M d, Y') }}
+                                        </flux:table.cell>
+                                        <flux:table.cell align="center" class="font-secondary text-table-row whitespace-nowrap">
+                                            {{ \Illuminate\Support\Carbon::parse($vehicle['franchise_expiry_date'])->format('M d, Y') }}
+                                        </flux:table.cell>
+                                    </flux:table.row>
+                                @endforeach
+                            </flux:table.rows>
+                        </flux:table>
+                    </div>
                 </div>
             @endif
+
             <x-text class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted leading-relaxed">
-                A welcome message with login instructions will be sent to the user. You can edit their profile anytime from the Users page.
+                A welcome message with login credentials will be sent to the user's registered email. Please inform the user to check their Gmail accounts.
             </x-text>
         </div>
     @endif
@@ -971,78 +1079,98 @@ new #[Layout('layouts.admin-layout')] class extends Component
         @endif
     </div>
 
-    <flux:modal name="address-modal" class="md:w-[26rem]" x-on:address-saved.window="$flux.modal('address-modal').close()">
-        <div class="space-y-4">
+    <flux:modal
+    name="address-modal"
+    :closable="false"
+    class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto rounded-xl overflow-hidden"
+    x-on:address-saved.window="$flux.modal('address-modal').close()"
+>
+    <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
+        <!-- Header -->
+        <div class="flex items-start justify-between">
             <div>
-                <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
                     Set your address
                 </flux:heading>
                 <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                    All addresses are within Iriga City, Camarines Sur.
+                    Please provide the complete address.
                 </flux:text>
             </div>
-
-            <flux:field>
-                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
-                    House No. / Subdivision
-                    <span class="ml-2 text-light-txt-muted dark:text-dark-txt-muted font-normal">(optional)</span>
-                </flux:label>
-                <flux:input
-                    wire:model="house_subd"
-                    placeholder="e.g. Blk 3 Lot 5, Hillside Subd."
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
-                />
-                <flux:error name="house_subd" />
-            </flux:field>
-
-            <flux:field>
-                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Zone No.</flux:label>
-                <flux:input
-                    type="number"
-                    wire:model="zone_number"
-                    min="1"
-                    max="20"
-                    placeholder="e.g. 3"
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
-                />
-                <flux:error name="zone_number" />
-            </flux:field>
-
-            <flux:field>
-                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Barangay</flux:label>
-                <flux:select
-                    wire:model="barangay"
-                    placeholder="Select barangay"
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
-                >
-                    @foreach ($this->getBarangays as $brgy)
-                        <flux:select.option value="{{ $brgy }}">{{ $brgy }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-                <flux:error name="barangay" />
-            </flux:field>
-
-            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
-                <flux:modal.close>
-                    <flux:button type="button" variant="ghost" class="font-secondary w-full sm:w-auto">
-                        Cancel
-                    </flux:button>
-                </flux:modal.close>
-                <flux:button
-                    type="button"
-                    variant="primary"
-                    icon="check"
-                    wire:click="saveAddress"
-                    wire:loading.attr="disabled"
-                    wire:target="saveAddress"
-                    class="font-secondary w-full sm:w-auto"
-                >
-                    Save address
-                </flux:button>
-            </div>
+            <flux:modal.close>
+                <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                    <flux:icon name="x-mark" class="w-5 h-5" />
+                </button>
+            </flux:modal.close>
         </div>
-    </flux:modal>
 
+        <!-- Fields (unchanged) -->
+        <flux:field>
+            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
+                House No. / Subdivision
+                <span class="ml-2 text-light-txt-muted dark:text-dark-txt-muted font-normal">(optional)</span>
+            </flux:label>
+            <flux:input
+                wire:model="house_subd"
+                placeholder="e.g. Blk 3 Lot 5, Hillside Subd."
+                class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+            />
+            <flux:error name="house_subd" />
+        </flux:field>
+
+        <flux:field>
+            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Zone No.</flux:label>
+            <flux:input
+                type="number"
+                wire:model="zone_number"
+                min="1"
+                max="20"
+                placeholder="e.g. 3"
+                class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+            />
+            <flux:error name="zone_number" />
+        </flux:field>
+
+        <flux:field>
+            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Barangay</flux:label>
+            <flux:input
+                wire:model="barangay"
+                placeholder="e.g. San Roque"
+                class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+            />
+            <flux:error name="barangay" />
+        </flux:field>
+
+        <flux:field>
+            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Municipality / City</flux:label>
+            <flux:input
+                wire:model="municipality"
+                placeholder="e.g. Iriga City"
+                class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+            />
+            <flux:error name="municipality" />
+        </flux:field>
+
+        <!-- Footer -->
+        <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+            <flux:modal.close class="w-full sm:w-auto">
+                <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
+                    Cancel
+                </flux:button>
+            </flux:modal.close>
+            <flux:button
+                type="button"
+                variant="primary"
+                icon="check"
+                wire:click="saveAddress"
+                wire:loading.attr="disabled"
+                wire:target="saveAddress"
+                class="font-secondary w-full sm:w-auto"
+            >
+                Save address
+            </flux:button>
+        </div>
+    </div>
+</flux:modal>
     <script>
         document.addEventListener('livewire:initialized', () => {
             Livewire.on('focus-rfid-input', () => {

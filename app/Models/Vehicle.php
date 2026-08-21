@@ -17,14 +17,23 @@ class Vehicle extends Model
         'plate_number',
         'total_seats',
         'official_record',
+        'has_or_cr',
+        'or_cr_expiry_date',
+        'has_franchise',
+        'franchise_expiry_date',
+        'driver_name',
     ];
 
     protected function casts(): array
     {
         return [
-            'time_queued' => 'datetime',
-            'time_departed' => 'datetime',
-            'departs_at' => 'datetime',
+            'time_queued'           => 'datetime',
+            'time_departed'         => 'datetime',
+            'departs_at'            => 'datetime',
+            'has_or_cr'             => 'boolean',
+            'or_cr_expiry_date'     => 'date',
+            'has_franchise'         => 'boolean',
+            'franchise_expiry_date' => 'date',
         ];
     }
     public function dailyScheduleSlots()

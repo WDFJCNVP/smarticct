@@ -18,6 +18,15 @@ return new class extends Migration
             $table->string('vehicle_type')->index();
             $table->string('plate_number')->index();
             $table->integer('total_seats')->index();
+
+            $table->boolean('has_or_cr')->default(false);
+            $table->date('or_cr_expiry_date')->nullable()->index();
+
+            $table->boolean('has_franchise')->default(false);
+            $table->date('franchise_expiry_date')->nullable()->index();
+
+            $table->string('driver_name')->nullable();
+
             $table->timestamps();
         });
     }
