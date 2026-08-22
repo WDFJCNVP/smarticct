@@ -20,47 +20,8 @@ new #[Title('Profile settings')] class extends Component {
     // Address modal fields (mirrors admin edit-user page)
     public string $house_subd = '';
     public ?int $zone_number = null;
+    public string $municipality = '';
     public string $barangay = '';
-
-    // Iriga City, Camarines Sur barangays
-    public const BARANGAYS = [
-        'Antipolo',
-        'Cristo Rey',
-        'Del Rosario (Banao)',
-        'Francia',
-        'La Anunciacion',
-        'La Medalla',
-        'La Purisima',
-        'La Trinidad',
-        'Niño Jesus',
-        'Perpetual Help',
-        'Sagrada',
-        'Salvacion',
-        'San Agustin',
-        'San Andres',
-        'San Antonio',
-        'San Francisco (Pob.)',
-        'San Isidro',
-        'San Jose',
-        'San Juan',
-        'San Miguel',
-        'San Nicolas',
-        'San Pedro',
-        'San Rafael',
-        'San Ramon',
-        'San Roque (Pob.)',
-        'Santiago',
-        'San Vicente Norte',
-        'San Vicente Sur',
-        'Santa Cruz Norte',
-        'Santa Cruz Sur',
-        'Santa Elena',
-        'Santa Isabel',
-        'Santa Maria',
-        'Santa Teresita',
-        'Santo Domingo',
-        'Santo Niño',
-    ];
 
     /**
      * Mount the component.
@@ -76,10 +37,34 @@ new #[Title('Profile settings')] class extends Component {
         $this->address       = $user->address ?? '';
     }
 
-    #[Computed]
-    public function getBarangays()
+    /**
+     * Parse the current address string and fill the modal fields.
+     */
+    public function prepareAddressModal(): void
     {
-        return self::BARANGAYS;
+        // Expected format: "House/Subd, Zone X, Barangay, Municipality, Camarines Sur"
+        $parts = array_map('trim', explode(',', $this->address ?? ''));
+
+        // Default empty values
+        $this->house_subd   = '';
+        $this->zone_number  = null;
+        $this->barangay     = '';
+        $this->municipality = '';
+
+        if (count($parts) >= 5) {
+            // The last part is always "Camarines Sur"
+            $this->municipality = $parts[3] ?? '';
+            $this->barangay     = $parts[2] ?? '';
+            // Zone part: e.g. "Zone 3" -> extract number
+            $zonePart = $parts[1] ?? '';
+            if (preg_match('/Zone\s+(\d+)/i', $zonePart, $matches)) {
+                $this->zone_number = (int) $matches[1];
+            }
+            $this->house_subd   = $parts[0] ?? '';
+        } else {
+            // Fallback: if address doesn't match expected format, leave fields empty
+            // so the user can re‑enter everything.
+        }
     }
 
     /**
@@ -118,16 +103,17 @@ new #[Title('Profile settings')] class extends Component {
     public function saveAddress(): void
     {
         $data = $this->validate([
-            'house_subd'  => 'nullable|string|max:255',
-            'zone_number' => 'required|integer|min:1|max:20',
-            'barangay'    => 'required|string|in:' . implode(',', self::BARANGAYS),
+            'house_subd'   => 'nullable|string|max:255',
+            'zone_number'  => 'required|integer|min:1|max:20',
+            'municipality' => 'required|string|max:255',
+            'barangay'     => 'required|string|max:255',
         ]);
 
         $parts = array_filter([
             $data['house_subd'] !== '' ? $data['house_subd'] : null,
             'Zone ' . $data['zone_number'],
             $data['barangay'],
-            'Iriga City',
+            $data['municipality'],
             'Camarines Sur',
         ]);
 
@@ -252,6 +238,7 @@ new #[Title('Profile settings')] class extends Component {
                 <flux:modal.trigger name="address-modal">
                     <button
                         type="button"
+                        wire:click="prepareAddressModal"
                         class="w-full text-left font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border border-light-bd-default dark:border-dark-bd-default rounded-lg px-3 py-2.5 transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-secondary/50"
                     >
                         @if ($address)
@@ -284,7 +271,7 @@ new #[Title('Profile settings')] class extends Component {
                     Set address
                 </flux:heading>
                 <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                    All addresses are within Iriga City, Camarines Sur.
+                    Please provide the complete address within Camarines Sur.
                 </flux:text>
             </div>
 
@@ -315,16 +302,22 @@ new #[Title('Profile settings')] class extends Component {
             </flux:field>
 
             <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Municipality / City</flux:label>
+                <flux:input
+                    wire:model="municipality"
+                    placeholder="e.g. Iriga City"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="municipality" />
+            </flux:field>
+
+            <flux:field>
                 <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Barangay</flux:label>
-                <flux:select
+                <flux:input
                     wire:model="barangay"
-                    placeholder="Select barangay"
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
-                >
-                    @foreach ($this->getBarangays as $brgy)
-                        <flux:select.option value="{{ $brgy }}">{{ $brgy }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                    placeholder="e.g. San Roque"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
                 <flux:error name="barangay" />
             </flux:field>
 
@@ -348,5 +341,4 @@ new #[Title('Profile settings')] class extends Component {
             </div>
         </div>
     </flux:modal>
-
 </section>

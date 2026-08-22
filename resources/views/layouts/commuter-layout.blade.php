@@ -58,7 +58,7 @@
                     Feed
                 </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="#" icon="briefcase" wire:navigate>
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('route') }}" icon="briefcase" wire:navigate>
                     Routes
                 </x-dashboard.sidebar-menu.sidebar-item>
 

@@ -96,7 +96,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function updated($property)
     {
-        // Clear vehicle errors when typing in vehicle fields
         if (str_starts_with($property, 'vehicles.')) {
             $this->resetValidation($property);
 
@@ -112,8 +111,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
             }
         }
 
-        // Clear Step 2 errors when typing in those fields
         if (in_array($property, ['first_name', 'last_name', 'email_address', 'age', 'phone_number'])) {
+            $this->resetValidation($property);
+        }
+
+        if (in_array($property, ['house_subd', 'zone_number', 'barangay', 'municipality'])) {
             $this->resetValidation($property);
         }
     }
@@ -390,14 +392,17 @@ new #[Layout('layouts.admin-layout')] class extends Component
 <div class="mx-auto max-w-5xl px-4 py-8 sm:px-10"
      x-on:open-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).show()"
      x-on:close-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).close()">
-    <flux:breadcrumbs>
-        <flux:breadcrumbs.item href="{{ route('admin.users') }}" wire:navigate>Users</flux:breadcrumbs.item>
-        <flux:breadcrumbs.item>Registration</flux:breadcrumbs.item>
-    </flux:breadcrumbs>
-
-    <flux:heading size="xl" class="!font-primary !font-bold my-8 text-light-txt-primary dark:text-dark-txt-primary">
-        {{ $this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User' }}
-    </flux:heading>
+    
+    {{-- Breadcrumbs on the right, aligned with heading --}}
+    <div class="flex items-center justify-between my-8">
+        <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+            {{ $this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User' }}
+        </flux:heading>
+        <flux:breadcrumbs>
+            <flux:breadcrumbs.item class="text-lg!" href="{{ route('admin.users') }}" wire:navigate>Back to Users</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>Registration</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
+    </div>
 
     <div class="flex items-center gap-1 mb-6 font-secondary text-timestamp">
         @foreach([1 => 'Select role', 2 => 'Account info', 3 => 'Details', 4 => 'Card', 5 => 'Confirm'] as $s => $label)
@@ -1085,8 +1090,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
     class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto rounded-xl overflow-hidden"
     x-on:address-saved.window="$flux.modal('address-modal').close()"
 >
-    <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
         <!-- Header -->
+    <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
         <div class="flex items-start justify-between">
             <div>
                 <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
@@ -1121,7 +1126,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Zone No.</flux:label>
             <flux:input
                 type="number"
-                wire:model="zone_number"
+                wire:model.blur="zone_number"
                 min="1"
                 max="20"
                 placeholder="e.g. 3"
@@ -1133,7 +1138,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         <flux:field>
             <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Barangay</flux:label>
             <flux:input
-                wire:model="barangay"
+                wire:model.blur="barangay"
                 placeholder="e.g. San Roque"
                 class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
             />
@@ -1143,7 +1148,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         <flux:field>
             <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Municipality / City</flux:label>
             <flux:input
-                wire:model="municipality"
+                wire:model.blur="municipality"
                 placeholder="e.g. Iriga City"
                 class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
             />

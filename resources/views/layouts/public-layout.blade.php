@@ -37,35 +37,36 @@
         <flux:navbar.item href="/" wire:navigate>Explore</flux:navbar.item>
         <flux:navbar.item href="{{ route('route') }}" wire:navigate>Routes</flux:navbar.item>
         <flux:navbar.item href="{{ route('live.queue') }}" wire:navigate>Queue</flux:navbar.item>
-        <flux:navbar.item wire:navigate>Feed</flux:navbar.item>
+        <flux:navbar.item href="{{ route('feed') }}" wire:navigate>Feed</flux:navbar.item>
         <flux:navbar.item href="{{ route('help.center') }}" wire:navigate>Help</flux:navbar.item>
     </flux:navbar>
 
     <flux:spacer />
 
-
     <flux:navbar class="me-4 max-lg:hidden font-secondary text-nav-item font-light gap-2">
 
-        @unless(request()->routeIs('login'))
-            <flux:navbar.item
-                href="/login"
-                wire:navigate
-                class="!rounded-lg !font-extrabold !border-1 !border-light-bd-default dark:!bg-dark-subtle !text-light-txt-primary dark:!text-dark-txt-primary hover:!bg-light-primary dark:hover:!bg-dark-surface !shadow-none ![box-shadow:none] !border-0 !no-underline"
-            >
-                Login
-            </flux:navbar.item>
-        @endunless
+        @guest
+            @unless(request()->routeIs('login'))
+                <flux:navbar.item
+                    href="/login"
+                    wire:navigate
+                    class="!rounded-lg !font-extrabold !border-1 !border-light-bd-default dark:!bg-dark-subtle !text-light-txt-primary dark:!text-dark-txt-primary hover:!bg-light-primary dark:hover:!bg-dark-surface !shadow-none ![box-shadow:none] !border-0 !no-underline"
+                >
+                    Login
+                </flux:navbar.item>
+            @endunless
 
-        @unless(request()->routeIs('public.register'))
-        <flux:navbar.item
-            href="{{ route('public.register') }}"
-            wire:navigate
-            :current="request()->routeIs('public.register')"
-            class="!rounded-lg !bg-primary !text-white hover:!bg-primary-hover !shadow-none ![box-shadow:none] !border-0 !no-underline"
-        >
-            Register
-        </flux:navbar.item>
-        @endunless
+            @unless(request()->routeIs('public.register'))
+                <flux:navbar.item
+                    href="{{ route('public.register') }}"
+                    wire:navigate
+                    :current="request()->routeIs('public.register')"
+                    class="!rounded-lg !bg-primary !text-white hover:!bg-primary-hover !shadow-none ![box-shadow:none] !border-0 !no-underline"
+                >
+                    Register
+                </flux:navbar.item>
+            @endunless
+        @endguest
 
     </flux:navbar>
 
@@ -76,7 +77,7 @@
             <flux:sidebar.brand
                 href="/"
                 logo="{{ Vite::asset('resources/images/logo.png') }}"
-                logo:dark="{{ Vite::asset('resources/images/dark-mode-logo.png') }}"
+                logo:dark="{{ asset('images/dark-mode-logo.png') }}"
                 name="SmartICCT"
             />
 
@@ -87,15 +88,17 @@
             <flux:sidebar.item href="/" wire:navigate icon="magnifying-glass">Explore</flux:sidebar.item>
             <flux:sidebar.item href="/routes" wire:navigate icon="map-pin">Routes</flux:sidebar.item>
             <flux:sidebar.item href="/queue" wire:navigate icon="queue-list">Queue</flux:sidebar.item>
-            <flux:sidebar.item wire:navigate icon="rectangle-stack">Feed</flux:navbar.item>
-            <flux:sidebar.item href="/help" wire:navigate icon="question-mark-circle">Help</flux:navbar.item>
+            <flux:sidebar.item href="/feed" wire:navigate icon="rectangle-stack">Feed</flux:sidebar.item>
+            <flux:sidebar.item href="/help" wire:navigate icon="question-mark-circle">Help</flux:sidebar.item>
         </flux:sidebar.nav>
 
         <flux:sidebar.spacer />
 
         <flux:sidebar.nav>
-            <flux:sidebar.item icon="cog-6-tooth" href="/login">Login</flux:sidebar.item>
-            <flux:sidebar.item icon="information-circle" href="/register">Register</flux:sidebar.item>
+            @guest
+                <flux:sidebar.item icon="cog-6-tooth" href="/login">Login</flux:sidebar.item>
+                <flux:sidebar.item icon="information-circle" href="/register">Register</flux:sidebar.item>
+            @endguest
         </flux:sidebar.nav>
     </flux:sidebar>
 

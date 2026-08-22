@@ -13,7 +13,6 @@ use App\Events\LiveActionEvent;
 new class extends Component
 {
     public ?Post $post = null;
-    public $is_show_confirm_modal = false;
     public $interested_user = null;
     public $is_show_decline_modal = false;
     public $is_show_view_more_modal = false;
@@ -29,34 +28,39 @@ new class extends Component
 
     #[Computed]
     public function activeTransaction() {
-        return RentTransaction::where('post_owner_id', $this->post->user_id)->where('status', 'ongoing')->first();
+        return RentTransaction::where('post_owner_id', $this->post->user_id)
+            ->where('status', 'ongoing')
+            ->whereHas('rentalOffer', function ($query) {
+                $query->where('post_id', $this->post->id);
+            })
+            ->first();
     }
 
     #[On('transaction-updated')]
     public function refreshRequests() {
         unset($this->getRentalOffer);
         unset($this->activeTransaction);
+
+        $this->is_show_decline_modal = false;
     }
 
     public function declineThisinterested_user($id) {
         RentalOffer::where('id', $id)->update(['status' => 'decline']);
+
+        unset($this->getRentalOffer);
+
+        $this->is_show_decline_modal = false;
+        $this->interested_user = null;
+
+        $this->dispatch('interested-list-updated');
     }
 
     public function showDeclineModal($id) {
-        $this->is_show_confirm_modal = false;
         $this->is_show_decline_modal = false;
         $this->is_show_decline_modal = true;
         $this->interested_user = null;
         $this->interested_user = $this->post->rentalOffer->where('id', $id)->first();
 
-    }
-
-    public function showConfirmModal($id) {
-
-        $this->is_show_confirm_modal = false;
-        $this->is_show_confirm_modal = true;
-        $this->interested_user = null;
-        $this->interested_user = $this->post->rentalOffer->where('id', $id)->first();
     }
 
 
@@ -123,7 +127,7 @@ new class extends Component
                     </div>
                     <div>
                         <div class="flex flex-col items-center gap-2">
-                            <x-button wire:click="showConfirmModal({{ $rentalOffer->id }})" variant="primary" color="green" disabled>Accepts</x-button>
+                            <x-button wire:click="$dispatch('open-confirm-modal', { id: {{ $rentalOffer->id }} })" variant="primary" color="green" disabled>Accepts</x-button>
                             <x-button wire:click="showDeclineModal({{ $rentalOffer->id }})" variant="primary" color="red" disabled>Decline</x-button>
                         </div>
                         <div class="mt-4">
@@ -133,7 +137,12 @@ new class extends Component
                 </div>
             </x-card>
         @empty
-            No record found
+            <x-card class="!rounded-xl !border !border-dashed !border-light-bd-strong dark:!border-dark-bd-strong !bg-light-secondary dark:!bg-dark-secondary !text-center !p-8">
+            <flux:icon name="clipboard-document-list" class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
+            <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
+                No interested operators yet
+            </x-text>
+        </x-card>
         @endforelse
     @else
         @forelse ($this->getRentalOffer as $rentalOffer)
@@ -188,7 +197,7 @@ new class extends Component
                     </div>
                     <div>
                         <div class="flex flex-col items-center gap-2">
-                            <x-button wire:click="showConfirmModal({{ $rentalOffer->id }})" variant="primary" color="green">Accepts</x-button>
+                            <x-button wire:click="$dispatch('open-confirm-modal', { id: {{ $rentalOffer->id }} })" variant="primary" color="green">Accepts</x-button>
                             <x-button wire:click="showDeclineModal({{ $rentalOffer->id }})" variant="primary" color="red">Decline</x-button>
                         </div>
                         <div class="mt-4">
@@ -198,152 +207,205 @@ new class extends Component
                 </div>
             </x-card>
         @empty
-            No record found
+            <x-card class="!rounded-xl !border !border-dashed !border-light-bd-strong dark:!border-dark-bd-strong !bg-light-secondary dark:!bg-dark-secondary !text-center !p-8">
+                <flux:icon name="clipboard-document-list" class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
+                <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
+                    No interested operators yet
+                </x-text>
+            </x-card>
         @endforelse
     @endif
 
-    <flux:modal wire:model="is_show_decline_modal" class="min-w-96">
-        @if ($this->interested_user)
-            <div class="space-y-6">
+    <!-- ==================== -->
+    <!-- DECLINE MODAL (feed style) -->
+    <!-- ==================== -->
+    <flux:modal
+        wire:model="is_show_decline_modal"
+        :closable="false"
+        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+    >
+        <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
+            <!-- Header -->
+            <div class="flex items-start justify-between">
                 <div>
-                    <flux:heading size="lg">Decline this interested_user?</flux:heading>
-                    <flux:text class="mt-2">
-                        You're about to decline this interested_user.<br>
-                        This will be remove from the list.
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Decline this interested user?
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        This action cannot be undone.
                     </flux:text>
                 </div>
-                <div class="flex gap-2">
-                    <flux:spacer />
-                    <flux:modal.close>
-                        <flux:button variant="ghost">Cancel</flux:button>
-                    </flux:modal.close>
-                    <flux:button wire:click="declineThisinterested_user({{ $this->interested_user->id }})" variant="danger">Decline</flux:button>
-                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
             </div>
-        @endif
+
+            @if ($this->interested_user)
+                <!-- Footer -->
+                <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                    <flux:modal.close>
+                        <x-button type="button" variant="ghost" class="w-full sm:w-auto justify-center !font-secondary">
+                            Cancel
+                        </x-button>
+                    </flux:modal.close>
+                    <x-button
+                        wire:click="declineThisinterested_user({{ $this->interested_user->id }})"
+                        variant="danger"
+                        class="w-full sm:w-auto justify-center !font-secondary"
+                    >
+                        Decline
+                    </x-button>
+                </div>
+            @endif
+        </div>
     </flux:modal>
 
-    <flux:modal wire:model.live="is_show_confirm_modal" class="min-w-96" name="confirm">
-        @if ($this->interested_user)
-
-            <livewire:pages::partial.create_rental_transaction
-                :interested_user="$this->interested_user"            
-                :key="'create-' . $this->interested_user->id"
-            />
-        @endif
-    </flux:modal>
-
-    <flux:modal wire:model="is_show_view_more_modal" class="min-w-196">
-        @if ($this->post_interest_info)
-            <div class="space-y-6">
+    <!-- ==================== -->
+    <!-- VIEW MORE MODAL (feed style) -->
+    <!-- ==================== -->
+    <flux:modal
+        wire:model="is_show_view_more_modal"
+        :closable="false"
+        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+    >
+        <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
+            <!-- Header -->
+            <div class="flex items-start justify-between">
                 <div>
-                    <flux:heading size="lg">Operator's details</flux:heading>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Operator's details
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        Full information about the operator's rental offer.
+                    </flux:text>
                 </div>
-                <div class="flex-1 flex items-center gap-2">
-                    <flux:avatar size="xs" name="{{ $this->post_interest_info->user->name }}" color="emerald"/>
-                    <div class="flex flex-col">
-                        <x-text class="text-sm font-medium">{{ $this->post_interest_info->user->name }}</x-text>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
+            </div>
+
+            <!-- Body -->
+            @if ($this->post_interest_info)
+                <div class="space-y-5">
+                    <!-- Operator identity -->
+                    <div class="flex items-center gap-2.5 rounded-lg border border-light-bd-default dark:border-dark-bd-default p-3">
+                        <flux:avatar size="sm" name="{{ $this->post_interest_info->user->name }}" color="emerald"/>
+                        <div class="flex flex-col">
+                            <x-text variant="strong" class="text-sm leading-tight">{{ $this->post_interest_info->user->name }}</x-text>
+                            <x-text variant="subtle" style="font-size: var(--text-timestamp)">Operator</x-text>
+                        </div>
                     </div>
-                </div>
 
-                <div class="mt-2 flex items-center">   
-                    <div class="flex-1 flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-                        <flux:icon.map-pin class="w-4 h-4" />
-                        <x-text class="text-inherit">Address</x-text>
+                    <!-- Contact details -->
+                    <div class="rounded-lg border border-light-bd-default dark:border-dark-bd-default divide-y divide-light-bd-default dark:divide-dark-bd-default">
+                        <div class="flex items-center justify-between gap-3 p-3">
+                            <div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                                <flux:icon.map-pin class="w-4 h-4" />
+                                <x-text class="text-inherit" style="font-size: var(--text-table-row)">Address</x-text>
+                            </div>
+                            <x-text variant="strong" class="text-right" style="font-size: var(--text-table-row)">{{ $this->post_interest_info->user->address }}</x-text>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-3 p-3">
+                            <div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                                <flux:icon.phone class="w-4 h-4" />
+                                <x-text class="text-inherit" style="font-size: var(--text-table-row)">Phone no.</x-text>
+                            </div>
+                            <x-text variant="strong" style="font-size: var(--text-table-row)">{{ $this->post_interest_info->user->phone_number }}</x-text>
+                        </div>
                     </div>
-                    <x-text variant="strong">{{ $this->post_interest_info->user->address }}</x-text>
-                </div>
 
-                <div class="mt-2 flex items-center">   
-                    <div class="flex-1 flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-                        <flux:icon.phone class="w-4 h-4" />
-                        <x-text class="text-inherit">Phone no.</x-text>
-                    </div>
-                    <x-text variant="strong">{{ $this->post_interest_info->user->phone_number }}</x-text>
-                </div>
+                    <div>
+                        @if (!empty($post_interest_info->metadata['vehicle_images']))
 
-                <div>
-                    @if (!empty($post_interest_info->metadata['vehicle_images']))
+                            <x-text variant="strong" class="block mb-2" style="font-size: var(--text-table-row)">Vehicle images</x-text>
 
-                        <x-text>Vehicle images</x-text>
+                            @php
+                                $urls = array_map(fn($path) => Storage::url($path), $post_interest_info->metadata['vehicle_images']);
+                            @endphp
 
-                        @php
-                            $urls = array_map(fn($path) => Storage::url($path), $post_interest_info->metadata['vehicle_images']);
-                        @endphp
-                        
-                        <div x-data="{ open: false, index: 0, images: @js($urls) }" class="mt-3">
-                            <div class="grid grid-cols-3 gap-1.5 auto-rows-[110px]">
-                                @foreach ($urls as $i => $url)
-                                    @if ($i === 0)
-                                        <button type="button" @click="open = true; index = {{ $i }}" class="col-span-2 row-span-2 relative rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 group cursor-pointer">
-                                            <img src="{{ $url }}" alt="Vehicle attachment image" class="w-full h-full object-cover" loading="lazy" />
-                                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center">
-                                                <flux:icon.magnifying-glass-plus class="size-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            </div>
-                                        </button>
-                                    @elseif ($i < 3)
-                                        <button type="button" @click="open = true; index = {{ $i }}" class="relative rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 group cursor-pointer">
-                                            <img src="{{ $url }}" alt="Vehicle attachment image" class="w-full h-full object-cover" loading="lazy" />
-                                            @if ($i === 2 && count($urls) > 3)
-                                                <div class="absolute inset-0 bg-black/45 flex items-center justify-center text-white text-sm font-medium">
-                                                    +{{ count($urls) - 3 }}
-                                                </div>
-                                            @else
+                            <div x-data="{ open: false, index: 0, images: @js($urls) }" class="mt-3">
+                                <div class="grid grid-cols-3 gap-1.5 auto-rows-[110px]">
+                                    @foreach ($urls as $i => $url)
+                                        @if ($i === 0)
+                                            <button type="button" @click="open = true; index = {{ $i }}" class="col-span-2 row-span-2 relative rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 group cursor-pointer">
+                                                <img src="{{ $url }}" alt="Vehicle attachment image" class="w-full h-full object-cover" loading="lazy" />
                                                 <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center">
                                                     <flux:icon.magnifying-glass-plus class="size-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
-                                            @endif
-                                        </button>
-                                    @endif
-                                @endforeach
-                            </div>
-                            <div
-                                x-show="open"
-                                x-cloak
-                                class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6"
-                                @keydown.escape.window="open = false"
-                                >
-                                <div @click.outside="open = false" class="bg-white dark:bg-zinc-900 rounded-xl overflow-hidden max-w-lg w-full">
-                                    <div class="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-700">
-                                        <span class="text-sm text-zinc-500" x-text="(index + 1) + ' / ' + images.length"></span>
-                                        <button @click="open = false" class="text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer">
-                                            <flux:icon.x-mark class="size-5" />
-                                        </button>
-                                    </div>
-
-                                    <div class="relative">
-                                        <img :src="images[index]" class="w-full h-80 object-cover" alt="Vehicle attachment image, full size" />
-
-                                        <button
-                                            x-show="images.length > 1"
-                                            @click="index = (index - 1 + images.length) % images.length"
-                                            class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 rounded-full size-8 flex items-center justify-center text-white cursor-pointer"
-                                        >
-                                            <flux:icon.chevron-left class="size-4" />
-                                        </button>
-                                        <button
-                                            x-show="images.length > 1"
-                                            @click="index = (index + 1) % images.length"
-                                            class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 rounded-full size-8 flex items-center justify-center text-white cursor-pointer"
-                                        >
-                                            <flux:icon.chevron-right class="size-4" />
-                                        </button>
-                                    </div>
-
-                                    <div class="flex gap-1.5 p-3 overflow-x-auto" x-show="images.length > 1">
-                                        <template x-for="(img, i) in images" :key="i">
-                                            <button @click="index = i" class="shrink-0 cursor-pointer">
-                                                <img :src="img" class="w-12 h-9 object-cover rounded" :class="i === index ? 'ring-2 ring-blue-500' : 'opacity-60'" />
                                             </button>
-                                        </template>
+                                        @elseif ($i < 3)
+                                            <button type="button" @click="open = true; index = {{ $i }}" class="relative rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 group cursor-pointer">
+                                                <img src="{{ $url }}" alt="Vehicle attachment image" class="w-full h-full object-cover" loading="lazy" />
+                                                @if ($i === 2 && count($urls) > 3)
+                                                    <div class="absolute inset-0 bg-black/45 flex items-center justify-center text-white text-sm font-medium">
+                                                        +{{ count($urls) - 3 }}
+                                                    </div>
+                                                @else
+                                                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center">
+                                                        <flux:icon.magnifying-glass-plus class="size-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                    </div>
+                                                @endif
+                                            </button>
+                                        @endif
+                                    @endforeach
+                                </div>
+                                <div
+                                    x-show="open"
+                                    x-cloak
+                                    class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6"
+                                    @keydown.escape.window="open = false"
+                                    >
+                                    <div @click.outside="open = false" class="bg-white dark:bg-zinc-900 rounded-xl overflow-hidden max-w-lg w-full">
+                                        <div class="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-700">
+                                            <span class="text-sm text-zinc-500" x-text="(index + 1) + ' / ' + images.length"></span>
+                                            <button @click="open = false" class="text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer">
+                                                <flux:icon.x-mark class="size-5" />
+                                            </button>
+                                        </div>
+
+                                        <div class="relative">
+                                            <img :src="images[index]" class="w-full h-80 object-cover" alt="Vehicle attachment image, full size" />
+
+                                            <button
+                                                x-show="images.length > 1"
+                                                @click="index = (index - 1 + images.length) % images.length"
+                                                class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 rounded-full size-8 flex items-center justify-center text-white cursor-pointer"
+                                            >
+                                                <flux:icon.chevron-left class="size-4" />
+                                            </button>
+                                            <button
+                                                x-show="images.length > 1"
+                                                @click="index = (index + 1) % images.length"
+                                                class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 rounded-full size-8 flex items-center justify-center text-white cursor-pointer"
+                                            >
+                                                <flux:icon.chevron-right class="size-4" />
+                                            </button>
+                                        </div>
+
+                                        <div class="flex gap-1.5 p-3 overflow-x-auto" x-show="images.length > 1">
+                                            <template x-for="(img, i) in images" :key="i">
+                                                <button @click="index = i" class="shrink-0 cursor-pointer">
+                                                    <img :src="img" class="w-12 h-9 object-cover rounded" :class="i === index ? 'ring-2 ring-blue-500' : 'opacity-60'" />
+                                                </button>
+                                            </template>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    @endif
+                        @endif
+                    </div>
                 </div>
-
-             </div>
-        @endif
+            @endif
+        </div>
     </flux:modal>
+
+    
+    <livewire:pages::partial.create_rental_transaction
+        :key="'create-rental-transaction-' . $post->id"
+    />
 </div>

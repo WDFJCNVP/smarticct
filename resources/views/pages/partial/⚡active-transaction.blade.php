@@ -2,11 +2,14 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
-use Livewire\Attributes\On;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\On;
+
+use App\Events\PostActionEvent;
+
 use App\Models\RentTransaction;
 use App\Models\TripRequest;
-use App\Models\User;
+use App\Models\Vehicle;
 
 new class extends Component
 {
@@ -23,13 +26,30 @@ new class extends Component
         $this->isMarkAsCompleteModalOpen = true;
     }
 
+    #[Computed]
+    public function getVehicle() {
+        $metadata = $this->post->metadata ?? [];
+
+        return [
+            'vehicle_type' => $metadata['vehicle_type'] ?? null,
+            'total_seats' => $metadata['total_seats'] ?? null,
+            'plate_number' => $metadata['plate_number'] ?? null,
+        ];
+    }
+
     public function markAsCancel() {
+
+        // Guard: prevents "Call to a member function update() on null"
+        // if this is triggered twice (e.g. modal not yet closed).
+        if (! $this->getActiveTransactionRecord) {
+            $this->isMarkAsCancelModalOpen = false;
+            return;
+        }
 
         $getActiveTransactionRecord = $this->getActiveTransactionRecord;
         $post = $this->post;
 
         $tripRequest = DB::transaction(function () use ($getActiveTransactionRecord, $post){
-
             $getActiveTransactionRecord->update(['status' => 'cancelled']);
             $tripRequest = TripRequest::where('id', $getActiveTransactionRecord->trip_request_id)->update(['status' => 'cancel']);
             $post->update(['status' => 'published']);
@@ -37,13 +57,15 @@ new class extends Component
             return $tripRequest;
         });
 
-        unset($getActiveTransactionRecord);
-        unset($this->interestedUser);
+        unset($this->getActiveTransactionRecord);
+        unset($this->getVehicle);
+
+        $this->isMarkAsCancelModalOpen = false;
 
         $this->dispatch('transaction-updated');
         
         if ($tripRequest) {
-
+                  
             Flux::toast(
                 duration: 0,
                 variant: 'success',
@@ -56,15 +78,23 @@ new class extends Component
 
     public function markAsComplete() {
 
+        // Guard: prevents "Call to a member function update() on null"
+        // if this is triggered twice (e.g. modal not yet closed).
+        if (! $this->getActiveTransactionRecord) {
+            $this->isMarkAsCompleteModalOpen = false;
+            return;
+        }
+
         $this->getActiveTransactionRecord->update(['status' => 'completed']);
-
         $tripRequest = TripRequest::where('id', $this->getActiveTransactionRecord->trip_request_id)->update(['status' => 'completed']);
-
+        
         unset($this->getActiveTransactionRecord);
-        unset($this->interestedUser);
+        unset($this->getVehicle);
+
+        $this->isMarkAsCompleteModalOpen = false;
 
         $this->dispatch('transaction-updated'); 
-
+        
         if ($tripRequest) {
 
             Flux::toast(
@@ -75,122 +105,198 @@ new class extends Component
             );
 
         }
-    }   
+    }  
 
     #[Computed]
     public function getActiveTransactionRecord() {
-        return RentTransaction::with('tripRequest')->where('post_owner_id', $this->post->user_id)->where('status', 'ongoing')->first();
-    }
-
-    #[Computed]
-    public function interestedUser() {
-        if (!$this->getActiveTransactionRecord) return null;
-        return User::find($this->getActiveTransactionRecord->interested_user_id);
+        return RentTransaction::with('tripRequest.user')
+            ->where('post_owner_id', $this->post->user_id)
+            ->where('status', 'ongoing')
+            ->whereHas('tripRequest', function ($query) {
+                $query->where('post_id', $this->post->id);
+            })
+            ->first();
     }
 
     #[On('transaction-updated')]
     public function refreshActiveTransaction() {
         unset($this->getActiveTransactionRecord);
-        unset($this->interestedUser);
+        unset($this->getVehicle);
     }
+
+    // public function mount() {
+    //     dd($this->getActiveTransactionRecord);
+    // }
 };
 ?>
 
 <div>
     @if ($this->getActiveTransactionRecord)
-        <x-card>
-            <div class="flex items-center">
-                <div class="flex-1">
-                    <x-text size="sm">Client's name</x-text>
-                    <x-text variant="strong" size="xl">{{ $this->interestedUser->name }}</x-text>
-                    <x-text variant="strong" size="lg" color="blue">{{ $this->interestedUser->phone_number }}</x-text>
-                </div>
-                <div>
-                    <x-badge color="orange">{{ ucfirst($this->getActiveTransactionRecord->status) }}</x-badge>
-                </div>
-            </div>
-            <div class="mt-6 grid grid-cols-2 gap-4">
-                <div>
+        <x-card class="!rounded-xl !border !border-light-bd-default dark:!border-dark-bd-default !bg-light-secondary dark:!bg-dark-secondary !shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <x-avatar name="{{ $this->getActiveTransactionRecord->tripRequest->user->name }}" />
                     <div>
-                        <x-text size="sm">Trip date:</x-text>
-                        <x-text size="lg" variant="strong">{{ $this->getActiveTransactionRecord->tripRequest->trip_date->format('D, M j Y') }}</x-text>
-                    </div>
-                    <div class="my-4">
-                        <x-badge size="sm" color="emerald" icon="arrows-right-left">{{ $this->getActiveTransactionRecord->tripRequest->trip_type }}</x-badge>
-                    </div>
-                    <div class="mt-2">
-                        <x-text size="sm">Pick-up location:</x-text>
-                        <x-text size="lg" variant="strong">{{ $this->getActiveTransactionRecord->tripRequest->pick_up_location }}</x-text>
-                    </div>
-                    <div class="mt-2">
-                        <x-text size="sm">Return location:</x-text>
-                        <x-text size="lg" variant="strong">{{ $this->getActiveTransactionRecord->tripRequest->pick_up_location }}</x-text>
+                        <x-text variant="subtle" class="block" style="font-size: var(--text-timestamp)">Client's name</x-text>
+                        <x-text variant="strong" class="block text-lg text-light-txt-primary dark:text-dark-txt-primary">{{ $this->getActiveTransactionRecord->tripRequest->user->name }}</x-text>
+                        <x-text variant="strong" class="block text-light-txt-primary dark:text-dark-txt-primary" style="font-size: var(--text-table-row)">{{ $this->getActiveTransactionRecord->tripRequest->user->phone_number }}</x-text>
                     </div>
                 </div>
-                <div>
-                    <div class="mt-2">
-                        <x-text size="sm">Total passenger/s:</x-text>
-                        <x-text size="lg" variant="strong">{{ $this->getActiveTransactionRecord->tripRequest->body_count }}</x-text>
-                    </div>
-                    <div class="mt-2">
-                        <x-text size="sm">Destination:</x-text>
-                        <x-text size="lg" variant="strong">{{ $this->getActiveTransactionRecord->tripRequest->drop_off_location }}</x-text>
-                    </div>
+                <flux:badge color="orange">{{ ucfirst($this->getActiveTransactionRecord->status) }}</flux:badge>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-light-bd-default dark:border-dark-bd-default divide-y divide-light-bd-default dark:divide-dark-bd-default">
+                <div class="flex items-center justify-between gap-3 p-3">
+                    <x-text variant="subtle" style="font-size: var(--text-table-row)">Trip date</x-text>
+                    <x-text variant="strong" class="text-right" style="font-size: var(--text-table-row)">
+                        {{ $this->getActiveTransactionRecord->tripRequest->trip_date->format('D, M j Y') }}
+                    </x-text>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 p-3">
+                    <x-text variant="subtle" style="font-size: var(--text-table-row)">Vehicle type</x-text>
+                    <x-text variant="strong" style="font-size: var(--text-table-row)">{{ $this->getVehicle['vehicle_type'] }}</x-text>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 p-3">
+                    <x-text variant="subtle" style="font-size: var(--text-table-row)">Driver</x-text>
+                    <x-text variant="strong" style="font-size: var(--text-table-row)">{{ $this->post->metadata['driver_name'] ?? 'N/A' }}</x-text>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 p-3">
+                    <x-text variant="subtle" style="font-size: var(--text-table-row)">Plate number</x-text>
+                    <x-text variant="strong" style="font-size: var(--text-table-row)">{{ $this->getVehicle['plate_number'] }}</x-text>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 p-3">
+                    <x-text variant="subtle" style="font-size: var(--text-table-row)">Seat capacity</x-text>
+                    <x-text variant="strong" style="font-size: var(--text-table-row)">{{ $this->getVehicle['total_seats'] }}</x-text>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 p-3">
+                    <x-text variant="subtle" style="font-size: var(--text-table-row)">Destination</x-text>
+                    <x-text variant="strong" class="text-right" style="font-size: var(--text-table-row)">{{ $this->getActiveTransactionRecord->tripRequest->drop_off_location }}</x-text>
                 </div>
             </div>
 
-            <x-separator />
-
-            <div class="flex items-center gap-4">
-                <x-button wire:click="markAsCompleteModal" variant="primary" color="green">Mark as Completed</x-button>
-                <x-button wire:click="markAsCancelModal" variant="primary" color="red">Cancel transaction</x-button>
+            <div class="mt-4 pt-4 border-t border-light-bd-default dark:border-dark-bd-default flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <x-button wire:click="markAsCompleteModal" variant="primary" color="green" class="w-full sm:w-auto">Mark as Completed</x-button>
+                <x-button wire:click="markAsCancelModal" variant="primary" color="red" class="w-full sm:w-auto">Cancel transaction</x-button>
             </div>
-
         </x-card>
     @else
-        <x-text>No record found</x-text>
+        <x-card class="!rounded-xl !border !border-dashed !border-light-bd-strong dark:!border-dark-bd-strong !bg-light-secondary dark:!bg-dark-secondary !text-center !p-8">
+            <flux:icon name="clipboard-document-list" class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
+            <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
+                No active transaction.
+            </x-text>
+        </x-card>
     @endif
 
-    <flux:modal wire:model="isMarkAsCompleteModalOpen" class="min-w-96">
-        @if ($this->isMarkAsCompleteModalOpen)
-            <div class="space-y-6">
+    <flux:modal
+        wire:model="isMarkAsCompleteModalOpen"
+        :closable="false"
+        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+    >
+        <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
+            <!-- Header -->
+            <div class="flex items-start justify-between">
                 <div>
-                    <flux:heading size="lg">Complete this transaction?</flux:heading>
-                    <flux:text class="mt-2">
-                        You're about to mark this transaction as complete.<br>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Complete this transaction?
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
                         This action cannot be undone.
                     </flux:text>
                 </div>
-                <div class="flex gap-2">
-                    <flux:spacer />
-                    <flux:modal.close>
-                        <flux:button variant="ghost">Cancel</flux:button>
-                    </flux:modal.close>
-                    <flux:button wire:click="markAsComplete" type="button" color="green" variant="primary">Complete</flux:button>
-                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
             </div>
-        @endif
+
+            <!-- Body -->
+            <div>
+                <flux:text class="text-light-txt-body dark:text-dark-txt-body">
+                    You're about to mark this transaction as complete.<br>
+                    This action cannot be undone.
+                </flux:text>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close>
+                    <x-button type="button" variant="ghost" class="w-full sm:w-auto justify-center !font-secondary">
+                        Cancel
+                    </x-button>
+                </flux:modal.close>
+                <x-button
+                    wire:click="markAsComplete"
+                    wire:loading.attr="disabled"
+                    type="button"
+                    variant="primary"
+                    color="green"
+                    class="w-full sm:w-auto justify-center !font-secondary"
+                >
+                    Complete
+                </x-button>
+            </div>
+        </div>
     </flux:modal>
 
-    <flux:modal wire:model="isMarkAsCancelModalOpen" class="min-w-96">
-        @if ($this->isMarkAsCancelModalOpen)
-            <div class="space-y-6">
+    <!-- ==================== -->
+    <!-- MARK AS CANCEL MODAL (feed style) -->
+    <!-- ==================== -->
+    <flux:modal
+        wire:model="isMarkAsCancelModalOpen"
+        :closable="false"
+        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+    >
+        <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
+            <!-- Header -->
+            <div class="flex items-start justify-between">
                 <div>
-                    <flux:heading size="lg">Cancel this transaction?</flux:heading>
-                    <flux:text class="mt-2">
-                        You're about to mark this transaction as cancelled.<br>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Cancel this transaction?
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
                         This action cannot be undone.
                     </flux:text>
                 </div>
-                <div class="flex gap-2">
-                    <flux:spacer />
-                    <flux:modal.close>
-                        <flux:button variant="ghost">Cancel</flux:button>
-                    </flux:modal.close>
-                    <flux:button wire:click="markAsCancel" type="button" color="red" variant="primary">Cancel</flux:button>
-                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
             </div>
-        @endif
-    </flux:modal>
 
+            <!-- Body -->
+            <div>
+                <flux:text class="text-light-txt-body dark:text-dark-txt-body">
+                    You're about to mark this transaction as cancelled.<br>
+                    This action cannot be undone.
+                </flux:text>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close>
+                    <x-button type="button" variant="ghost" class="w-full sm:w-auto justify-center !font-secondary">
+                        Cancel
+                    </x-button>
+                </flux:modal.close>
+                <x-button
+                    wire:click="markAsCancel"
+                    wire:loading.attr="disabled"
+                    type="button"
+                    variant="primary"
+                    color="red"
+                    class="w-full sm:w-auto justify-center !font-secondary"
+                >
+                    Cancel transaction
+                </x-button>
+            </div>
+        </div>
+    </flux:modal>
 </div>

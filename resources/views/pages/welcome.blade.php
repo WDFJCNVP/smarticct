@@ -1,5 +1,4 @@
 <x-layouts::public-layout>
-    {{-- ── HERO SECTION ── --}}
     <div class="relative w-full">
         <div class="relative w-full min-h-[380px] sm:min-h-[460px] md:min-h-[560px] py-12 sm:py-16 md:py-20 md:pb-24 lg:pb-28">
             <x-public.image-overlay />
@@ -27,8 +26,7 @@
                     </flux:button>
                 </div>
             </div>
-
-            {{-- Stats card: desktop only --}}
+            
             <div class="hidden md:block absolute left-1/2 -translate-x-1/2 -bottom-20 lg:-bottom-20 z-10 w-full max-w-5xl lg:max-w-6xl px-6">
                 <flux:card class="!p-5 sm:!p-8 md:!p-10 dark:!bg-dark-secondary">
                     <div class="grid grid-cols-3 divide-x divide-light-bd-default dark:divide-dark-bd-default">
@@ -60,7 +58,6 @@
             </div>
         </div>
 
-        {{-- Stats card: mobile only --}}
         <div class="md:hidden px-6 -mt-6 relative z-10">
             <flux:card class="!p-5 !py-4 dark:!bg-dark-secondary">
                 <div class="grid grid-cols-3 divide-x divide-light-bd-default dark:divide-dark-bd-default">
@@ -89,8 +86,6 @@
         </div>
     </div>
 
-    {{-- ── CARD SECTION ── --}}
-    {{-- INCREASED TOP PADDING: !pt-14 sm:!pt-20 md:!pt-32 lg:!pt-48 --}}
     <div class="w-full !pt-14 sm:!pt-20 md:!pt-32 lg:!pt-48 !pb-14 sm:!pb-20 relative overflow-hidden">
         <div class="pointer-events-none absolute -bottom-32 -right-32 sm:-bottom-48 sm:-right-48 w-[420px] h-[420px] sm:w-[600px] sm:h-[600px] rounded-full blur-3xl opacity-30 dark:opacity-20 z-0"
              style="background: radial-gradient(circle at center, var(--color-secondary) 0%, transparent 70%);"
@@ -100,7 +95,6 @@
         <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
 
-                {{-- 3D Draggable Card --}}
                 <div class="flex justify-center" style="perspective: 1800px;">
                     <div
                         x-data="{
@@ -130,18 +124,17 @@
                     >
                         <div class="absolute inset-0 rounded-2xl shadow-2xl overflow-hidden"
                              style="backface-visibility:hidden;-webkit-backface-visibility:hidden;">
-                            <img src="{{ asset('images/card_front1.svg') }}" alt="Card front"
+                            <img src="{{ Vite::asset('resources/images/card_front.svg') }}" alt="Card front"
                                  class="w-full h-full object-cover pointer-events-none" draggable="false">
                         </div>
                         <div class="absolute inset-0 rounded-2xl shadow-2xl overflow-hidden"
                              style="transform:rotateY(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;">
-                            <img src="{{ asset('images/card_back.svg') }}" alt="Card back"
+                            <img src="{{ Vite::asset('resources/images/card_back.svg') }}" alt="Card back"
                                  class="w-full h-full object-cover pointer-events-none" draggable="false">
                         </div>
                     </div>
                 </div>
 
-                {{-- Card Text --}}
                 <div class="flex flex-col gap-5 sm:gap-6 text-center lg:text-left items-center lg:items-start">
                     <flux:heading class="!font-extrabold font-primary !text-2xl sm:!text-3xl lg:!text-4xl">
                         <span class="!text-primary dark:!text-white">One Smart Card.</span><br>
@@ -228,9 +221,6 @@
                         <flux:heading size="sm" class="!font-bold !text-light-txt-primary dark:!text-dark-txt-primary">
                             Need a ride
                         </flux:heading>
-                        <flux:text size="sm" class="!text-light-txt-muted dark:!text-dark-txt-muted !mb-1">
-                            No account needed to post.
-                        </flux:text>
                         <flux:link href="{{ route('feed') }}" wire:navigate class="!inline-flex !items-center !gap-1 !text-sm !font-bold !text-primary dark:!text-white hover:underline">
                             Post a request <flux:icon name="arrow-right" class="!w-3.5 !h-3.5" />
                         </flux:link>

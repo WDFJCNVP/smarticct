@@ -11,27 +11,25 @@ new class extends Component
 
     public function destroy()
     {
-        if(auth()->user()->role === 'operator') {
-            $this->selected_post = RentalOffer::where('user_id', auth()->id())
-                    ->where('post_id', $this->selected_post->post_id)
-                    ->delete();
-
-            $this->selected_post = null;
-            $this->show_interested_modal = false;
-
-            $this->dispatch('interest-deleted');
-        } elseif (auth()->user()->role === 'commuter') {
-            $this->selected_post = TripRequest::where('user_id', auth()->id())
-                    ->where('post_id', $this->selected_post->post_id)
-                    ->delete();
-
-            $this->selected_post = null;
-            $this->show_interested_modal = false;
-
-            $this->dispatch('interest-deleted');
+        // Guard against double-click: if this already ran once,
+        // $selected_post is null, so just bail out instead of crashing.
+        if (! $this->selected_post) {
+            return;
         }
-    }
 
+        if (auth()->user()->role === 'operator') {
+            RentalOffer::where('user_id', auth()->id())
+                ->where('post_id', $this->selected_post->post_id)
+                ->delete();
+        } elseif (auth()->user()->role === 'commuter') {
+            TripRequest::where('user_id', auth()->id())
+                ->where('post_id', $this->selected_post->post_id)
+                ->delete();
+        }
+
+        $this->selected_post = null;
+        $this->dispatch('interested-list-updated');
+    }
 };
 ?>
 
@@ -49,7 +47,7 @@ new class extends Component
             <flux:modal.close>
                 <flux:button variant="ghost">Cancel</flux:button>
             </flux:modal.close>
-            <flux:button wire:click="destroy" variant="danger">Uninterest post</flux:button>
+            <flux:button wire:click="destroy" wire:loading.attr="disabled" variant="danger">Uninterest post</flux:button>
         </div>
     </div>
 </div>

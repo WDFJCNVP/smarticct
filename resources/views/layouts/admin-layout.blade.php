@@ -59,19 +59,15 @@
             >Routes</x-dashboard.sidebar-menu.sidebar-item>
 
             <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('admin.routes') }}"
+                href="{{ route('live.queue') }}"
                 icon="clock"
+                wire:navigate
             >Queueing</x-dashboard.sidebar-menu.sidebar-item>
 
             <x-dashboard.sidebar-menu.sidebar-item
                 href="{{ route('admin.travel.record') }}"
                 icon="briefcase"
             >Travel Records</x-dashboard.sidebar-menu.sidebar-item>
-
-            <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('admin.travel.record') }}"
-                icon="chart-bar"
-            >Reports</x-dashboard.sidebar-menu.sidebar-item>
 
             <x-dashboard.sidebar-menu.sidebar-item
                 href="{{ route('admin.audit.logs') }}"

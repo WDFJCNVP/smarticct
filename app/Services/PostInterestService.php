@@ -19,20 +19,24 @@ class PostInterestService
                 $storedAttachments[] = $attachment->store('posts', 'public');
             }
 
-            $post_interest = RentalOffer::create([
-                'post_id' => $selected_post->id,
-                'user_id' => auth()->id(),
-                'vehicle_id' => $validated_attributes['vehicle_id'],
-                'message' => $validated_attributes['message'],
-                'status' => 'pending',
-                'available_from'        => $validated_attributes['available_from'],
-                'available_until'       => $validated_attributes['available_until'],
-                'destination_coverage'  => $validated_attributes['destination_coverage'],
-                'metadata' => [
-                    'vehicle_name'          => $validated_attributes['vehicle_name'],
-                    'vehicle_images'        => $storedAttachments,
+            $post_interest = RentalOffer::updateOrCreate(
+                [
+                    'post_id' => $selected_post->id,
+                    'user_id' => auth()->id(),
+                ],
+                [
+                    'vehicle_id' => $validated_attributes['vehicle_id'],
+                    'message' => $validated_attributes['message'],
+                    'status' => 'pending',
+                    'available_from'        => $validated_attributes['available_from'],
+                    'available_until'       => $validated_attributes['available_until'],
+                    'destination_coverage'  => $validated_attributes['destination_coverage'],
+                    'metadata' => [
+                        'vehicle_name'          => $validated_attributes['vehicle_name'],
+                        'vehicle_images'        => $storedAttachments,
+                    ]
                 ]
-            ]);
+            );
 
             event(new NotificationEvent());
 

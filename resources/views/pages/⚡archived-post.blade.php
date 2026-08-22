@@ -1,17 +1,18 @@
 <?php
 
+namespace App\Livewire\Pages;
+
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use App\Models\Post;
 use App\Models\RentalOffer;
-use App\Models\TripRequest; 
+use App\Models\TripRequest;
 
 new class extends Component
-{  
-
+{
     public $selectedPostId = null;
 
-        public function restorePost($postId)
+    public function restorePost($postId)
     {
         $post = Post::findOrFail($postId);
 
@@ -23,7 +24,6 @@ new class extends Component
     public function canExpressInterest(Post $post): bool
     {
         $user = auth()->user();
-
 
         if ($user->id === $post->user_id) {
             return false;
@@ -49,7 +49,7 @@ new class extends Component
 
         return false;
     }
-    
+
     public function uninterested($postId)
     {
         $this->selected_post = null;
@@ -85,7 +85,8 @@ new class extends Component
     }
 
     #[Computed]
-    public function getArchivedPost() {
+    public function getArchivedPost()
+    {
         return Post::with('user')
             ->where('status', 'archived')
             ->where('user_id', auth()->user()->id)
@@ -108,38 +109,74 @@ new class extends Component
 ?>
 
 <div>
-    <div class="flex items-center justify-between mb-4">
-        <flux:heading size="xl" > Archived Posts </flux:heading>
-        <flux:breadcrumbs>
-            <flux:breadcrumbs.item href="{{ route('feed') }}" wire:navigate>Feed</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item href="{{ route('post.my-posts') }}" wire:navigate>My Posts</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
+    {{-- Header — matches Feed exactly --}}
+    <div class="flex flex-wrap items-start justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <div>
+            <x-heading
+                size="xl"
+                class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+                style="font-size: var(--text-page-title)"
+            >
+                Archived Posts
+            </x-heading>
+            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
+                Your archived rental posts and announcements.
+            </x-text>
+        </div>
+
+        {{-- Navigation buttons — exactly like Feed --}}
+        <div class="flex items-center gap-1 sm:gap-2 flex-wrap mt-1 sm:mt-0">
+            <x-button
+                href="{{ route('feed') }}"
+                wire:navigate
+                variant="ghost"
+                icon="home"
+                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2"
+            >
+                <span class="hidden sm:inline">Feed</span>
+                <span class="sm:hidden">Feed</span>
+            </x-button>
+            <x-button
+                href="{{ route('post.my-posts') }}"
+                wire:navigate
+                variant="ghost"
+                icon="document-text"
+                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2"
+            >
+                <span class="hidden sm:inline">My Posts</span>
+                <span class="sm:hidden">My Posts</span>
+            </x-button>
+        </div>
     </div>
 
-    <div>
-        <div class="flex-1 min-h-0 overflow-y-auto space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            @forelse ($this->getArchivedPost as $post)
-                <x-post-card :post="$post" wire:key="archived-post-{{ $post->id }}">
-                    <x-slot name="footer">
-                        @php
-                            $isOwner = $post->user_id === auth()->id();
-                            $alreadyInterested = in_array($post->id, $this->myInterestedPostIds);
-                            $role = auth()->user()->role;
-                        @endphp
-                        
-                        @include("partials.feed.actions.{$role}", [
-                            'post' => $post,
-                            'isOwner' => $isOwner,
-                        ])
-                    </x-slot>
-                </x-post-card>
-            @empty
-                <flux:card>
-                    <x-text size="sm" class="text-zinc-500 text-center block py-6">
-                        No Archived posts yet.
-                    </x-text>
-                </flux:card>
-            @endforelse
-        </div>
+    {{-- Post list — same as Feed --}}
+    <div class="flex-1 min-h-0 overflow-y-auto space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        @forelse ($this->getArchivedPost as $post)
+            <x-post-card :post="$post" wire:key="archived-post-{{ $post->id }}">
+                <x-slot name="footer">
+                    @php
+                        $isOwner = $post->user_id === auth()->id();
+                        $alreadyInterested = in_array($post->id, $this->myInterestedPostIds);
+                        $role = auth()->user()->role;
+                    @endphp
+                    
+                    @include("partials.feed.actions.{$role}", [
+                        'post' => $post,
+                        'isOwner' => $isOwner,
+                    ])
+                </x-slot>
+            </x-post-card>
+        @empty
+            {{-- Empty state — matches Feed --}}
+            <x-card class="!rounded-xl !border !border-dashed !border-light-bd-strong dark:!border-dark-bd-strong !bg-light-secondary dark:!bg-dark-secondary !text-center !p-8">
+                <flux:icon name="archive-box" class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
+                <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
+                    No archived posts yet.
+                </x-text>
+                <x-text variant="subtle" class="!font-secondary block mt-1" style="font-size: var(--text-timestamp)">
+                    Posts you archive will appear here.
+                </x-text>
+            </x-card>
+        @endforelse
     </div>
 </div>
