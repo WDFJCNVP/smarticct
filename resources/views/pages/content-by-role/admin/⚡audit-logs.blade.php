@@ -17,8 +17,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public $selectedLog;
     public $selectedDeletingLog;
-    public bool $showLogModal = false; 
-    public bool $showDeleteModal = false; 
+    public bool $showLogModal = false;
+    public bool $showDeleteModal = false;
 
     public function getLogDetail(int $logId) {
 
@@ -56,171 +56,175 @@ new #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
-    <x-pages-heading heading="Audit Logs" description="Track all system events and user actions." />
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <x-pages-heading heading="Audit Logs" description="Track all system events and user actions." />
 
-    {{-- Stat cards --}}
-    {{-- <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6 mb-6">
-        <div class="bg-zinc-100 dark:bg-zinc-800 rounded-lg p-4">
-            <x-text class="text-xs text-zinc-500 dark:text-zinc-400">Total events</x-text>
-            <x-text class="text-2xl font-medium mt-1">1,284</x-text>
-        </div>
-        <div class="bg-zinc-100 dark:bg-zinc-800 rounded-lg p-4">
-            <x-text class="text-xs text-zinc-500 dark:text-zinc-400">Failures</x-text>
-            <x-text class="text-2xl font-medium mt-1 text-red-600 dark:text-red-400">12</x-text>
-        </div>
-        <div class="bg-zinc-100 dark:bg-zinc-800 rounded-lg p-4">
-            <x-text class="text-xs text-zinc-500 dark:text-zinc-400">Manual overrides</x-text>
-            <x-text class="text-2xl font-medium mt-1 text-amber-600 dark:text-amber-400">3</x-text>
-        </div>
-        <div class="bg-zinc-100 dark:bg-zinc-800 rounded-lg p-4">
-            <x-text class="text-xs text-zinc-500 dark:text-zinc-400">Today's events</x-text>
-            <x-text class="text-2xl font-medium mt-1">87</x-text>
-        </div>
-    </div> --}}
-
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div class="flex flex-wrap gap-2">
-            <flux:select wire:model.live="filterAction" placeholder="Action" class="w-36">
-                <flux:select.option value="">All actions</flux:select.option>
-                <flux:select.option value="fare_tap">Fare tap</flux:select.option>
-                <flux:select.option value="top_up">Top up</flux:select.option>
-                <flux:select.option value="queue_vehicle">Queued</flux:select.option>
-                <flux:select.option value="early_depart">Early depart</flux:select.option>
-                <flux:select.option value="queue_departed">Departed</flux:select.option>
-                <flux:select.option value="fare_failed">Fare failed</flux:select.option>
-                <flux:select.option value="login_failed">Login failed</flux:select.option>
-                <flux:select.option value="card_issued">Card issued</flux:select.option>
-                <flux:select.option value="card_blocked">Card blocked</flux:select.option>
-                <flux:select.option value="route_updated">Route updated</flux:select.option>
-            </flux:select>
-
-            <flux:select wire:model.live="filterChannel" placeholder="Channel" class="w-36">
-                <flux:select.option value="">All channels</flux:select.option>
-                <flux:select.option value="Web">Web</flux:select.option>
-                <flux:select.option value="RFID">RFID</flux:select.option>
-                <flux:select.option value="Scheduler">Scheduler</flux:select.option>
-            </flux:select>
-        </div>
-
-        <div class="flex items-center gap-2">
-            <x-input
-                type="text"
-                wire:model.live.debounce.300ms="search"
-                placeholder="Search logs here"
-                icon="magnifying-glass"
-            />
-            <x-button icon="arrow-down-tray" variant="primary">
-                Export logs
-            </x-button>
-        </div>
+        <flux:button variant="primary" icon="arrow-down-tray" size="sm" class="font-secondary shrink-0">
+            Export logs
+        </flux:button>
     </div>
 
-    <div>
-        <x-table>
-            <x-table-columns class="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
-                <x-table-column>Actor</x-table-column>
-                <x-table-column>Action</x-table-column>
-                <x-table-column>Date & Time</x-table-column>
-                <x-table-column>Subject</x-table-column>
-                <x-table-column>Channel</x-table-column>
-                <x-table-column>Actions</x-table-column>
-            </x-table-columns>
-            <x-table-rows class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                @forelse ($this->getAuditLogs as $log)
-                    @php
+    <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+        <flux:input
+            class="flex-1 font-secondary text-table-row"
+            size="sm"
+            icon="magnifying-glass"
+            placeholder="Search logs here"
+            wire:model.live.debounce.300ms="search"
+        />
 
-                        $role = $log->user?->role ?? 'default';
+        <flux:select wire:model.live="filterAction" size="sm" placeholder="Action" class="w-full sm:w-40 font-secondary text-table-row">
+            <flux:select.option value="">All actions</flux:select.option>
+            <flux:select.option value="fare_tap">Fare tap</flux:select.option>
+            <flux:select.option value="top_up">Top up</flux:select.option>
+            <flux:select.option value="queue_vehicle">Queued</flux:select.option>
+            <flux:select.option value="early_depart">Early depart</flux:select.option>
+            <flux:select.option value="queue_departed">Departed</flux:select.option>
+            <flux:select.option value="fare_failed">Fare failed</flux:select.option>
+            <flux:select.option value="login_failed">Login failed</flux:select.option>
+            <flux:select.option value="card_issued">Card issued</flux:select.option>
+            <flux:select.option value="card_blocked">Card blocked</flux:select.option>
+            <flux:select.option value="route_updated">Route updated</flux:select.option>
+        </flux:select>
 
-                        $roleColor = match($role) {
-                            'commuter' => "blue",
-                            'cashier'  => "orange",
-                            'admin'    => "red",
-                            'operator' => "violet",
-                            default    => null,
-                        };
-
-                        $badge = match($log['action']) {
-                            'fare_tap'       => ['label' => 'Fare tap',      'color' => 'blue'],
-                            'top_up'         => ['label' => 'Top up',        'color' => 'green'],
-                            'queue_vehicle'  => ['label' => 'Queued',        'color' => 'blue'],
-                            'early_depart'   => ['label' => 'Early depart',  'color' => 'orange'],
-                            'queue_departed' => ['label' => 'Departed',      'color' => 'green'],
-                            'fare_failed'    => ['label' => 'Fare failed',   'color' => 'red'],
-                            'login_failed'   => ['label' => 'Login failed',  'color' => 'red'],
-                            'card_issued'    => ['label' => 'Card issued',   'color' => 'green'],
-                            'card_blocked'   => ['label' => 'Card blocked',  'color' => 'red'],
-                            'route_updated'  => ['label' => 'Route updated', 'color' => 'violet'],
-                            default          => ['label' => $log['action'],  'color' => null],
-                        };
-                    @endphp
-                    <x-table-row class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                        <x-table-cell class="px-4 py-3">
-                            <x-text color="{{ $roleColor }}">{{ $log->user?->name ?? 'Unknown' }}</x-text>
-                            <x-text color="{{ $roleColor }}">{{ $log->user?->username ?? '-' }}</x-text>
-                        </x-table-cell>
-                        <x-table-cell class="px-4 py-3">
-                            <x-badge color="{{ $badge['color'] }}">
-                                {{ $badge['label'] }}
-                            </x-badge>
-                        </x-table-cell>
-                        <x-table-cell class="px-4 py-3">
-                            <x-text>{{ $log->created_at->format('M j, Y') }}</x-text>
-                            <x-text>{{ $log->created_at->format('g:i A') }}</x-text>
-                        </x-table-cell>
-                        <x-table-cell class="px-4 py-3 text-zinc-600 dark:text-zinc-400 truncate">
-                            {{ $log->subject }}
-                        </x-table-cell>
-                        <x-table-cell class="px-4 py-3 text-zinc-500 dark:text-zinc-400">
-                            {{ $log->channel }}
-                        </x-table-cell>
-                        <x-table-cell class="px-4 py-3">
-                            <div class="flex items-center gap-2">
-                                <flux:button 
-                                    wire:click="getLogDetail({{ $log->id }})" 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    icon="eye" 
-                                    aria-label="View log" 
-                                />
-                                <flux:button 
-                                    wire:click="confirmDeleteLog({{ $log->id }})" 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    icon="trash" 
-                                    aria-label="Delete log" />
-                            </div>
-                        </x-table-cell>
-                    </x-table-row>
-                @empty
-                    <x-table-row>
-                        <x-table-cell colspan="6" class="px-4 py-10 text-center text-sm text-zinc-400">
-                            No audit logs match your current filters.
-                        </x-table-cell>
-                    </x-table-row>
-                @endforelse
-            </x-table-rows>
-        </x-table>
+        <flux:select wire:model.live="filterChannel" size="sm" placeholder="Channel" class="w-full sm:w-40 font-secondary text-table-row">
+            <flux:select.option value="">All channels</flux:select.option>
+            <flux:select.option value="Web">Web</flux:select.option>
+            <flux:select.option value="RFID">RFID</flux:select.option>
+            <flux:select.option value="Scheduler">Scheduler</flux:select.option>
+        </flux:select>
     </div>
 
-    <div class="mt-4">
-        {{ $this->getAuditLogs->links() }}
-    </div>
+    <flux:card class="mb-4">
+        <div class="overflow-x-auto">
+            <flux:table container:class="max-h-160">
+                <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
+                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Actor</flux:table.column>
+                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Action</flux:table.column>
+                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Date &amp; Time</flux:table.column>
+                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Subject</flux:table.column>
+                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Channel</flux:table.column>
+                    <flux:table.column align="center" class="px-2! md:px-4! py-2">Actions</flux:table.column>
+                </flux:table.columns>
+
+                <flux:table.rows>
+                    @forelse ($this->getAuditLogs as $log)
+                        @php
+                            $role = $log->user?->role ?? 'default';
+
+                            $roleColor = match($role) {
+                                'commuter' => 'blue',
+                                'cashier'  => 'orange',
+                                'admin'    => 'red',
+                                'operator' => 'violet',
+                                default    => 'zinc',
+                            };
+
+                            $badge = match($log['action']) {
+                                'fare_tap'       => ['label' => 'Fare tap',      'color' => 'blue'],
+                                'top_up'         => ['label' => 'Top up',        'color' => 'green'],
+                                'queue_vehicle'  => ['label' => 'Queued',        'color' => 'blue'],
+                                'early_depart'   => ['label' => 'Early depart',  'color' => 'orange'],
+                                'queue_departed' => ['label' => 'Departed',      'color' => 'green'],
+                                'fare_failed'    => ['label' => 'Fare failed',   'color' => 'red'],
+                                'login_failed'   => ['label' => 'Login failed',  'color' => 'red'],
+                                'card_issued'    => ['label' => 'Card issued',   'color' => 'green'],
+                                'card_blocked'   => ['label' => 'Card blocked',  'color' => 'red'],
+                                'route_updated'  => ['label' => 'Route updated', 'color' => 'violet'],
+                                default          => ['label' => $log['action'],  'color' => 'zinc'],
+                            };
+                        @endphp
+                        <flux:table.row :key="$log->id">
+                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2">
+                                <div class="flex flex-col items-center">
+                                    <span class="font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-primary">
+                                        {{ $log->user?->name ?? 'Unknown' }}
+                                    </span>
+                                    <span class="font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                                        {{ $log->user?->username ?? '-' }}
+                                    </span>
+                                </div>
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2">
+                                <flux:badge size="sm" color="{{ $badge['color'] }}" class="font-secondary text-badge text-xs">
+                                    {{ $badge['label'] }}
+                                </flux:badge>
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                                {{ $log->created_at->format('M j, Y g:i A') }}
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-primary max-w-48 truncate">
+                                {{ $log->subject }}
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                                {{ $log->channel }}
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-2! md:px-4! py-1.5 md:py-2">
+                                <div class="flex items-center justify-center gap-1">
+                                    <flux:button
+                                        wire:click="getLogDetail({{ $log->id }})"
+                                        size="sm"
+                                        variant="ghost"
+                                        icon="eye"
+                                        inset="top bottom"
+                                        class="scale-75 md:scale-100"
+                                        aria-label="View log"
+                                    />
+                                    <flux:button
+                                        wire:click="confirmDeleteLog({{ $log->id }})"
+                                        size="sm"
+                                        variant="ghost"
+                                        icon="trash"
+                                        inset="top bottom"
+                                        class="scale-75 md:scale-100"
+                                        aria-label="Delete log"
+                                    />
+                                </div>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @empty
+                        <flux:table.row>
+                            <flux:table.cell colspan="6" class="px-2 md:px-4 py-4">
+                                <div class="flex flex-col items-center justify-center py-6 md:py-12 gap-2">
+                                    <flux:icon.document-text class="w-6 h-6 md:w-8 md:h-8 text-light-txt-muted dark:text-dark-txt-muted" />
+                                    <x-text class="font-secondary text-sm md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
+                                        No audit logs match your current filters.
+                                    </x-text>
+                                </div>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @endforelse
+                </flux:table.rows>
+            </flux:table>
+        </div>
+
+        @if ($this->getAuditLogs->hasPages())
+            <div class="flex flex-wrap items-center justify-end gap-2 px-3 sm:px-4 py-2 border-t border-light-bd-default dark:border-dark-bd-default bg-light-secondary dark:bg-dark-secondary">
+                {{ $this->getAuditLogs->links() }}
+            </div>
+        @endif
+    </flux:card>
 
     <flux:modal wire:model="showLogModal" class="w-full max-w-2xl">
         @if ($this->selectedLog)
-            <livewire:pages::content-by-role.admin.audit-log-modal 
-                :selectedLog="$selectedLog" 
-                :key="'view-' . $selectedLog->id" 
+            <livewire:pages::content-by-role.admin.audit-log-modal
+                :selectedLog="$selectedLog"
+                :key="'view-' . $selectedLog->id"
             />
         @endif
     </flux:modal>
 
     <flux:modal wire:model="showDeleteModal" class="min-w-96">
         @if ($this->selectedDeletingLog)
-            <livewire:pages::content-by-role.admin.audit-log-destroy 
-            :selectedDeletingLog="$selectedDeletingLog" 
-            :key="'delete-' .$selectedDeletingLog->id" 
-        />
+            <livewire:pages::content-by-role.admin.audit-log-destroy
+                :selectedDeletingLog="$selectedDeletingLog"
+                :key="'delete-' . $selectedDeletingLog->id"
+            />
         @endif
     </flux:modal>
 </div>

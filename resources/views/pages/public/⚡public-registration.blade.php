@@ -91,21 +91,83 @@ new #[Layout('layouts::public-layout')] class extends Component
 };
 ?>
 
-<div class="min-h-screen flex items-center justify-center mx-auto px-4 py-8">
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-6xl">
-    <div>
-        <x-card>
+{{--
+    Scrapped the arch/banner idea — dropped it back to the exact structure
+    the login page already uses (two-panel, h-full overflow-hidden, no page
+    scroll). Since this component uses the SAME layout as login
+    (layouts::public-layout), we know this fits the viewport without
+    scrolling. Only the right-hand panel's content swaps between the
+    email/password step and the OTP step; the hero panel stays static.
+
+    Validation errors now use the same token as login's rate-limit message
+    (font-secondary text-helper text-danger) instead of Flux's unstyled
+    default, so both auth pages read as one consistent design language.
+--}}
+
+<div class="flex h-full overflow-hidden p-10!" x-data="{ loaded: false }" x-init="setTimeout(() => loaded = true, 100)">
+
+    {{-- ── HERO PANEL ── --}}
+    <div
+        x-show="loaded"
+        x-transition:enter.duration.700
+        x-transition:enter.start.opacity-0.-translate-x-5
+        x-transition:enter.end.opacity-100.translate-x-0
+        class="hidden md:flex w-5/12 h-full relative flex-col p-8 overflow-hidden"
+    >
+        <div class="absolute inset-0 overflow-hidden">
+            <a href="/">
+                <img
+                    src="{{ Vite::asset('resources/images/iriga-terminal.jpg') }}"
+                    alt="SmartICCT"
+                    class="h-10 w-auto md:h-full scale-105 transition-transform duration-[20s] ease-in-out hover:scale-110"
+                >
+            </a>
+            <div class="absolute inset-0 bg-linear-to-r from-[#21284D]/90 from-[20%] to-[#272C48]/75 to-[75%]"></div>
+        </div>
+
+        <div class="relative z-10 flex flex-col justify-start pt-2">
+            <h1 class="font-primary text-page-title font-extrabold text-dark-txt-primary leading-tight">
+                Welcome to SMART Iriga City Central Terminal.
+            </h1>
+            <p class="font-secondary text-body text-dark-txt-muted mt-3 leading-relaxed">
+                Rent vehicles, top up your card, and view live queues — all from one place.
+            </p>
+        </div>
+    </div>
+
+    {{-- ── FORM PANEL ── --}}
+    <div
+        x-show="loaded"
+        x-transition:enter.duration.700.delay.200
+        x-transition:enter.start.opacity-0.translate-x-5
+        x-transition:enter.end.opacity-100.translate-x-0
+        class="flex flex-1 flex-col justify-center px-6 py-8 sm:px-12 bg-light-secondary dark:bg-dark-secondary overflow-hidden h-full"
+    >
+        <div class="w-full max-w-sm mx-auto">
+
             @if (session('status'))
-                <div class="mb-4 text-sm font-medium text-green-600 dark:text-green-400">
+                <div class="mb-3 font-secondary text-sm font-medium text-green-600 dark:text-green-400">
                     {{ session('status') }}
                 </div>
             @endif
 
-            @if (! $otpSent)
-                <div wire:key="step-1-inputs" class="flex flex-col gap-4">
+            <p class="font-secondary text-nav-label font-semibold uppercase tracking-widest text-secondary mb-1">Register</p>
+            <h2 class="font-primary text-page-title font-bold text-light-txt-primary dark:text-dark-txt-primary mb-1">
+                {{ $otpSent ? 'Verify your email' : 'Create your account' }}
+            </h2>
+            <p class="font-secondary text-body text-light-txt-muted dark:text-dark-txt-muted mb-3">
+                {{ $otpSent ? 'Step 2 of 2 — Enter the code we sent you' : 'Step 1 of 2 — Account credentials' }}
+            </p>
 
-                    {{-- ── EMAIL ADDRESS ── --}}
-                    <flux:field>
+            <div class="flex gap-1.5 mb-4">
+                <div class="flex-1 h-[3px] rounded-full bg-secondary"></div>
+                <div class="flex-1 h-[3px] rounded-full transition-colors duration-300 {{ $otpSent ? 'bg-secondary' : 'bg-light-bd-default dark:bg-dark-bd-default' }}"></div>
+            </div>
+
+            @if (! $otpSent)
+                <div wire:key="step-1-inputs">
+
+                    <flux:field class="mt-3">
                         <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                             Email Address
                         </flux:label>
@@ -116,11 +178,10 @@ new #[Layout('layouts::public-layout')] class extends Component
                             placeholder="e.g. juandelacruz@example.com"
                             class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
-                        <flux:error name="email_address" />
+                        <flux:error name="email_address" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
 
-                    {{-- ── PASSWORD ── --}}
-                    <flux:field>
+                    <flux:field class="mt-3">
                         <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                             Password
                         </flux:label>
@@ -132,11 +193,10 @@ new #[Layout('layouts::public-layout')] class extends Component
                             viewable
                             class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
-                        <flux:error name="password" />
+                        <flux:error name="password" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
 
-                    {{-- ── CONFIRM PASSWORD ── --}}
-                    <flux:field>
+                    <flux:field class="mt-3">
                         <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                             Confirm Password
                         </flux:label>
@@ -148,20 +208,17 @@ new #[Layout('layouts::public-layout')] class extends Component
                             viewable
                             class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
-                        <flux:error name="password_confirmation" />
+                        <flux:error name="password_confirmation" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
 
-                    {{-- ── SUBMIT BUTTON WITH SPINNER ── --}}
-                    <flux:button 
-                        wire:click="sendOtp" 
+                    <flux:button
+                        wire:click="sendOtp"
                         wire:loading.attr="disabled"
                         wire:target="sendOtp"
-                        class="font-primary hover:bg-secondary! dark:hover:bg-secondary! text-table-row !bg-primary !text-white !font-semibold w-full transition-transform duration-200 hover:scale-[1.02] active:scale-[0.97] mt-1" 
+                        class="font-primary hover:bg-secondary! dark:hover:bg-secondary! text-table-row !bg-primary !text-white !font-semibold w-full mt-4 transition-transform duration-200 hover:scale-[1.02] active:scale-[0.97]"
                         variant="filled"
                     >
-                        <span wire:loading.remove wire:target="sendOtp">
-                            Continue with email →
-                        </span>
+                        <span wire:loading.remove wire:target="sendOtp">Continue with email →</span>
                         <span wire:loading wire:target="sendOtp" class="inline-flex items-center justify-center gap-1.5">
                             <flux:icon name="arrow-path" class="size-3.5 animate-spin shrink-0" />
                             Sending code...
@@ -170,75 +227,72 @@ new #[Layout('layouts::public-layout')] class extends Component
 
                 </div>
             @else
-                {{-- Added wire:key="step-2-otp" --}}
-                <div wire:key="step-2-otp" class="space-y-4">
-                    <div class="text-center">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Verify Your Email</h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            We sent a 6-digit verification code to <br>
-                            <span class="font-medium text-indigo-600 dark:text-indigo-400">{{ $email_address }}</span>
-                        </p>
+                <div wire:key="step-2-otp" class="text-center">
+
+                    <div class="mx-auto rounded-full bg-secondary/10 p-3 w-fit">
+                        <flux:icon name="envelope-open" class="size-8 text-secondary" />
                     </div>
 
-                    <div>
-                        <x-input 
+                    <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted mt-3">
+                        We've sent a 6-digit code to <br>
+                        <span class="font-semibold text-secondary">{{ $email_address }}</span>
+                    </p>
+
+                    <flux:field class="mt-4 text-left">
+                        <flux:input
+                            type="text"
                             wire:key="input-otp"
-                            wire:model="otp" 
-                            placeholder="Enter 6-digit code" 
-                            maxlength="6" 
-                            class="text-center text-xl tracking-widest font-mono"
+                            wire:model="otp"
+                            placeholder="000000"
+                            maxlength="6"
+                            class="text-center font-primary text-2xl tracking-[0.4em] font-bold py-3 border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted/50"
                         />
-                        @error('otp') <span class="text-xs text-red-500 mt-1 block text-center">{{ $message }}</span> @enderror
-                    </div>
+                        <flux:error name="otp" class="mt-0! font-secondary text-helper text-danger dark:text-dark-danger" />
+                    </flux:field>
 
-                    <x-button 
-                        wire:click="verifyAndRegister" 
+                    <flux:button
+                        wire:click="verifyAndRegister"
                         wire:loading.attr="disabled"
-                        class="w-full" 
-                        variant="primary"
+                        wire:target="verifyAndRegister"
+                        class="font-primary text-table-row !bg-primary !text-white !font-semibold w-full mt-3 transition-transform duration-200 hover:scale-[1.02] active:scale-[0.97]"
+                        variant="filled"
                     >
-                        <span wire:loading.remove wire:target="verifyAndRegister">Verify Code & Complete</span>
+                        <span wire:loading.remove wire:target="verifyAndRegister">Verify & Complete</span>
                         <span wire:loading wire:target="verifyAndRegister">Verifying...</span>
-                    </x-button>
+                    </flux:button>
 
-                    <div class="flex flex-col items-center space-y-2 text-sm text-gray-600 dark:text-gray-400 mt-4">
-                        <div>
-                            Not seeing the email in your inbox?
-                            <button 
-                                type="button" 
-                                wire:click="resendOtp" 
-                                wire:loading.attr="disabled"
-                                wire:target="resendOtp"
-                                class="hover:text-indigo-600 underline disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <span wire:loading.remove wire:target="resendOtp">Re-send code</span>
-                                <span wire:loading wire:target="resendOtp" class="inline-flex items-center gap-1">
-                                    <flux:icon name="arrow-path" class="size-3 animate-spin shrink-0" />
-                                    Resending code...
-                                </span>
-                            </button>
-                        </div>
+                    <button
+                        type="button"
+                        wire:click="resendOtp"
+                        wire:loading.attr="disabled"
+                        wire:target="resendOtp"
+                        class="font-secondary text-sm text-light-txt-muted hover:text-secondary transition-colors mt-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span wire:loading.remove wire:target="resendOtp">Didn't get it? <span class="underline">Resend code</span></span>
+                        <span wire:loading wire:target="resendOtp" class="inline-flex items-center gap-1.5 justify-center">
+                            <flux:icon name="arrow-path" class="size-3 animate-spin shrink-0" />
+                            Resending...
+                        </span>
+                    </button>
 
-                        <div>
-                            Wrong email?
-                            <button 
-                                type="button" 
-                                wire:click="changeEmail" 
-                                class="hover:text-indigo-600 underline"
-                            >
-                                Change email
-                            </button>
-                        </div>
-                    </div>
+                    <button
+                        type="button"
+                        wire:click="changeEmail"
+                        class="block mx-auto font-secondary text-xs text-light-txt-muted mt-2 hover:text-secondary transition-colors"
+                    >
+                        ← Change email address
+                    </button>
                 </div>
             @endif
 
-        </x-card> 
+            <div class="pt-4">
+                <flux:text class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                    Already have an account?
+                    <flux:link href="{{ route('login') }}" class="font-secondary text-timestamp text-secondary font-medium">Sign in</flux:link>
+                </flux:text>
+            </div>
+
+        </div>
     </div>
 
-    <div class="hidden lg:block p-6 bg-white rounded-xl shadow-md dark:bg-gray-800">
-      <h2 class="text-xl font-bold mb-2">Secondary Content (image?)</h2>
-      <p></p>
-    </div>
-  </div>
 </div>

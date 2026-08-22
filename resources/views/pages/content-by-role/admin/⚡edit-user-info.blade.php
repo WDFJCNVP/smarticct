@@ -30,53 +30,20 @@ new #[Layout('layouts.admin-layout')] class extends Component
     // Address modal fields
     public string $house_subd = '';
     public ?int $zone_number = null;
+    public string $municipality = '';
     public string $barangay = '';
-
-    // Iriga City, Camarines Sur barangays
-    public const BARANGAYS = [
-        'Antipolo',
-        'Cristo Rey',
-        'Del Rosario (Banao)',
-        'Francia',
-        'La Anunciacion',
-        'La Medalla',
-        'La Purisima',
-        'La Trinidad',
-        'Niño Jesus',
-        'Perpetual Help',
-        'Sagrada',
-        'Salvacion',
-        'San Agustin',
-        'San Andres',
-        'San Antonio',
-        'San Francisco (Pob.)',
-        'San Isidro',
-        'San Jose',
-        'San Juan',
-        'San Miguel',
-        'San Nicolas',
-        'San Pedro',
-        'San Rafael',
-        'San Ramon',
-        'San Roque (Pob.)',
-        'Santiago',
-        'San Vicente Norte',
-        'San Vicente Sur',
-        'Santa Cruz Norte',
-        'Santa Cruz Sur',
-        'Santa Elena',
-        'Santa Isabel',
-        'Santa Maria',
-        'Santa Teresita',
-        'Santo Domingo',
-        'Santo Niño',
-    ];
 
     public $create_vehicle_type = '';
     public $create_route        = '';
     public $create_plate_number = '';
     public $create_total_seats  = '';
     public $create_group_number = '';
+    // NEW fields for adding a vehicle
+    public $create_driver_name = '';
+    public $create_has_or_cr = false;
+    public $create_or_cr_expiry_date = '';
+    public $create_has_franchise = false;
+    public $create_franchise_expiry_date = '';
 
     public ?int $confirmingEditVehicle = null;
 
@@ -85,6 +52,43 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public bool $showCardPanel = false;
     public string $cardUid = '';
+
+    /**
+     * Human‑readable names for validation attributes.
+     * Matches the approach used in the registration form.
+     */
+    protected $validationAttributes = [
+        // Personal info
+        'name'          => 'name',
+        'email_address' => 'email address',
+        'phone_number'  => 'phone number',
+        'address'       => 'address',
+
+        // Card issuance
+        'cardUid'       => 'card UID',
+
+        // Add‑vehicle fields
+        'create_vehicle_type'          => 'vehicle type',
+        'create_route'                 => 'route',
+        'create_plate_number'          => 'plate number',
+        'create_total_seats'           => 'total seats',
+        'create_group_number'          => 'group number',
+        'create_driver_name'           => 'driver name',
+        'create_has_or_cr'             => 'OR/CR verification',
+        'create_or_cr_expiry_date'     => 'OR/CR expiry date',
+        'create_has_franchise'         => 'franchise verification',
+        'create_franchise_expiry_date' => 'franchise expiry date',
+
+        // Edit‑vehicle fields (array notation)
+        'editingVehicles.*.plate_number'          => 'plate number',
+        'editingVehicles.*.total_seats'           => 'total seats',
+        'editingVehicles.*.group_number'          => 'group number',
+        'editingVehicles.*.driver_name'           => 'driver name',
+        'editingVehicles.*.has_or_cr'             => 'OR/CR verification',
+        'editingVehicles.*.or_cr_expiry_date'     => 'OR/CR expiry date',
+        'editingVehicles.*.has_franchise'         => 'franchise verification',
+        'editingVehicles.*.franchise_expiry_date' => 'franchise expiry date',
+    ];
 
     #[Computed]
     public function getRoute()
@@ -96,12 +100,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
     #[Computed]
     public function getVehicleTypeOptions() {
         return OperatorTicketRate::select('vehicle_type')->distinct()->get();
-    }
-
-    #[Computed]
-    public function getBarangays()
-    {
-        return self::BARANGAYS;
     }
 
     public function getVehicleGroupNumber($vehicle_id) {
@@ -130,27 +128,63 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         foreach ($this->getVehicle as $vehicle) {
             $this->editingVehicles[$vehicle->id] = [
-                'vehicle_type' => $vehicle->vehicle_type,
-                'total_seats'  => $vehicle->total_seats,
-                'plate_number' => $vehicle->plate_number,
-                'group_number' => $this->getVehicleGroupNumber($vehicle->id),
+                'vehicle_type'          => $vehicle->vehicle_type,
+                'total_seats'           => $vehicle->total_seats,
+                'plate_number'          => $vehicle->plate_number,
+                'group_number'          => $this->getVehicleGroupNumber($vehicle->id),
+                'driver_name'           => $vehicle->driver_name ?? '',
+                'has_or_cr'             => (bool) $vehicle->has_or_cr,
+                'or_cr_expiry_date'     => $vehicle->or_cr_expiry_date ? $vehicle->or_cr_expiry_date->format('Y-m-d') : '',
+                'has_franchise'         => (bool) $vehicle->has_franchise,
+                'franchise_expiry_date' => $vehicle->franchise_expiry_date ? $vehicle->franchise_expiry_date->format('Y-m-d') : '',
             ];
+        }
+    }
+
+    /**
+     * Parse the current address string and fill the modal fields.
+     */
+    public function prepareAddressModal(): void
+    {
+        // Expected format: "House/Subd, Zone X, Barangay, Municipality, Camarines Sur"
+        $parts = array_map('trim', explode(',', $this->address ?? ''));
+
+        // Default empty values
+        $this->house_subd   = '';
+        $this->zone_number  = null;
+        $this->barangay     = '';
+        $this->municipality = '';
+
+        if (count($parts) >= 5) {
+            // The last part is always "Camarines Sur"
+            $this->municipality = $parts[3] ?? '';
+            $this->barangay     = $parts[2] ?? '';
+            // Zone part: e.g. "Zone 3" -> extract number
+            $zonePart = $parts[1] ?? '';
+            if (preg_match('/Zone\s+(\d+)/i', $zonePart, $matches)) {
+                $this->zone_number = (int) $matches[1];
+            }
+            $this->house_subd   = $parts[0] ?? '';
+        } else {
+            // Fallback: if address doesn't match expected format, leave fields empty
+            // so the user can re‑enter everything.
         }
     }
 
     public function saveAddress(): void
     {
         $data = $this->validate([
-            'house_subd'  => 'nullable|string|max:255',
-            'zone_number' => 'required|integer|min:1|max:20',
-            'barangay'    => 'required|string|in:' . implode(',', self::BARANGAYS),
+            'house_subd'   => 'nullable|string|max:255',
+            'zone_number'  => 'required|integer|min:1|max:20',
+            'municipality' => 'required|string|max:255',
+            'barangay'     => 'required|string|max:255',
         ]);
 
         $parts = array_filter([
             $data['house_subd'] !== '' ? $data['house_subd'] : null,
             'Zone ' . $data['zone_number'],
             $data['barangay'],
-            'Iriga City',
+            $data['municipality'],
             'Camarines Sur',
         ]);
 
@@ -187,20 +221,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
         );
     }
 
-    // public function verifyUser() {
-    //     $attributes = [
-    //         'type'     => 'verified',
-    //     ];
-
-    //     app(UserService::class)->update($this->user, $attributes);
-
-    //     Flux::toast(
-    //         variant: 'success',
-    //         heading: 'User verified.',
-    //         text: 'Your changes have been saved.'
-    //     );
-    // }
-
     public function save() {
         $attributes = $this->validate([
             'name'          => 'required|min:2|string',
@@ -235,19 +255,44 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'create_plate_number',
                 'create_total_seats',
                 'create_group_number',
+                'create_driver_name',
+                'create_has_or_cr',
+                'create_or_cr_expiry_date',
+                'create_has_franchise',
+                'create_franchise_expiry_date',
             ]);
             $this->resetValidation();
         }
     }
 
     public function addNewVehicle() {
+        // ---- FIX: ensure date fields are null when checkbox is false or value is empty ----
+        if (!$this->create_has_or_cr) {
+            $this->create_or_cr_expiry_date = null;
+        } else {
+            $this->create_or_cr_expiry_date = $this->create_or_cr_expiry_date ?: null;
+        }
+
+        if (!$this->create_has_franchise) {
+            $this->create_franchise_expiry_date = null;
+        } else {
+            $this->create_franchise_expiry_date = $this->create_franchise_expiry_date ?: null;
+        }
+        // --------------------------------------------------------------------------------
+
         DB::transaction(function () {
             $attributes = $this->validate([
                 'create_vehicle_type' => 'required|string',
                 'create_route'        => 'required|string',
                 'create_plate_number' => 'required|string|unique:vehicles,plate_number',
                 'create_total_seats'  => 'required|integer|min:10|max:50',
-                'create_group_number' => 'nullable|integer|min:1|max:2',
+                'create_group_number' => 'required_if:create_vehicle_type,Bus,UV-express|integer|min:1|max:2',
+                // ---- CHANGED: require driver_name, OR/CR, franchise etc. as in registration ----
+                'create_driver_name'           => 'required|string|min:2',
+                'create_has_or_cr'             => 'required|accepted',
+                'create_or_cr_expiry_date'     => 'required|date|after:today',
+                'create_has_franchise'         => 'required|accepted',
+                'create_franchise_expiry_date' => 'required|date|after:today',
             ]);
 
             $route_list = RouteList::whereHas('operatorTicketRate', function ($query) use ($attributes) {
@@ -261,6 +306,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'vehicle_type'  => $attributes['create_vehicle_type'],
                 'plate_number'  => $attributes['create_plate_number'],
                 'total_seats'   => $attributes['create_total_seats'],
+                // new fields – use $attributes which now contain cleaned null values
+                'driver_name'           => $attributes['create_driver_name'] ?? '',
+                'has_or_cr'             => (bool) ($attributes['create_has_or_cr'] ?? false),
+                'or_cr_expiry_date'     => $attributes['create_or_cr_expiry_date'] ?? null,
+                'has_franchise'         => (bool) ($attributes['create_has_franchise'] ?? false),
+                'franchise_expiry_date' => $attributes['create_franchise_expiry_date'] ?? null,
             ]);
 
             if (in_array($attributes['create_vehicle_type'], ['Bus', 'UV-express']) && $this->create_group_number !== null) {
@@ -282,6 +333,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'total_seats'  => $new_vehicle->total_seats,
                 'plate_number' => $new_vehicle->plate_number,
                 'group_number' => $this->getVehicleGroupNumber($new_vehicle->id),
+                'driver_name'           => $new_vehicle->driver_name ?? '',
+                'has_or_cr'             => (bool) $new_vehicle->has_or_cr,
+                'or_cr_expiry_date'     => $new_vehicle->or_cr_expiry_date ? $new_vehicle->or_cr_expiry_date->format('Y-m-d') : '',
+                'has_franchise'         => (bool) $new_vehicle->has_franchise,
+                'franchise_expiry_date' => $new_vehicle->franchise_expiry_date ? $new_vehicle->franchise_expiry_date->format('Y-m-d') : '',
             ];
         });
 
@@ -291,6 +347,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'create_plate_number',
             'create_total_seats',
             'create_group_number',
+            'create_driver_name',
+            'create_has_or_cr',
+            'create_or_cr_expiry_date',
+            'create_has_franchise',
+            'create_franchise_expiry_date',
         ]);
 
         unset($this->getVehicle);
@@ -308,6 +369,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'total_seats'  => $vehicle->total_seats,
                 'plate_number' => $vehicle->plate_number,
                 'group_number' => $this->getVehicleGroupNumber($vehicle->id),
+                'driver_name'           => $vehicle->driver_name ?? '',
+                'has_or_cr'             => (bool) $vehicle->has_or_cr,
+                'or_cr_expiry_date'     => $vehicle->or_cr_expiry_date ? $vehicle->or_cr_expiry_date->format('Y-m-d') : '',
+                'has_franchise'         => (bool) $vehicle->has_franchise,
+                'franchise_expiry_date' => $vehicle->franchise_expiry_date ? $vehicle->franchise_expiry_date->format('Y-m-d') : '',
             ];
         }
 
@@ -324,6 +390,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'total_seats'  => $vehicle->total_seats,
                 'plate_number' => $vehicle->plate_number,
                 'group_number' => $this->getVehicleGroupNumber($vehicle->id),
+                'driver_name'           => $vehicle->driver_name ?? '',
+                'has_or_cr'             => (bool) $vehicle->has_or_cr,
+                'or_cr_expiry_date'     => $vehicle->or_cr_expiry_date ? $vehicle->or_cr_expiry_date->format('Y-m-d') : '',
+                'has_franchise'         => (bool) $vehicle->has_franchise,
+                'franchise_expiry_date' => $vehicle->franchise_expiry_date ? $vehicle->franchise_expiry_date->format('Y-m-d') : '',
             ];
         }
 
@@ -336,9 +407,29 @@ new #[Layout('layouts.admin-layout')] class extends Component
             ->where('user_id', $this->user->id)
             ->firstOrFail();
 
+        // ---- FIX: ensure date fields are null when checkbox is false or value is empty ----
+        $vehicleData = &$this->editingVehicles[$vehicle_id];
+        if (!$vehicleData['has_or_cr']) {
+            $vehicleData['or_cr_expiry_date'] = null;
+        } else {
+            $vehicleData['or_cr_expiry_date'] = $vehicleData['or_cr_expiry_date'] ?: null;
+        }
+        if (!$vehicleData['has_franchise']) {
+            $vehicleData['franchise_expiry_date'] = null;
+        } else {
+            $vehicleData['franchise_expiry_date'] = $vehicleData['franchise_expiry_date'] ?: null;
+        }
+        // --------------------------------------------------------------------------------
+
         $rules = [
             "editingVehicles.{$vehicle_id}.plate_number" => "required|string|unique:vehicles,plate_number,{$vehicle_id}",
             "editingVehicles.{$vehicle_id}.total_seats"  => 'required|integer|min:10|max:50',
+            // ---- CHANGED: require driver_name, OR/CR, franchise etc. as in registration ----
+            "editingVehicles.{$vehicle_id}.driver_name"           => 'required|string|min:2',
+            "editingVehicles.{$vehicle_id}.has_or_cr"             => 'required|accepted',
+            "editingVehicles.{$vehicle_id}.or_cr_expiry_date"     => 'required|date|after:today',
+            "editingVehicles.{$vehicle_id}.has_franchise"         => 'required|accepted',
+            "editingVehicles.{$vehicle_id}.franchise_expiry_date" => 'required|date|after:today',
         ];
 
         if (in_array($vehicle->vehicle_type, ['Bus', 'UV-express'])) {
@@ -350,6 +441,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $vehicle->update([
             'plate_number' => $data['editingVehicles'][$vehicle_id]['plate_number'],
             'total_seats'  => $data['editingVehicles'][$vehicle_id]['total_seats'],
+            'driver_name'           => $data['editingVehicles'][$vehicle_id]['driver_name'] ?? '',
+            'has_or_cr'             => (bool) ($data['editingVehicles'][$vehicle_id]['has_or_cr'] ?? false),
+            'or_cr_expiry_date'     => $data['editingVehicles'][$vehicle_id]['or_cr_expiry_date'] ?? null,
+            'has_franchise'         => (bool) ($data['editingVehicles'][$vehicle_id]['has_franchise'] ?? false),
+            'franchise_expiry_date' => $data['editingVehicles'][$vehicle_id]['franchise_expiry_date'] ?? null,
         ]);
 
         if (in_array($vehicle->vehicle_type, ['Bus', 'UV-express'])) {
@@ -393,12 +489,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
-    <flux:breadcrumbs class="mb-4">
-        <flux:breadcrumbs.item href="{{ route('admin.users') }}" wire:navigate>Users</flux:breadcrumbs.item>
-        <flux:breadcrumbs.item>{{ $this->user->name }}</flux:breadcrumbs.item>
-    </flux:breadcrumbs>
-
-    <x-pages-heading heading="Edit User Information"/>
+    {{-- Breadcrumbs moved to the right, aligned with the heading --}}
+    <div class="flex items-center justify-between mb-4">
+        <x-pages-heading heading="Edit User Information"/>
+        <flux:breadcrumbs>
+            <flux:breadcrumbs.item href="{{ route('admin.users') }}" wire:navigate>Back to Users</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>{{ $this->user->name }}</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
+    </div>
 
     @if ($this->user->card === null)
         <flux:callout variant="warning" icon="exclamation-circle">
@@ -595,7 +693,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
             <div class="p-4 sm:p-6 space-y-4">
                 <div class="grid w-full grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <flux:input label="Name"     wire:model="name"     class="w-full font-secondary" />
+                    <flux:input label="Name" wire:model="name" class="w-full font-secondary" />
                     <div>
                         <flux:input
                             label="Email"
@@ -619,9 +717,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                                 Address
                             </flux:label>
+
                             <flux:modal.trigger name="address-modal">
                                 <button
                                     type="button"
+                                    wire:click="prepareAddressModal"
                                     class="w-full text-left font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border border-light-bd-default dark:border-dark-bd-default rounded-lg px-3 py-2.5 transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-secondary/50"
                                 >
                                     @if ($address)
@@ -634,6 +734,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <flux:error name="address" />
                         </flux:field>
                     </div>
+
+                    {{-- Role and user code (always readonly) --}}
                     <flux:input
                         label="Role"
                         value="{{ ucfirst($user->role) }}"
@@ -648,12 +750,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         icon:trailing="lock-closed"
                         readonly
                     />
-                </div> 
+                </div>
 
                 <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full pt-4 dark:border-dark-bd-default">
 
                     <flux:modal.trigger name="delete-user">
-
                         <flux:button
                             type="button"
                             variant="ghost"
@@ -661,7 +762,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             class="text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-950 w-full sm:w-auto order-2 sm:order-1"
                             icon="trash"
                         >Delete user</flux:button>
-
                     </flux:modal.trigger>
 
                     <flux:spacer class="hidden sm:block" />
@@ -751,9 +851,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     <flux:select.option value="">Record not found</flux:select.option>
                                 @endforelse
                             </flux:select>
-                            @error('create_vehicle_type')
-                                <p class="font-secondary text-xs text-red-500 dark:text-red-400 mt-1">{{ $message }}</p>
-                            @enderror
+                            <flux:error name="create_vehicle_type" />
                         </div>
 
                         <div>
@@ -767,25 +865,19 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     @endif
                                 @endforeach
                             </flux:select>
-                            @error('create_route')
-                                <p class="font-secondary text-xs text-red-500 dark:text-red-400 mt-1">{{ $message }}</p>
-                            @enderror
+                            <flux:error name="create_route" />
                         </div>
 
                         <div>
                             <flux:label class="mb-2 font-secondary text-md text-light-txt-primary dark:text-dark-txt-muted">Plate number</flux:label>
                             <flux:input wire:model="create_plate_number" />
-                            @error('create_plate_number')
-                                <p class="font-secondary text-xs text-red-500 dark:text-red-400 mt-1">{{ $message }}</p>
-                            @enderror
+                            <flux:error name="create_plate_number" />
                         </div>
 
                         <div>
                             <flux:label class="mb-2 font-secondary text-md text-light-txt-primary dark:text-dark-txt-muted">Total seats</flux:label>
                             <flux:input wire:model="create_total_seats" type="number" min="10" max="50" />
-                            @error('create_total_seats')
-                                <p class="font-secondary text-xs text-red-500 dark:text-red-400 mt-1">{{ $message }}</p>
-                            @enderror
+                            <flux:error name="create_total_seats" />
                         </div>
 
                         <div>
@@ -801,9 +893,63 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     <flux:select.option value="2">2</flux:select.option>
                                 </flux:select>
                             @endif
-                            @error('create_group_number')
-                                <p class="font-secondary text-xs text-red-500 dark:text-red-400 mt-1">{{ $message }}</p>
-                            @enderror
+                            <flux:error name="create_group_number" />
+                        </div>
+
+                        {{-- NEW: Dedicated driver --}}
+                        <div>
+                            <flux:label class="mb-2 font-secondary text-md text-light-txt-primary dark:text-dark-txt-muted">Dedicated driver</flux:label>
+                            <flux:input wire:model="create_driver_name" placeholder="e.g. Juan dela Cruz" />
+                            <flux:error name="create_driver_name" />
+                        </div>
+
+                        {{-- NEW: Compliance documents (span full width) --}}
+                        <div class="sm:col-span-2 border-t border-light-bd-default dark:border-dark-bd-default pt-3 space-y-3">
+                            <p class="font-secondary text-xs font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Compliance documents</p>
+
+                            <div class="flex items-start gap-3">
+                                <flux:checkbox wire:model.live="create_has_or_cr" />
+                                <div class="flex-1 min-w-0 space-y-1">
+                                    <flux:label class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-primary">
+                                        OR/CR verified
+                                        <span class="ml-1 font-normal text-light-txt-muted dark:text-dark-txt-muted">(admin confirms document was seen)</span>
+                                    </flux:label>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
+                                        <flux:input
+                                            type="date"
+                                            wire:model="create_or_cr_expiry_date"
+                                            :disabled="!$create_has_or_cr"
+                                            size="sm"
+                                            class="flex-1"
+                                            wire:key="or-cr-{{ $create_has_or_cr }}"
+                                        />
+                                    </div>
+                                    <flux:error name="create_or_cr_expiry_date" />
+                                </div>
+                            </div>
+
+                            <div class="flex items-start gap-3">
+                                <flux:checkbox wire:model.live="create_has_franchise" />
+                                <div class="flex-1 min-w-0 space-y-1">
+                                    <flux:label class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-primary">
+                                        Franchise verified
+                                        <span class="ml-1 font-normal text-light-txt-muted dark:text-dark-txt-muted">(admin confirms document was seen)</span>
+                                    </flux:label>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
+                                        <flux:input
+                                            type="date"
+                                            wire:model="create_franchise_expiry_date"
+                                            :disabled="!$create_has_franchise"
+                                            size="sm"
+                                            class="flex-1"
+                                            wire:key="franchise-{{ $create_has_franchise }}"
+                                        />
+                                    </div>
+                                    <flux:error name="create_franchise_expiry_date" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="flex justify-end">
@@ -839,6 +985,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 {{ $vehicle->total_seats }} seats
                                 @if(in_array($vehicle->vehicle_type, ['Bus', 'UV-express']) && $groupNumber) · Group {{ $groupNumber }} @endif
                                 · Registered {{ $vehicle->created_at->format('Y-m-d') }}
+                                @if($vehicle->driver_name) · Driver: {{ $vehicle->driver_name }} @endif
                             </p>
                         </div>
                     </div>
@@ -891,7 +1038,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 </div>
             </flux:modal>
 
-            {{-- Edit-vehicle modal --}}
+            {{-- Edit-vehicle modal (UPDATED with wire:key on date inputs) --}}
             <flux:modal name="edit-vehicle-{{ $vehicle->id }}" class="md:w-[28rem]"
                 x-on:vehicle-updated.window="if ($event.detail.id === {{ $vehicle->id }}) $flux.modal('edit-vehicle-{{ $vehicle->id }}').close()">
                 <div class="space-y-4">
@@ -922,31 +1069,79 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     <flux:select.option value="1">1</flux:select.option>
                                     <flux:select.option value="2">2</flux:select.option>
                                 </flux:select>
-                                @error("editingVehicles.{$vehicle->id}.group_number")
-                                    <p class="font-secondary text-xs text-red-500 dark:text-red-400 mt-1">{{ $message }}</p>
-                                @enderror
+                                <flux:error name="editingVehicles.{{ $vehicle->id }}.group_number" />
                             </div>
                         @endif
 
                         <div>
                             <flux:label class="mb-2 font-secondary text-md text-light-txt-primary dark:text-dark-txt-muted">Plate number</flux:label>
                             <flux:input wire:model="editingVehicles.{{ $vehicle->id }}.plate_number" size="sm" />
-                            @error("editingVehicles.{$vehicle->id}.plate_number")
-                                <p class="font-secondary text-xs text-red-500 dark:text-red-400 mt-1">{{ $message }}</p>
-                            @enderror
+                            <flux:error name="editingVehicles.{{ $vehicle->id }}.plate_number" />
                         </div>
 
                         <div>
                             <flux:label class="mb-2 font-secondary text-md text-light-txt-primary dark:text-dark-txt-muted">Total seats</flux:label>
                             <flux:input wire:model="editingVehicles.{{ $vehicle->id }}.total_seats" type="number" min="10" max="50" size="sm" />
-                            @error("editingVehicles.{$vehicle->id}.total_seats")
-                                <p class="font-secondary text-xs text-red-500 dark:text-red-400 mt-1">{{ $message }}</p>
-                            @enderror
+                            <flux:error name="editingVehicles.{{ $vehicle->id }}.total_seats" />
                         </div>
 
                         <div>
                             <flux:label class="mb-2 font-secondary text-md text-light-txt-primary dark:text-dark-txt-muted">Date registered</flux:label>
                             <flux:input value="{{ $vehicle->created_at->format('Y-m-d') }}" disabled size="sm" />
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <flux:label class="mb-2 font-secondary text-md text-light-txt-primary dark:text-dark-txt-muted">Dedicated driver</flux:label>
+                            <flux:input wire:model="editingVehicles.{{ $vehicle->id }}.driver_name" placeholder="e.g. Juan dela Cruz" size="sm" />
+                            <flux:error name="editingVehicles.{{ $vehicle->id }}.driver_name" />
+                        </div>
+
+                        <div class="sm:col-span-2 border-t border-light-bd-default dark:border-dark-bd-default pt-3 space-y-3">
+                            <p class="font-secondary text-xs font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Compliance documents</p>
+
+                            <div class="flex items-start gap-3">
+                                <flux:checkbox wire:model.live="editingVehicles.{{ $vehicle->id }}.has_or_cr" />
+                                <div class="flex-1 min-w-0 space-y-1">
+                                    <flux:label class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-primary">
+                                        OR/CR verified
+                                        <span class="ml-1 font-normal text-light-txt-muted dark:text-dark-txt-muted">(admin confirms document was seen)</span>
+                                    </flux:label>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
+                                        <flux:input
+                                            type="date"
+                                            wire:model="editingVehicles.{{ $vehicle->id }}.or_cr_expiry_date"
+                                            :disabled="!$this->editingVehicles[$vehicle->id]['has_or_cr']"
+                                            size="sm"
+                                            class="flex-1"
+                                            wire:key="edit-or-cr-{{ $vehicle->id }}-{{ $this->editingVehicles[$vehicle->id]['has_or_cr'] }}"
+                                        />
+                                    </div>
+                                    <flux:error name="editingVehicles.{{ $vehicle->id }}.or_cr_expiry_date" />
+                                </div>
+                            </div>
+
+                            <div class="flex items-start gap-3">
+                                <flux:checkbox wire:model.live="editingVehicles.{{ $vehicle->id }}.has_franchise" />
+                                <div class="flex-1 min-w-0 space-y-1">
+                                    <flux:label class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-primary">
+                                        Franchise verified
+                                        <span class="ml-1 font-normal text-light-txt-muted dark:text-dark-txt-muted">(admin confirms document was seen)</span>
+                                    </flux:label>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
+                                        <flux:input
+                                            type="date"
+                                            wire:model="editingVehicles.{{ $vehicle->id }}.franchise_expiry_date"
+                                            :disabled="!$this->editingVehicles[$vehicle->id]['has_franchise']"
+                                            size="sm"
+                                            class="flex-1"
+                                            wire:key="edit-franchise-{{ $vehicle->id }}-{{ $this->editingVehicles[$vehicle->id]['has_franchise'] }}"
+                                        />
+                                    </div>
+                                    <flux:error name="editingVehicles.{{ $vehicle->id }}.franchise_expiry_date" />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -969,6 +1164,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         @endforeach
     @endif
 
+    {{-- Address modal (with pre‑fill) --}}
     <flux:modal name="address-modal" class="md:w-[26rem]" x-on:address-saved.window="$flux.modal('address-modal').close()">
         <div class="space-y-4">
             <div>
@@ -976,7 +1172,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     Set address
                 </flux:heading>
                 <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                    All addresses are within Iriga City, Camarines Sur.
+                    Please provide the complete address within Camarines Sur.
                 </flux:text>
             </div>
 
@@ -1007,16 +1203,22 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </flux:field>
 
             <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Municipality / City</flux:label>
+                <flux:input
+                    wire:model="municipality"
+                    placeholder="e.g. Iriga City"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="municipality" />
+            </flux:field>
+
+            <flux:field>
                 <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Barangay</flux:label>
-                <flux:select
+                <flux:input
                     wire:model="barangay"
-                    placeholder="Select barangay"
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
-                >
-                    @foreach ($this->getBarangays as $brgy)
-                        <flux:select.option value="{{ $brgy }}">{{ $brgy }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                    placeholder="e.g. San Roque"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
                 <flux:error name="barangay" />
             </flux:field>
 
