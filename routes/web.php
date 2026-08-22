@@ -26,6 +26,7 @@ Route::controller(PublicController::class)->group(function () {
 });
 
 Route::livewire('/routes', 'pages::route-page')->name('route');
+Route::livewire('/feed', 'pages::feed')->name('feed');
 Route::livewire('/queue', 'pages::queue-page')->name('live.queue');
 Route::livewire('/help', 'pages::help-page')->name('help.center');
 
@@ -93,11 +94,11 @@ Route::middleware('auth')->group(function () {
         ->name('cashier.queue');
 
     Route::livewire('/cashier/queue/vehicle', 'pages::content-by-role.cashier.queue-vehicle')
-        ->middleware('role:cashier')
+        ->middleware('role:cashier,admin')
         ->name('cashier.queue.vehicle');
 
     Route::livewire('/cashier/active/group', 'pages::content-by-role.cashier.active-group')
-        ->middleware('role:cashier')
+        ->middleware('role:cashier,admin')
         ->name('cashier.active-group');
 
     //Operator Section
@@ -149,7 +150,6 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/setting/vehicle/type', 'pages::settings.vehicle-type-page')
         ->name('security.vehicle.type');
 
-    Route::livewire('/feed', 'pages::feed')->name('feed');
     Route::livewire('/feed/create', 'pages::create-post')->name('post.create');
     Route::livewire('/feed/archived', 'pages::archived-post')->name('post.archived');
     Route::livewire('/feed/my/posts', 'pages::my-posts')->name('post.my-posts');

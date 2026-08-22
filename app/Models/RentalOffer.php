@@ -22,6 +22,7 @@ class RentalOffer extends Model
         'available_from',
         'available_until',
         'metadata',
+        'trip_date'
     ];
 
     public function rentTransactions()

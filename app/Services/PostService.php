@@ -61,7 +61,13 @@ class PostService
     public function saveTripRequest(array $attributes) {
 
         DB::transaction(function () use ($attributes) {
-            TripRequest::create($attributes);
+            TripRequest::updateOrCreate(
+                [
+                    'post_id' => $attributes['post_id'],
+                    'user_id' => $attributes['user_id'],
+                ],
+                $attributes
+            );
         });
     }
 }
