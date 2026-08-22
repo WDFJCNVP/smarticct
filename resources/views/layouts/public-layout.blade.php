@@ -17,7 +17,7 @@
         <div class="flex-1 flex items-center gap-3 lg:gap-3 md:ml-4 lg:ml-6">
         <a href="/">
             <img
-                src="{{ asset('images/logo.png') }}"
+                src="{{ Vite::asset('resources/images/logo.png') }}"
                 alt="SmartICCT" 
                 class="h-9 w-auto lg:h-10"
             >
