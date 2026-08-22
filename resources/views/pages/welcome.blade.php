@@ -124,12 +124,12 @@
                     >
                         <div class="absolute inset-0 rounded-2xl shadow-2xl overflow-hidden"
                              style="backface-visibility:hidden;-webkit-backface-visibility:hidden;">
-                            <img src="{{ Vite::asset('resources/images/card_front.svg') }}" alt="Card front"
+                            <img src="{{ asset('images/card_front.svg') }}" alt="Card front"
                                  class="w-full h-full object-cover pointer-events-none" draggable="false">
                         </div>
                         <div class="absolute inset-0 rounded-2xl shadow-2xl overflow-hidden"
                              style="transform:rotateY(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;">
-                            <img src="{{ Vite::asset('resources/images/card_back.svg') }}" alt="Card back"
+                            <img src="{{ asset('images/card_back.svg') }}" alt="Card back"
                                  class="w-full h-full object-cover pointer-events-none" draggable="false">
                         </div>
                     </div>
@@ -401,7 +401,7 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
                 <div>
                     <div class="flex items-center gap-2 mb-3">
-                        <img src="{{ Vite::asset('resources/images/logo.png') }}" alt="SmartICCT" class="h-7 w-auto">
+                        <img src="{{ asset('images/logo.png') }}" alt="SmartICCT" class="h-7 w-auto">
                         <span class="font-primary text-lg font-bold !text-light-txt-primary dark:!text-dark-txt-primary">
                             SmartICCT
                         </span>

@@ -1,5 +1,5 @@
 <img 
-  src="{{ Vite::asset('resources/images/iriga-terminal.jpg') }}" 
+  src="{{ asset('images/iriga-terminal.jpg') }}" 
   class="absolute inset-0 w-full h-full object-cover"
   alt="Iriga Terminal">
 

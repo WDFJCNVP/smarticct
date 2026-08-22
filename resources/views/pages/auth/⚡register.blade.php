@@ -167,7 +167,7 @@ new #[Layout('layouts::public-layout')] class extends Component
     <div class="pointer-events-none absolute inset-x-0 top-0 flex justify-center" aria-hidden="true">
         <div class="relative w-[180%] sm:w-[120%] max-w-4xl h-[300px] sm:h-[360px] rounded-b-[50%] overflow-hidden shadow-lg">
             <img
-                src="{{ Vite::asset('resources/images/iriga-terminal.jpg') }}"
+                src="{{ asset('images/iriga-terminal.jpg') }}"
                 alt=""
                 class="absolute inset-0 h-full w-full object-cover scale-110"
             >

@@ -117,7 +117,7 @@ new #[Layout('layouts::public-layout')] class extends Component
         <div class="absolute inset-0 overflow-hidden">
             <a href="/">
                 <img
-                    src="{{ Vite::asset('resources/images/iriga-terminal.jpg') }}"
+                    src="{{ asset('images/iriga-terminal.jpg') }}"
                     alt="SmartICCT"
                     class="h-10 w-auto md:h-full scale-105 transition-transform duration-[20s] ease-in-out hover:scale-110"
                 >

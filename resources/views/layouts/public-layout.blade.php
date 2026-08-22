@@ -17,7 +17,7 @@
         <div class="flex-1 flex items-center gap-3 lg:gap-3 md:ml-4 lg:ml-6">
         <a href="/">
             <img
-                src="{{ Vite::asset('resources/images/logo.png') }}"
+                src="{{ asset('images/logo.png') }}"
                 alt="SmartICCT" 
                 class="h-9 w-auto lg:h-10"
             >
@@ -76,7 +76,7 @@
         <flux:sidebar.header>
             <flux:sidebar.brand
                 href="/"
-                logo="{{ Vite::asset('resources/images/logo.png') }}"
+                logo="{{ asset('images/logo.png') }}"
                 logo:dark="{{ asset('images/dark-mode-logo.png') }}"
                 name="SmartICCT"
             />
