@@ -38,7 +38,7 @@
         <flux:sidebar sticky collapsible="mobile" class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
             <flux:sidebar.header class="flex items-center justify-between gap-3 px-2 pb-2 w-full">
                 <a class="flex items-center gap-3 min-w-0" href="{{ route('cashier.dashboard') }}" wire:navigate>
-                    <img src="{{ asset('images/logo.png') }}" alt="SmartICCT"
+                    <img src="{{ Vite::asset('resources/images/logo.png') }}" alt="SmartICCT"
                          class="h-8 w-8 lg:h-14 lg:w-14 shrink-0 object-contain block">
                     <span class="font-primary text-xl lg:text-2xl font-extrabold text-light-txt-primary dark:text-dark-txt-primary tracking-tight truncate flex items-center">
                         SmartICCT

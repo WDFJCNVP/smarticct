@@ -21,12 +21,20 @@
     };
 @endphp
 
-<flux:card>
+<flux:card
+    class="!rounded-xl !border !border-light-bd-default dark:!border-dark-bd-default !bg-light-secondary dark:!bg-dark-secondary !shadow-sm"
+>
     <div class="flex items-start justify-between">
         <div class="flex items-center gap-3">
             <flux:avatar size="sm" name="{{ $post->user->name }}" />
             <div>
-                <x-text size="lg" variant="strong">{{ $post->user->name }}</x-text>
+                <div class="flex items-center gap-2">
+                    <x-text size="lg" variant="strong">{{ $post->user->name }}</x-text>
+                    {{-- ROLE BADGE --}}
+                    <flux:badge size="sm" color="gray" class="uppercase text-[10px] tracking-wide">
+                        {{ $post->user->role }}
+                    </flux:badge>
+                </div>
                 <div class="flex items-center gap-2 text-xs text-zinc-500">
                     <x-text size="sm" variant="subtle">{{ $post->created_at->diffForHumans(['short' => true]) }}</x-text>
                 </div>
@@ -69,14 +77,13 @@
                 {{ $post->metadata['to'] }}
             </flux:badge>
         @endif
-
     </div>
 
     <x-text size="lg" class="mt-3 block leading-relaxed" variant="strong">
         {{ $post->body }}
     </x-text>
 
-@if (!empty($post->metadata['attachments']))
+    @if (!empty($post->metadata['attachments']))
         @php
             $urls = array_map(fn($path) => Storage::url($path), $post->metadata['attachments']);
             $count = count($urls);
@@ -119,7 +126,7 @@
                 x-cloak
                 class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6"
                 @keydown.escape.window="open = false"
-                >
+            >
                 <div @click.outside="open = false" class="bg-white dark:bg-zinc-900 rounded-xl overflow-hidden max-w-lg w-full">
                     <div class="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-700">
                         <span class="text-sm text-zinc-500" x-text="(index + 1) + ' / ' + images.length"></span>
@@ -159,7 +166,9 @@
         </div>
     @endif
 
-    <div class="mt-3 flex items-center justify-between border-t pt-3 border-zinc-200 dark:border-zinc-700">
+    <div class="mt-3 flex items-center justify-between border-t pt-3 border-light-bd-default dark:border-dark-bd-default">
         {{ $footer ?? '' }}
     </div>
+
 </flux:card>
+

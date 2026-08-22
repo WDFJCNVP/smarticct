@@ -23,13 +23,13 @@
     --text-card-title:       1rem;       /* 16px */
     --text-nav-item:         0.875rem;   /* 14px */
     --text-stat-value:       1.75rem;    /* 28px */
-    --text-nav-label:        0.75rem;    /* 12px */
+    --text-nav-label:        0.8125rem;  /* 13px — bumped from 12px for legibility */
     --text-body:             1rem;       /* 16px */
     --text-table-row:        0.875rem;   /* 14px */
-    --text-stat-label:       0.875rem;   /* 14px */
+    --text-stat-label:       0.9375rem;  /* 15px — bumped from 14px for legibility */
     --text-badge:            0.8125rem;  /* 13px */
     --text-helper:           0.875rem;   /* 14px */
-    --text-timestamp:        0.8125rem;  /* 13px */
+    --text-timestamp:        0.875rem;   /* 14px — bumped from 13px for legibility */
     
     /* ── Font Weights ── */
     --font-weight-regular:   400;
@@ -41,8 +41,10 @@
     /* ── Brand Colors ── */
     --color-primary:         #181E74;
     --color-primary-hover:   #2330A8;
-    --color-secondary:       #FF6A00;
-    --color-secondary-hover: #FF8533;
+
+    /* SECONDARY: light mode = darker gold, dark mode = bright gold (set below in :root and .dark) */
+    --color-secondary:       #C5A028;      /* used in light mode */
+    --color-secondary-hover: #B8941F;
 
     /* ── Light Mode — Backgrounds ── */
     --color-light-primary:   #F5F6FA;
@@ -52,7 +54,11 @@
     /* ── Light Mode — Text ── */
     --color-light-txt-primary: #181E74;
     --color-light-txt-body:    #3D445C;
-    --color-light-txt-muted:   #8B90A7;
+
+    /* Muted text: darkened from #8B90A7 (~2.9:1 on white, fails WCAG AA) to
+       #5C6284 (~4.7:1 on white, passes AA for normal text). Same visual "muted"
+       role, but readable for older/low-vision users at small sizes. */
+    --color-light-txt-muted:   #5C6284;
 
     /* ── Light Mode — Borders ── */
     --color-light-bd-default:  #E2E4EF;
@@ -67,7 +73,9 @@
     /* ── Dark Mode — Text ── */
     --color-dark-txt-primary: #FFFFFF;
     --color-dark-txt-body:    #FFFFFFBF;
-    --color-dark-txt-muted:   #FFFFFF66;
+
+    /* Muted text: raised opacity from 40% to 55% white for the same contrast reasoning as light mode */
+    --color-dark-txt-muted:   #FFFFFF8C;
 
     /* ── Dark Mode — Borders ── */
     --color-dark-bd-default:  #FFFFFF12;
@@ -84,6 +92,12 @@
     --color-dark-warning:     #F59E0B;
     --color-dark-danger:      #F87171;
     --color-dark-info:        #60A5FA;
+}
+
+/* ── Override secondary for dark mode ── */
+.dark {
+    --color-secondary:       #FFD700;      /* bright gold on dark bg */
+    --color-secondary-hover: #FFC000;
 }
 
 @layer base {
@@ -113,5 +127,14 @@
     .dark h5,
     .dark h6 {
         color: var(--color-dark-txt-primary);
+    }
+}
+
+@layer utilities {
+    .text-gradient-radial {
+        background-image: radial-gradient(circle at center, #ffffff 0%, var(--color-secondary) 100%);
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
     }
 }
