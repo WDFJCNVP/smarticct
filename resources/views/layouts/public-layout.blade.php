@@ -18,7 +18,7 @@
         <a href="/">
             <img
                 src="{{ Vite::asset('resources/images/logo.png') }}"
-                alt="SmartICCT"
+                alt="SmartICCT" 
                 class="h-9 w-auto lg:h-10"
             >
         </a>
