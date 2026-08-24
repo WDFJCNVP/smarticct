@@ -256,6 +256,13 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         return 0;
     }
 
+    public function updatedRouteListId()
+    {
+        // Pre-fill from the vehicle's registered driver, but leave it editable —
+        // a different driver can show up for the same vehicle on a given day.
+        $this->driver_name = $this->selectedVehicle?->driver_name ?? '';
+    }
+
     public function selectOperator($id)
     {
         $operator = User::find($id);
@@ -264,6 +271,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             $this->operatorSearch = $operator->name;
             $this->route_list_id = null;
             $this->amount_received = null;
+            $this->driver_name = '';
         }
     }
 
@@ -371,27 +379,9 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 ?>
 
 <div>
-    <div class="mx-auto max-w-5xl px-4 sm:px-6 py-8">
 
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
-            <flux:breadcrumbs>
-                <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Live Queue</flux:breadcrumbs.item>
-                <flux:breadcrumbs.item>Queue Vehicle</flux:breadcrumbs.item>
-            </flux:breadcrumbs>
-
-            <flux:button
-                href="{{ route('user.queue') }}"
-                wire:navigate
-                variant="ghost"
-                icon="arrow-left"
-                size="sm"
-                class="font-secondary"
-            >
-                Back to Live Queue
-            </flux:button>
-        </div>
-
-        <div class="mb-6">
+    <div class="flex items-start justify-between gap-4 mb-6">
+        <div>
             <x-heading
                 size="xl"
                 class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
@@ -404,29 +394,35 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             </x-text>
         </div>
 
-        <x-card class="overflow-hidden">
+        <flux:breadcrumbs class="shrink-0 pt-1">
+            <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Back to Live Queue</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>Queue Vehicle</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
+    </div>
+
+        <x-card class="!p-0">
             <div @class([
                 'flex items-center gap-3 p-4 rounded-t-xl border-b',
-                'bg-blue-50 dark:bg-blue-950/40 border-blue-100 dark:border-blue-900'   => $card_state === 'ready',
-                'bg-green-50 dark:bg-green-950/40 border-green-100 dark:border-green-900' => $card_state === 'success',
-                'bg-red-50 dark:bg-red-950/40 border-red-100 dark:border-red-900'     => $card_state === 'warn',
+                'bg-primary/5 dark:bg-primary/10 border-primary/10 dark:border-primary/20'    => $card_state === 'ready',
+                'bg-success/10 dark:bg-dark-success/10 border-success/20 dark:border-dark-success/20' => $card_state === 'success',
+                'bg-danger/10 dark:bg-dark-danger/10 border-danger/20 dark:border-dark-danger/20'     => $card_state === 'warn',
             ])>
                 <flux:icon
                     :name="$card_state === 'success' ? 'check-circle' : ($card_state === 'warn' ? 'exclamation-triangle' : 'credit-card')"
                     @class([
                         'w-5 h-5 shrink-0',
-                        'text-blue-600 dark:text-blue-400'   => $card_state === 'ready',
-                        'text-green-600 dark:text-green-400' => $card_state === 'success',
-                        'text-red-600 dark:text-red-400'     => $card_state === 'warn',
+                        'text-primary dark:text-dark-txt-primary'      => $card_state === 'ready',
+                        'text-success dark:text-dark-success'          => $card_state === 'success',
+                        'text-danger dark:text-dark-danger'            => $card_state === 'warn',
                     ])
                 />
 
                 <div class="flex-1 min-w-0">
                     <p @class([
-                        'text-sm font-medium',
-                        'text-blue-900 dark:text-blue-100'   => $card_state === 'ready',
-                        'text-green-900 dark:text-green-100' => $card_state === 'success',
-                        'text-red-900 dark:text-red-100'     => $card_state === 'warn',
+                        'font-secondary text-sm font-medium',
+                        'text-light-txt-primary dark:text-dark-txt-primary' => $card_state === 'ready',
+                        'text-success dark:text-dark-success'                => $card_state === 'success',
+                        'text-danger dark:text-dark-danger'                  => $card_state === 'warn',
                     ])>
                         @if($card_state === 'ready') Get your RFID card ready
                         @elseif($card_state === 'success') Card scanned successfully
@@ -434,10 +430,10 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                         @endif
                     </p>
                     <p @class([
-                        'text-xs',
-                        'text-blue-600 dark:text-blue-300'   => $card_state === 'ready',
-                        'text-green-600 dark:text-green-300' => $card_state === 'success',
-                        'text-red-600 dark:text-red-300'     => $card_state === 'warn',
+                        'font-secondary text-xs',
+                        'text-light-txt-muted dark:text-dark-txt-muted' => $card_state === 'ready',
+                        'text-success/80 dark:text-dark-success/80'     => $card_state === 'success',
+                        'text-danger/80 dark:text-dark-danger/80'       => $card_state === 'warn',
                     ])>
                         @if($card_state === 'ready')
                             Hold the card near the reader — the number fills in automatically
@@ -451,7 +447,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
                 @if($card_state === 'success')
                     <button wire:click="clearCard"
-                        class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition shrink-0"
+                        class="text-light-txt-muted hover:text-light-txt-primary dark:text-dark-txt-muted dark:hover:text-dark-txt-primary transition shrink-0"
                         aria-label="Scan a different card">
                         <flux:icon name="x-mark" class="w-5 h-5" />
                     </button>
@@ -462,7 +458,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 <div class="flex flex-col sm:flex-row sm:items-end gap-4">
                     <div class="flex-1 min-w-[200px]">
                         <flux:field>
-                            <flux:label class="flex items-center gap-1.5 text-xs">
+                            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary flex items-center gap-1.5">
                                 <flux:icon name="credit-card" class="w-3.5 h-3.5" />
                                 Card UID
                             </flux:label>
@@ -473,7 +469,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                                 wire:blur="cardBlurred"
                                 placeholder="Tap your card on the reader..."
                                 autocomplete="off"
-                                class="font-mono tracking-widest"
+                                class="font-mono tracking-widest mt-1"
                                 autofocus
                                 :disabled="$cashMode"
                             />
@@ -497,9 +493,9 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                             @if($cashMode)
                                 <flux:button
                                     wire:click="disableCashMode"
-                                    variant="ghost"
+                                    variant="danger"
                                     size="sm"
-                                    class="bg-red-500! font-secondary text-white! dark:text-red-400"
+                                    class="font-secondary"
                                 >
                                     Cancel Cash
                                 </flux:button>
@@ -509,29 +505,31 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 </div>
 
                 @if($cashMode)
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-light-bd-default dark:border-dark-bd-default">
                         <flux:field class="pt-4">
-                            <flux:label class="text-xs">Search Operator</flux:label>
+                            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
+                                Search Operator
+                            </flux:label>
                             <div class="relative">
                                 <x-input
                                     wire:model.live.debounce.300ms="operatorSearch"
                                     placeholder="Type operator name..."
-                                    class="w-full"
+                                    class="w-full mt-1"
                                     autocomplete="off"
                                 />
                                 @if(!empty($this->operatorSearch) && is_null($this->cash_operator_id))
-                                    <div class="absolute z-10 w-full mt-1 bg-white dark:bg-dark-secondary border border-zinc-200 dark:border-dark-bd-default rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                    <div class="absolute z-20 w-full mt-1 bg-light-secondary dark:bg-dark-subtle border border-light-bd-strong dark:border-dark-bd-strong rounded-lg shadow-xl max-h-48 overflow-y-auto">
                                         @if($this->filteredOperators->count())
                                             @foreach($this->filteredOperators as $op)
                                                 <div
                                                     wire:click="selectOperator({{ $op->id }})"
-                                                    class="px-3 py-2 hover:bg-zinc-100 dark:hover:bg-dark-subtle cursor-pointer text-sm text-zinc-700 dark:text-zinc-200"
+                                                    class="px-3 py-2 hover:bg-light-subtle dark:hover:bg-dark-primary cursor-pointer font-secondary text-sm text-light-txt-body dark:text-dark-txt-body"
                                                 >
                                                     {{ $op->name }}
                                                 </div>
                                             @endforeach
                                         @else
-                                            <div class="px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400">No operator found.</div>
+                                            <div class="px-3 py-2 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">No operator found.</div>
                                         @endif
                                     </div>
                                 @endif
@@ -539,16 +537,18 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                         </flux:field>
 
                         <flux:field class="pt-4">
-                            <flux:label class="text-xs">Amount Received</flux:label>
+                            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
+                                Amount Received
+                            </flux:label>
                             <div class="relative">
-                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-400 dark:text-zinc-500">₱</span>
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 mt-1 text-light-txt-muted dark:text-dark-txt-muted">₱</span>
                                 <x-input
                                     wire:model.live.debounce.300ms="amount_received"
                                     type="number"
                                     step="0.01"
                                     min="0"
                                     placeholder="0.00"
-                                    class="pl-7"
+                                    class="pl-7 mt-1"
                                 />
                             </div>
                         </flux:field>
@@ -561,143 +561,160 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
                 <div class="lg:col-span-2 space-y-6">
-                    <x-card>
-                        <div>
-                            <x-pages-heading class="mt-0!">
+                    <x-card class="!p-0 overflow-hidden">
+                        <div class="px-4 sm:px-5 py-3 border-b border-light-bd-default dark:border-dark-bd-default bg-light-secondary/50 dark:bg-dark-secondary/50">
+                            <h3 class="font-primary text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
                                 Operator's Details
-                            </x-pages-heading>
+                            </h3>
+                        </div>
 
-                            <div class="grid grid-cols-1 mt-5! sm:grid-cols-2 gap-4">
-                                <flux:field>
-                                    <flux:label class="text-xs flex items-center gap-1.5 mb-2">
-                                        Operator name
-                                        <span class="text-zinc-400 dark:text-zinc-500 font-normal">· {{ $cashMode ? 'selected' : 'from card' }}</span>
-                                    </flux:label>
-                                    <div class="flex items-center gap-2 h-9 px-3 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
-                                        <flux:icon name="user" class="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                                        <span class="text-sm text-zinc-700 dark:text-zinc-200 truncate">{{ $this->selectedOperator->name }}</span>
-                                    </div>
-                                </flux:field>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:p-5">
+                            <flux:field>
+                                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary flex items-center gap-1.5 mb-2">
+                                    Operator name
+                                    <span class="text-light-txt-muted dark:text-dark-txt-muted font-normal">&middot; {{ $cashMode ? 'selected' : 'from card' }}</span>
+                                </flux:label>
+                                <div class="flex items-center gap-2 h-9 px-3 rounded-lg bg-light-subtle dark:bg-dark-subtle border border-light-bd-default dark:border-dark-bd-default">
+                                    <flux:icon name="user" class="w-3.5 h-3.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0" />
+                                    <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body truncate">{{ $this->selectedOperator->name }}</span>
+                                </div>
+                            </flux:field>
 
-                                <flux:field>
-                                    <flux:label class="text-xs mb-2">Driver name</flux:label>
-                                    <x-input wire:model="driver_name" placeholder="Enter driver's name" class="h-9" />
-                                </flux:field>
-                            </div>
+                            <flux:field>
+                                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary mb-2">
+                                    Driver name
+                                    <span class="text-light-txt-muted dark:text-dark-txt-muted font-normal">
+                                        &middot; {{ ! $this->selectedVehicle ? 'select a vehicle first' : ($this->selectedVehicle->driver_name ? 'from vehicle record, editable' : 'no driver on file') }}
+                                    </span>
+                                </flux:label>
+                                <x-input
+                                    wire:model="driver_name"
+                                    placeholder="{{ $this->selectedVehicle ? 'Enter driver\'s name' : 'Select a vehicle to enable this field' }}"
+                                    size="sm"
+                                    :disabled="!$this->selectedVehicle"
+                                />
+                            </flux:field>
                         </div>
                     </x-card>
 
-                    <x-card>
-                        <div>
-                            <x-pages-heading class="!mt-0">
+                    <x-card class="!p-0 overflow-hidden">
+                        <div class="px-4 sm:px-5 py-3 border-b border-light-bd-default dark:border-dark-bd-default bg-light-secondary/50 dark:bg-dark-secondary/50">
+                            <h3 class="font-primary text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
                                 Vehicles
-                            </x-pages-heading>
-
-                            <flux:radio.group wire:model.live="route_list_id" class="mt-5! flex flex-col gap-2 w-full">
-                                @forelse ($this->selectedOperator->vehicles as $vehicle)
-                                    <label @class([
-                                        'flex items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer transition',
-                                        'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/40' => (string) $route_list_id === (string) $vehicle->id,
-                                        'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' => (string) $route_list_id !== (string) $vehicle->id,
-                                    ])>
-                                        <div class="min-w-0">
-                                            <p @class([
-                                                'text-sm font-medium truncate',
-                                                'text-blue-900 dark:text-blue-100' => (string) $route_list_id === (string) $vehicle->id,
-                                            ])>
-                                                {{ $vehicle->vehicle_type ?? 'Unknown Vehicle' }} · {{ $vehicle->plate_number ?? 'No Plate' }}
-                                            </p>
-                                            <p @class([
-                                                'text-xs mt-0.5 truncate',
-                                                'text-blue-600 dark:text-blue-300' => (string) $route_list_id === (string) $vehicle->id,
-                                                'text-zinc-500 dark:text-zinc-400' => (string) $route_list_id !== (string) $vehicle->id,
-                                            ])>
-                                                Iriga Terminal to {{ $vehicle->route_list?->terminal ?? 'N/A' }}
-                                            </p>
-                                        </div>
-                                        <flux:radio value="{{ $vehicle->id }}" class="shrink-0" />
-                                    </label>
-                                @empty
-                                    <p class="text-xs text-zinc-400 py-4 text-center">This operator has no vehicles.</p>
-                                @endforelse
-                            </flux:radio.group>
+                            </h3>
                         </div>
+
+                        <flux:radio.group wire:model.live="route_list_id" class="flex flex-col gap-2 w-full p-4 sm:p-5">
+                            @forelse ($this->selectedOperator->vehicles as $vehicle)
+                                <label @class([
+                                    'flex items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer transition',
+                                    'border-primary/30 bg-primary/5 dark:border-primary/40 dark:bg-primary/10' => (string) $route_list_id === (string) $vehicle->id,
+                                    'border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' => (string) $route_list_id !== (string) $vehicle->id,
+                                ])>
+                                    <div class="min-w-0">
+                                        <p @class([
+                                            'font-secondary text-sm font-medium truncate',
+                                            'text-light-txt-primary dark:text-dark-txt-primary' => (string) $route_list_id === (string) $vehicle->id,
+                                            'text-light-txt-body dark:text-dark-txt-body' => (string) $route_list_id !== (string) $vehicle->id,
+                                        ])>
+                                            {{ $vehicle->vehicle_type ?? 'Unknown Vehicle' }} &middot; {{ $vehicle->plate_number ?? 'No Plate' }}
+                                        </p>
+                                        <p @class([
+                                            'font-secondary text-xs mt-0.5 truncate',
+                                            'text-light-txt-muted dark:text-dark-txt-muted',
+                                        ])>
+                                            Iriga Terminal to {{ $vehicle->route_list?->terminal ?? 'N/A' }}
+                                        </p>
+                                    </div>
+                                    <flux:radio value="{{ $vehicle->id }}" class="shrink-0" />
+                                </label>
+                            @empty
+                                <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted py-4 text-center">This operator has no vehicles.</p>
+                            @endforelse
+                        </flux:radio.group>
                     </x-card>
                 </div>
 
                 <div class="lg:col-span-1 lg:sticky lg:top-4 space-y-4">
-                    <x-card>
-                        <div>
-                        <x-pages-heading class="mt-0!">
-                            Summary
-                        </x-pages-heading>
-
-                        <div class="border-t mt-5! border-zinc-100 dark:border-zinc-800 pt-3">
-                            @if ($this->selectedVehicle)
-                                <table class="w-full text-sm">
-                                    <tbody>
-                                        <tr>
-                                            <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Plate no.</td>
-                                            <td class="text-right font-medium py-1.5">{{ $this->selectedVehicle->plate_number }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Vehicle type</td>
-                                            <td class="text-right py-1.5">{{ $this->selectedVehicle->vehicle_type }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Route</td>
-                                            <td class="text-right py-1.5">Iriga → {{ $this->selectedVehicle->route_list?->terminal ?? 'N/A' }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Driver</td>
-                                            <td class="text-right py-1.5">{{ $driver_name ?: '—' }}</td>
-                                        </tr>
-                                        @if($cashMode)
-                                            <tr>
-                                                <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Queue fee</td>
-                                                <td class="text-right font-medium py-1.5">₱{{ number_format($this->queueFee, 2) }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Amount received</td>
-                                                <td class="text-right py-1.5">{{ $this->amount_received ? '₱'.number_format($this->amount_received, 2) : '—' }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td class="text-zinc-500 dark:text-zinc-400 py-1.5">Change</td>
-                                                <td class="text-right font-semibold text-green-600 dark:text-green-400 py-1.5">₱{{ number_format($this->change, 2) }}</td>
-                                            </tr>
-                                        @endif
-                                        <tr class="border-t border-zinc-100 dark:border-zinc-800">
-                                            <td class="text-zinc-500 dark:text-zinc-400 pt-3">Tickets price</td>
-                                            <td class="text-right font-semibold text-base pt-3">
-                                                ₱{{ number_format($this->selectedVehicle->route_list?->operatorTicketRate?->queueing_fee ?? 0, 2) }}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            @else
-                                <div class="flex flex-col items-center justify-center py-6 text-center text-zinc-400 dark:text-zinc-500">
-                                    <flux:icon name="cursor-arrow-rays" class="w-8 h-8 mb-2 stroke-1" />
-                                    <p class="text-xs">Select a vehicle to see its breakdown</p>
-                                </div>
-                            @endif
+                    <x-card class="!p-0 overflow-hidden">
+                        <div class="px-4 sm:px-5 py-3 border-b border-light-bd-default dark:border-dark-bd-default bg-light-secondary/50 dark:bg-dark-secondary/50">
+                            <h3 class="font-primary text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                                Summary
+                            </h3>
                         </div>
 
-                        <x-button
-                            size="sm"
-                            class="mt-4 w-full"
-                            :disabled="!$this->selectedVehicle"
-                            wire:click="queueVehicle"
-                        >
-                            Queue this vehicle
-                        </x-button>
+                        <div class="p-4 sm:p-5">
+                            @if ($this->selectedVehicle)
+                                <div class="divide-y divide-light-bd-default dark:divide-dark-bd-default font-secondary text-sm">
+                                    <div class="flex items-center justify-between py-1.5">
+                                        <span class="text-light-txt-muted dark:text-dark-txt-muted">Plate no.</span>
+                                        <span class="font-medium text-light-txt-primary dark:text-dark-txt-primary">{{ $this->selectedVehicle->plate_number }}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between py-1.5">
+                                        <span class="text-light-txt-muted dark:text-dark-txt-muted">Vehicle type</span>
+                                        <span class="text-light-txt-body dark:text-dark-txt-body">{{ $this->selectedVehicle->vehicle_type }}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between py-1.5">
+                                        <span class="text-light-txt-muted dark:text-dark-txt-muted">Route</span>
+                                        <span class="text-light-txt-body dark:text-dark-txt-body">Iriga &rarr; {{ $this->selectedVehicle->route_list?->terminal ?? 'N/A' }}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between py-1.5">
+                                        <span class="text-light-txt-muted dark:text-dark-txt-muted">Driver</span>
+                                        <span class="text-light-txt-body dark:text-dark-txt-body">{{ $driver_name ?: '—' }}</span>
+                                    </div>
+                                    @if($cashMode)
+                                        <div class="flex items-center justify-between py-1.5">
+                                            <span class="text-light-txt-muted dark:text-dark-txt-muted">Queue fee</span>
+                                            <span class="font-medium text-light-txt-primary dark:text-dark-txt-primary">₱{{ number_format($this->queueFee, 2) }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between py-1.5">
+                                            <span class="text-light-txt-muted dark:text-dark-txt-muted">Amount received</span>
+                                            <span class="text-light-txt-body dark:text-dark-txt-body">{{ $this->amount_received ? '₱'.number_format($this->amount_received, 2) : '—' }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between py-1.5">
+                                            <span class="text-light-txt-muted dark:text-dark-txt-muted">Change</span>
+                                            <span class="font-semibold text-success dark:text-dark-success">₱{{ number_format($this->change, 2) }}</span>
+                                        </div>
+                                    @endif
+                                    <div class="flex items-center justify-between pt-3">
+                                        <span class="text-light-txt-muted dark:text-dark-txt-muted">Tickets price</span>
+                                        <span class="font-semibold text-base text-light-txt-primary dark:text-dark-txt-primary">
+                                            ₱{{ number_format($this->selectedVehicle->route_list?->operatorTicketRate?->queueing_fee ?? 0, 2) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="flex flex-col items-center justify-center py-6 text-center text-light-txt-muted dark:text-dark-txt-muted">
+                                    <flux:icon name="cursor-arrow-rays" class="w-8 h-8 mb-2 stroke-1" />
+                                    <x-text variant="subtle" class="!font-secondary" style="font-size: var(--text-timestamp)">Select a vehicle to see its breakdown</x-text>
+                                </div>
+                            @endif
+
+                            <x-button
+                                variant="primary"
+                                size="sm"
+                                class="mt-4 w-full !font-secondary"
+                                :disabled="!$this->selectedVehicle"
+                                wire:click="queueVehicle"
+                            >
+                                Queue this vehicle
+                            </x-button>
                         </div>
                     </x-card>
                 </div>
 
             </div>
+        @else
+            <x-card class="!rounded-xl !border !border-dashed !border-light-bd-strong dark:!border-dark-bd-strong !bg-light-secondary dark:!bg-dark-secondary !text-center !p-8 mt-6">
+                <flux:icon name="identification" class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
+                <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
+                    No operator selected yet.
+                </x-text>
+                <x-text variant="subtle" class="!font-secondary block mt-1" style="font-size: var(--text-timestamp)">
+                    Tap an operator's RFID card, or use "Pay with Cash" to search for one.
+                </x-text>
+            </x-card>
         @endif
-
-    </div>
 
     <flux:modal wire:model.live="showCommuterAlert" class="max-w-sm">
         <div class="space-y-4">
@@ -705,9 +722,9 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 <flux:heading size="lg">Invalid Card</flux:heading>
                 <flux:subheading>This card belongs to a commuter.</flux:subheading>
             </div>
-            <p class="text-sm text-zinc-600 dark:text-zinc-300">
-                Only operator cards can be used for queue payments. Please scan an operator card or use the <strong>Pay with Cash</strong> option.
-            </p>
+            <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
+                Only operator cards can be used for queue payments. Please scan an operator card or use the <strong class="text-light-txt-primary dark:text-dark-txt-primary">Pay with Cash</strong> option.
+            </x-text>
             <div class="flex justify-end">
                 <flux:button wire:click="$set('showCommuterAlert', false)" variant="primary">
                     Got it
@@ -719,12 +736,12 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     <flux:modal wire:model.live="showInsufficientAmountAlert" class="max-w-sm">
         <div class="space-y-4">
             <div>
-                <flux:heading size="lg" class="text-red-600 dark:text-red-400">Insufficient Amount</flux:heading>
+                <flux:heading size="lg" class="!text-danger dark:!text-dark-danger">Insufficient Amount</flux:heading>
                 <flux:subheading>Amount received is less than the queue fee.</flux:subheading>
             </div>
-            <p class="text-sm text-zinc-600 dark:text-zinc-300">
-                The queue fee is <strong>₱{{ number_format($this->queueFee, 2) }}</strong>. Please enter an amount equal to or greater than the fee.
-            </p>
+            <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
+                The queue fee is <strong class="text-light-txt-primary dark:text-dark-txt-primary">₱{{ number_format($this->queueFee, 2) }}</strong>. Please enter an amount equal to or greater than the fee.
+            </x-text>
             <div class="flex justify-end">
                 <flux:button wire:click="$set('showInsufficientAmountAlert', false)" variant="primary">
                     Got it

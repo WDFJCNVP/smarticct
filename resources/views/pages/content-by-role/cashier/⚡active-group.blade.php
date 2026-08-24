@@ -30,11 +30,25 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         return $first && $first->status === 'staging';
     }
 
+    #[Computed]
+    public function groupStats()
+    {
+        $group = $this->getCurrentActiveGroup;
+
+        return [
+            'total'    => $group->count(),
+            'loading'  => $group->where('status', 'loading')->count(),
+            'waiting'  => $group->where('status', 'staging')->count(),
+            'departed' => $group->where('status', 'departed')->count(),
+        ];
+    }
+
     #[On('echo:vehicle-queue,.QueuedVehicleEvent')]
     public function refresh(): void
     {
         unset($this->getCurrentActiveGroup);
         unset($this->canAdvanceQueue);
+        unset($this->groupStats);
     }
 
     public function nextVehicle(): void
@@ -48,7 +62,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         }
 
         $result = app(QueueOrderService::class)->sendToBackOfQueue($firstWaitingVehicle->id);
-        
+
         if ($result['success'] === false) {
             Flux::toast(
                 variant: 'warning',
@@ -67,58 +81,126 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 text: "{$firstWaitingVehicle->plate_number} has been demoted.",
             );
         }
-
-        // dd($result);
     }
-
-    // public function mount() {
-    //     dd($this->getCurrentActiveGroup);
-    // }
 };
 ?>
 
 <div class="flex flex-col h-full">
+    <div class="shrink-0">
 
-    <flux:breadcrumbs class="mb-6">
-        <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Live Queue</flux:breadcrumbs.item>
-        <flux:breadcrumbs.item>Active Groups</flux:breadcrumbs.item>
-    </flux:breadcrumbs>
+        <div class="flex items-start justify-between gap-4 mb-6">
+            <div>
+                <x-heading
+                    size="xl"
+                    class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+                    style="font-size: var(--text-page-title)"
+                >
+                    Current Active Group
+                </x-heading>
+                <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
+                    Manage queue order and advance the next vehicle for today's schedule.
+                </x-text>
+            </div>
 
-    <div class="shrink-0 px-6 pb-4">
-        <x-pages-heading heading="Current active group" description="Manage queue order and advance the next vehicle here." />
+            <flux:breadcrumbs class="shrink-0 pt-1">
+                <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Back to Live Queue</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item>Active Groups</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
+
+        {{-- Overview stats --}}
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6">
+            <flux:card class="p-3 sm:p-4">
+                <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">
+                    <div class="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/10 dark:bg-primary/20 shrink-0">
+                        <flux:icon.truck class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary dark:text-dark-txt-primary" />
+                    </div>
+                    <x-text class="font-secondary text-xs sm:text-stat-label text-light-txt-muted dark:text-dark-txt-muted">
+                        In group
+                    </x-text>
+                </div>
+                <x-text class="font-primary text-stat-value font-bold text-light-txt-primary dark:text-dark-txt-primary block">
+                    {{ $this->groupStats['total'] }}
+                </x-text>
+            </flux:card>
+
+            <flux:card class="p-3 sm:p-4">
+                <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">
+                    <div class="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-success/10 dark:bg-dark-success/20 shrink-0">
+                        <flux:icon.clock class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-success dark:text-dark-success" />
+                    </div>
+                    <x-text class="font-secondary text-xs sm:text-stat-label text-light-txt-muted dark:text-dark-txt-muted">
+                        Boarding
+                    </x-text>
+                </div>
+                <x-text class="font-primary text-stat-value font-bold text-success dark:text-dark-success block">
+                    {{ $this->groupStats['loading'] }}
+                </x-text>
+            </flux:card>
+
+            <flux:card class="p-3 sm:p-4">
+                <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">
+                    <div class="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-warning/10 dark:bg-dark-warning/20 shrink-0">
+                        <flux:icon.users class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-warning dark:text-dark-warning" />
+                    </div>
+                    <x-text class="font-secondary text-xs sm:text-stat-label text-light-txt-muted dark:text-dark-txt-muted">
+                        Waiting
+                    </x-text>
+                </div>
+                <x-text class="font-primary text-stat-value font-bold text-warning dark:text-dark-warning block">
+                    {{ $this->groupStats['waiting'] }}
+                </x-text>
+            </flux:card>
+
+            <flux:card class="p-3 sm:p-4">
+                <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">
+                    <div class="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-light-subtle dark:bg-dark-subtle shrink-0">
+                        <flux:icon.check-circle class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-light-txt-muted dark:text-dark-txt-muted" />
+                    </div>
+                    <x-text class="font-secondary text-xs sm:text-stat-label text-light-txt-muted dark:text-dark-txt-muted">
+                        Departed
+                    </x-text>
+                </div>
+                <x-text class="font-primary text-stat-value font-bold text-light-txt-primary dark:text-dark-txt-primary block">
+                    {{ $this->groupStats['departed'] }}
+                </x-text>
+            </flux:card>
+        </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto px-6 py-2 space-y-2">
+    <div class="flex-1 overflow-y-auto space-y-2">
 
         @forelse ($this->getCurrentActiveGroup as $index => $vehicle)
 
             @php
                 $status   = $vehicle->status;
                 $isActive = $status === 'loading';
-                
-                $cardClasses = $isActive 
-                    ? 'ring-1 ring-blue-300 dark:ring-blue-700 border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950' 
-                    : ($status === 'departed' || $status === 'skipped' ? 'opacity-50' : '');
+                $isFirst  = $index === 0;
 
-                if ($index === 0) {
-                    $cardClasses .= ' border-2 border-emerald-500 dark:border-emerald-400 shadow-md'; 
-                   
+                $cardClasses = match(true) {
+                    $isActive => 'ring-1 ring-primary/30 dark:ring-primary/40 !border-primary/30 dark:!border-primary/40 !bg-primary/5 dark:!bg-primary/10',
+                    in_array($status, ['departed', 'skipped']) => 'opacity-60',
+                    default => '',
+                };
+
+                if ($isFirst) {
+                    $cardClasses .= ' !border-2 !border-success dark:!border-dark-success shadow-md';
                 }
             @endphp
 
             <flux:card
                 wire:key="vehicle-{{ $vehicle->id }}"
                 size="sm"
-                :class="$cardClasses"
+                class="{{ $cardClasses }}"
             >
                 <div class="flex items-center gap-3">
 
                     {{-- Position / status icon --}}
                     <div @class([
-                        'rounded-full flex items-center justify-center font-semibold shrink-0',
-                        'w-8 h-8 text-sm bg-blue-500 text-white'                                        => $isActive,
-                        'w-7 h-7 text-xs bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'  => $status === 'waiting',
-                        'w-7 h-7 text-xs bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'  => $status === 'departed' || $status === 'skipped',
+                        'rounded-full flex items-center justify-center font-secondary font-semibold shrink-0',
+                        'w-8 h-8 text-sm bg-primary text-white'                                                              => $isActive,
+                        'w-7 h-7 text-xs bg-light-subtle text-light-txt-muted dark:bg-dark-subtle dark:text-dark-txt-muted'  => $status === 'staging',
+                        'w-7 h-7 text-xs bg-light-subtle text-light-txt-muted/60 dark:bg-dark-subtle dark:text-dark-txt-muted/60' => in_array($status, ['departed', 'skipped']),
                     ])>
                         @if ($status === 'departed')
                             <flux:icon name="check" class="w-3.5 h-3.5" />
@@ -131,22 +213,24 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
                     {{-- Vehicle info --}}
                     <div class="flex-1 min-w-0">
-                        <flux:text
-                            variant="strong"
-                            class="font-mono tracking-wide {{ $isActive ? 'text-base text-blue-900 dark:text-blue-100' : 'text-sm' }}"
-                        >
-                            {{ $vehicle->plate_number }}
-                        </flux:text>
-                        <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500 block">
-                            {{ $vehicle->driver_name ?: '—' }} · {{ $vehicle->vehicle_type }} · {{ $vehicle->destination }}
-                        </flux:text>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono tracking-widest font-semibold text-light-txt-primary dark:text-dark-txt-primary {{ $isActive ? 'text-base' : 'text-sm' }}">
+                                {{ $vehicle->plate_number }}
+                            </span>
+                            @if ($isFirst)
+                                <flux:badge size="sm" color="green" class="font-secondary text-xs">Up next</flux:badge>
+                            @endif
+                        </div>
+                        <span class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted block">
+                            {{ $vehicle->driver_name ?: '—' }} &middot; {{ $vehicle->vehicle_type }} &middot; {{ $vehicle->destination }}
+                        </span>
                     </div>
 
                     {{-- Status badge --}}
                     <flux:badge size="sm" :color="match($status) {
-                        'loading'  => 'blue',
-                        'waiting'  => 'zinc',
-                        'departed' => 'green',
+                        'loading'  => 'green',
+                        'staging'  => 'orange',
+                        'departed' => 'zinc',
                         'skipped'  => 'red',
                         default    => 'zinc',
                     }">
@@ -157,37 +241,37 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             </flux:card>
 
         @empty
-            <div class="flex flex-col items-center justify-center py-16 text-center text-zinc-400 dark:text-zinc-500">
-                <flux:icon name="calendar" class="w-8 h-8 mb-2 stroke-1" />
-                <flux:text size="sm">No active group scheduled for today.</flux:text>
-            </div>
+            <x-card class="!rounded-xl !border !border-dashed !border-light-bd-strong dark:!border-dark-bd-strong !bg-light-secondary dark:!bg-dark-secondary !text-center !p-8">
+                <flux:icon name="calendar" class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
+                <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
+                    No active group scheduled for today.
+                </x-text>
+            </x-card>
         @endforelse
 
     </div>
 
     @if ($this->canAdvanceQueue)
-        @php 
-
-        $next = $this->getCurrentActiveGroup->where('status', 'staging')->first(); 
-
+        @php
+            $next = $this->getCurrentActiveGroup->where('status', 'staging')->first();
         @endphp
 
-        <div class="shrink-0 border-t border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-6 py-3">
+        <div class="shrink-0 border-t border-light-bd-default dark:border-dark-bd-default bg-light-secondary/50 dark:bg-dark-secondary/50 py-3">
             <flux:card size="sm" class="flex items-center gap-3">
 
                 <div class="flex-1 min-w-0">
-                    <flux:text size="sm" class="uppercase tracking-widest text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 block mb-0.5">
+                    <x-text class="font-secondary uppercase tracking-widest text-[10px] font-semibold text-light-txt-muted dark:text-dark-txt-muted block mb-0.5">
                         Up next
-                    </flux:text>
-                    <flux:text variant="strong" class="font-mono tracking-wide">
+                    </x-text>
+                    <span class="font-mono tracking-widest font-semibold text-light-txt-primary dark:text-dark-txt-primary block">
                         {{ $next->plate_number }}
-                    </flux:text>
-                    <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500 block">
-                        {{ $next->driver_name ?: '—' }} · {{ $next->vehicle_type }} · {{ $next->destination }}
-                    </flux:text>
+                    </span>
+                    <span class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted block">
+                        {{ $next->driver_name ?: '—' }} &middot; {{ $next->vehicle_type }} &middot; {{ $next->destination }}
+                    </span>
                 </div>
 
-                <flux:button wire:click="nextVehicle" icon="arrow-right" variant="primary" size="sm">
+                <flux:button wire:click="nextVehicle" icon="arrow-right" variant="primary" size="sm" class="font-secondary">
                     Next
                 </flux:button>
 
