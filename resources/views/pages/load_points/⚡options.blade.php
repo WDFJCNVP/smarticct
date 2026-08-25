@@ -79,6 +79,14 @@ new #[Layout('components.dashboard.operator-dashboard')]class extends Component
         if ($response->failed()) {
             $topUp->update(['status' => 'failed']);
             session()->flash('error', 'PayMongo Connection Error.');
+
+            Flux::toast(
+                duration: 0,
+                variant: 'danger',
+                heading: 'Top-up failed',
+                text: 'Could not connect to the payment provider. Please try again.',
+            );
+
             return;
         }
 

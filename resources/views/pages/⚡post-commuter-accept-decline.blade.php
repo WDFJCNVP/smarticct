@@ -12,6 +12,13 @@ new class extends Component
     public function cancelThisTransaction() {
         $this->this_operator->update(['status' => 'cancel']);
         $this->this_operator->post->update(['status' => 'published']);
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Transaction cancelled',
+            text: 'The transaction has been cancelled and the post is published again.',
+        );
     }
 
     public function confirmCancel() {
@@ -22,6 +29,13 @@ new class extends Component
     public function acceptThisOperator() {
         $this->this_operator->update(['status' => 'accept']);
         $this->this_operator->post->update(['status' => 'rented']);
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Operator accepted',
+            text: 'You have accepted this operator for the rental.',
+        );
     }
 
     public function acceptOperatorRequest() {

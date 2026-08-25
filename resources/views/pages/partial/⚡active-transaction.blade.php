@@ -85,9 +85,21 @@ new class extends Component
             return;
         }
 
-        $this->getActiveTransactionRecord->update(['status' => 'completed']);
-        $tripRequest = TripRequest::where('id', $this->getActiveTransactionRecord->trip_request_id)->update(['status' => 'completed']);
-        
+        $activeTransactionRecord = $this->getActiveTransactionRecord;
+        $post = $this->post;
+
+        $activeTransactionRecord->update(['status' => 'completed']);
+        $tripRequest = TripRequest::where('id', $activeTransactionRecord->trip_request_id)->update(['status' => 'completed']);
+
+        $post->update([
+            'status' => 'archived',
+            'metadata' => array_merge($post->metadata ?? [], [
+                'transaction_completed'  => true,
+                'completed_at'           => now()->toDateTimeString(),
+                'completed_with_user_id' => $activeTransactionRecord->interested_user_id,
+            ]),
+        ]);
+
         unset($this->getActiveTransactionRecord);
         unset($this->getVehicle);
 
@@ -216,14 +228,6 @@ new class extends Component
                 </flux:modal.close>
             </div>
 
-            <!-- Body -->
-            <div>
-                <flux:text class="text-light-txt-body dark:text-dark-txt-body">
-                    You're about to mark this transaction as complete.<br>
-                    This action cannot be undone.
-                </flux:text>
-            </div>
-
             <!-- Footer -->
             <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
                 <flux:modal.close>
@@ -254,7 +258,6 @@ new class extends Component
         class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
     >
         <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
-            <!-- Header -->
             <div class="flex items-start justify-between">
                 <div>
                     <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
@@ -270,16 +273,7 @@ new class extends Component
                     </button>
                 </flux:modal.close>
             </div>
-
-            <!-- Body -->
-            <div>
-                <flux:text class="text-light-txt-body dark:text-dark-txt-body">
-                    You're about to mark this transaction as cancelled.<br>
-                    This action cannot be undone.
-                </flux:text>
-            </div>
-
-            <!-- Footer -->
+            
             <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
                 <flux:modal.close>
                     <x-button type="button" variant="ghost" class="w-full sm:w-auto justify-center !font-secondary">

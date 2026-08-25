@@ -245,6 +245,41 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->redirect(route('admin.users'), navigate: true);
     }
 
+    public string $suspension_reason_input = '';
+
+    public function suspendUser() {
+        $this->validate([
+            'suspension_reason_input' => 'required|string|min:5|max:500',
+        ], [], [
+            'suspension_reason_input' => 'suspension reason',
+        ]);
+
+        app(UserService::class)->suspend($this->user, $this->suspension_reason_input);
+
+        $this->user->refresh();
+        $this->suspension_reason_input = '';
+        $this->modal('suspend-user')->close();
+
+        Flux::toast(
+            variant: 'success',
+            heading: 'User suspended',
+            text: "{$this->user->name} has been suspended and signed out.",
+        );
+    }
+
+    public function reinstateUser() {
+        app(UserService::class)->reinstate($this->user);
+
+        $this->user->refresh();
+        $this->modal('reinstate-user')->close();
+
+        Flux::toast(
+            variant: 'success',
+            heading: 'User reinstated',
+            text: "{$this->user->name}'s account has been reactivated.",
+        );
+    }
+
     public function addingVehicle($status) {
         $this->confirmingAddVehicle = $status;
 
@@ -764,6 +799,28 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         >Delete user</flux:button>
                     </flux:modal.trigger>
 
+                    @if ($user->isSuspended())
+                        <flux:modal.trigger name="reinstate-user">
+                            <flux:button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                class="text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-950 w-full sm:w-auto order-2 sm:order-1"
+                                icon="check-circle"
+                            >Reinstate user</flux:button>
+                        </flux:modal.trigger>
+                    @else
+                        <flux:modal.trigger name="suspend-user">
+                            <flux:button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                class="text-amber-600 border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950 w-full sm:w-auto order-2 sm:order-1"
+                                icon="no-symbol"
+                            >Suspend user</flux:button>
+                        </flux:modal.trigger>
+                    @endif
+
                     <flux:spacer class="hidden sm:block" />
 
                     <flux:button size="sm" variant="primary" type="submit" icon="check" class="w-full sm:w-auto order-1 sm:order-2">
@@ -774,6 +831,101 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </div>
         </div>
     </form>
+
+    @if ($user->isSuspended())
+        <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40 p-4">
+            <flux:heading size="sm" class="!font-primary !font-bold text-amber-700 dark:text-amber-400">
+                This account is currently suspended
+            </flux:heading>
+            <flux:text class="mt-1 font-secondary text-sm text-amber-700 dark:text-amber-400">
+                Reason: {{ $user->userStatus?->suspension_reason }}
+                @if ($user->userStatus?->suspended_at)
+                    <br>Suspended on {{ $user->userStatus->suspended_at->format('F d, Y g:i A') }}
+                    @if ($user->userStatus?->suspendedBy)
+                        by {{ $user->userStatus->suspendedBy->name }}
+                    @endif
+                @endif
+            </flux:text>
+        </div>
+    @endif
+
+    {{-- Suspend-user confirmation modal --}}
+    <flux:modal name="suspend-user" class="md:w-96">
+        <div class="space-y-4">
+            <div>
+                <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                    Suspend user?
+                </flux:heading>
+                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                    <strong>{{ $user->name }}</strong> will be signed out immediately and won't be able to log in
+                    @if ($user->role === 'operator')
+                        or queue their vehicle
+                    @endif
+                    until this suspension is lifted. They'll need to visit the terminal office in person to have their account reviewed.
+                </flux:text>
+            </div>
+
+            <flux:textarea
+                wire:model="suspension_reason_input"
+                label="Reason for suspension"
+                placeholder="e.g. Expired OR/CR, expired franchise, reported misuse..."
+                rows="3"
+            />
+
+            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close>
+                    <flux:button type="button" variant="ghost" class="font-secondary w-full sm:w-auto">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+                <flux:button
+                    type="button"
+                    variant="danger"
+                    icon="no-symbol"
+                    wire:click="suspendUser"
+                    wire:loading.attr="disabled"
+                    wire:target="suspendUser"
+                    class="font-secondary w-full sm:w-auto"
+                >
+                    Yes, suspend user
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- Reinstate-user confirmation modal --}}
+    <flux:modal name="reinstate-user" class="md:w-96">
+        <div class="space-y-4">
+            <div>
+                <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                    Reinstate user?
+                </flux:heading>
+                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                    Only confirm this after <strong>{{ $user->name }}</strong> has submitted their required documents
+                    (e.g. updated OR/CR, franchise) in person and they've been verified. Their account will be reactivated immediately.
+                </flux:text>
+            </div>
+
+            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close>
+                    <flux:button type="button" variant="ghost" class="font-secondary w-full sm:w-auto">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+                <flux:button
+                    type="button"
+                    variant="primary"
+                    icon="check-circle"
+                    wire:click="reinstateUser"
+                    wire:loading.attr="disabled"
+                    wire:target="reinstateUser"
+                    class="font-secondary w-full sm:w-auto"
+                >
+                    Yes, reinstate user
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 
     {{-- Delete-user confirmation modal --}}
     <flux:modal name="delete-user" class="md:w-96">

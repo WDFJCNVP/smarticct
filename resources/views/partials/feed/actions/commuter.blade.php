@@ -22,6 +22,9 @@
                 You're interested
             </x-button>
         @else
+            @if (!empty($isDeclined ?? false))
+                <span class="text-sm text-red-500 dark:text-red-400">Request declined</span>
+            @endif
             <x-button icon="check-circle" wire:click="tripRequest({{ $post->id }})" class="cursor-pointer" wire:loading.attr="disabled">
                 I'm interested
             </x-button>

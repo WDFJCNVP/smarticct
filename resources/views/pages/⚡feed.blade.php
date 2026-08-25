@@ -11,6 +11,7 @@ use App\Models\TripRequest;
 use App\Models\PostInterest;
 use Flux\Flux;
 use Livewire\WithPagination;
+use Illuminate\Support\Facades\Storage;
 
 new class extends Component
 {
@@ -23,6 +24,8 @@ new class extends Component
     public $replies;
     public bool $showRepliesModal = false;
     public bool $rental_offer_modal = false;
+    public bool $show_delete_post_modal = false;
+    public ?int $deletePostId = null;
 
     public string $filterRole = 'all';
     public string $filterVehicleType = 'all';
@@ -48,6 +51,7 @@ new class extends Component
         $this->selected_post = null;
         unset($this->filteredPosts);
         unset($this->myInterestedPostIds);
+        unset($this->myDeclinedPostIds);
     }
 
     #[On('echo:create-new-post-event,.CreateNewPostEvent')]
@@ -150,21 +154,128 @@ new class extends Component
         $post = Post::findOrFail($postId);
         if (auth()->check() && $post->user_id === auth()->id() && $post->type === 'rental') {
             $post->update(['status' => 'rented']);
+
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Post marked as rented',
+                text: 'Your post has been marked as rented.',
+            );
         }
     }
 
     public function archivePost($postId) {
         $post = Post::findOrFail($postId);
-        if (auth()->check() && $post->user_id === auth()->id()) {
-            $post->update(['status' => 'archived']);
+
+        if (! auth()->check()) {
+            return;
         }
+
+        $isOwner = $post->user_id === auth()->id();
+        $canModerate = auth()->user()->role === 'admin' && $post->type === 'rental' && ! $isOwner;
+
+        if (! $isOwner && ! $canModerate) {
+            return;
+        }
+
+        $post->update(['status' => 'archived']);
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Post archived',
+            text: $canModerate
+                ? 'This post has been archived and removed from the feed.'
+                : 'Your post has been archived and removed from the feed.',
+        );
     }
 
     public function restorePost($postId) {
         $post = Post::findOrFail($postId);
         if (auth()->check() && $post->user_id === auth()->id()) {
             $post->update(['status' => 'published']);
+
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Post restored',
+                text: 'Your post is back in the feed.',
+            );
         }
+    }
+
+    public function confirmDeletePost($postId) {
+        if (! auth()->check()) {
+            return;
+        }
+
+        $post = Post::findOrFail($postId);
+
+        if ($post->user_id !== auth()->id() || ! in_array(auth()->user()->role, ['operator', 'commuter'])) {
+            return;
+        }
+
+        $hasActiveInterest = $post->tripRequest()->whereIn('status', ['pending', 'accept'])->exists()
+            || $post->rentalOffer()->whereIn('status', ['pending', 'accept'])->exists();
+
+        if ($hasActiveInterest) {
+            Flux::toast(
+                duration: 0,
+                variant: 'danger',
+                heading: 'Cannot delete this post',
+                text: 'This post has pending or active requests. Resolve or cancel those first.',
+            );
+            return;
+        }
+
+        $this->deletePostId = $postId;
+        $this->show_delete_post_modal = true;
+    }
+
+    public function cancelDeletePost() {
+        $this->deletePostId = null;
+        $this->show_delete_post_modal = false;
+    }
+
+    public function deletePost() {
+        if (! $this->deletePostId) {
+            $this->show_delete_post_modal = false;
+            return;
+        }
+
+        $post = Post::find($this->deletePostId);
+
+        if (! $post || $post->user_id !== auth()->id() || ! in_array(auth()->user()->role, ['operator', 'commuter'])) {
+            $this->deletePostId = null;
+            $this->show_delete_post_modal = false;
+            return;
+        }
+
+        $hasActiveInterest = $post->tripRequest()->whereIn('status', ['pending', 'accept'])->exists()
+            || $post->rentalOffer()->whereIn('status', ['pending', 'accept'])->exists();
+
+        if ($hasActiveInterest) {
+            $this->deletePostId = null;
+            $this->show_delete_post_modal = false;
+            return;
+        }
+
+        // Attachments aren't removed here — the post is only soft-deleted, so it
+        // can still be restored from Trash. They're cleaned up by the daily purge
+        // job in routes/console.php once the post is 30 days old.
+        $post->delete();
+
+        $this->deletePostId = null;
+        $this->show_delete_post_modal = false;
+
+        unset($this->filteredPosts);
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Post moved to Trash',
+            text: 'You can restore it within 30 days, from the Trash page.',
+        );
     }
 
     #[Computed]
@@ -246,11 +357,26 @@ new class extends Component
         if (auth()->guest()) return [];
         if(auth()->user()->role === 'operator') {
             return RentalOffer::where('user_id', auth()->id())
-                ->where('status', '!=', 'decline')
+                ->whereIn('status', ['pending', 'accept'])
                 ->pluck('post_id')->all();
         } elseif(auth()->user()->role === 'commuter') {
             return TripRequest::where('user_id', auth()->id())
-                ->where('status', '!=', 'decline')
+                ->whereIn('status', ['pending', 'accept'])
+                ->pluck('post_id')->all();
+        }
+        return [];
+    }
+
+    #[Computed]
+    public function myDeclinedPostIds() {
+        if (auth()->guest()) return [];
+        if(auth()->user()->role === 'operator') {
+            return RentalOffer::where('user_id', auth()->id())
+                ->whereIn('status', ['cancel', 'decline'])
+                ->pluck('post_id')->all();
+        } elseif(auth()->user()->role === 'commuter') {
+            return TripRequest::where('user_id', auth()->id())
+                ->whereIn('status', ['cancel', 'decline'])
                 ->pluck('post_id')->all();
         }
         return [];
@@ -340,6 +466,19 @@ new class extends Component
                     <span class="hidden sm:inline">My posts</span>
                     <span class="sm:hidden">My posts</span>
                 </x-button>
+                <x-button
+                    href="{{ route('post.trash') }}"
+                    wire:navigate
+                    variant="ghost"
+                    icon="trash"
+                    class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
+                        !border !border-light-bd-default dark:!border-dark-bd-default
+                        !text-light-txt-primary dark:!text-dark-txt-primary
+                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle"
+                >
+                    <span class="hidden sm:inline">Trash</span>
+                    <span class="sm:hidden">Trash</span>
+                </x-button>
             </div>
         @endauth
     </div>
@@ -400,11 +539,13 @@ new class extends Component
                                     @php
                                         $isOwner = $post->user_id === auth()->id();
                                         $alreadyInterested = in_array($post->id, $this->myInterestedPostIds);
+                                        $isDeclined = in_array($post->id, $this->myDeclinedPostIds);
                                         $role = auth()->user()->role;
                                     @endphp
                                     @include("partials.feed.actions.{$role}", [
                                         'post' => $post,
                                         'isOwner' => $isOwner,
+                                        'isDeclined' => $isDeclined,
                                     ])
                                 @else
                                     <span class="text-sm text-light-txt-muted dark:text-dark-txt-muted">
@@ -563,5 +704,47 @@ new class extends Component
                 :key="'delete-' . $selected_post->id"
             />
         @endif
+    </flux:modal>
+
+    <flux:modal
+        wire:model="show_delete_post_modal"
+        :closable="false"
+        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+    >
+        <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Delete this post?
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        This will move the post to Trash. You can restore it within 30 days — after that, it's deleted for good.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close>
+                    <x-button type="button" variant="ghost" wire:click="cancelDeletePost" class="w-full sm:w-auto justify-center !font-secondary">
+                        Cancel
+                    </x-button>
+                </flux:modal.close>
+                <x-button
+                    wire:click="deletePost"
+                    wire:loading.attr="disabled"
+                    type="button"
+                    variant="primary"
+                    color="red"
+                    class="w-full sm:w-auto justify-center !font-secondary"
+                >
+                    Move to Trash
+                </x-button>
+            </div>
+        </div>
     </flux:modal>
 </div>

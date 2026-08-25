@@ -2,6 +2,9 @@
 
 use Livewire\Component;
 use App\Concerns\PasswordValidationRules;
+use App\Models\Notification;
+use App\Models\UserNotification;
+use App\Events\NotificationEvent;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
@@ -29,6 +32,19 @@ new class extends Component
         Auth::user()->update([
             'password' => $validated['password'],
         ]);
+
+        $notification = Notification::create([
+            'type'    => 'Security',
+            'title'   => 'Password Changed',
+            'message' => "Your password was successfully changed. If this wasn't you, please contact support immediately.",
+        ]);
+
+        UserNotification::create([
+            'notification_id' => $notification->id,
+            'user_id'         => Auth::id(),
+        ]);
+
+        broadcast(new NotificationEvent());
 
         $this->reset('current_password', 'password', 'password_confirmation');
 

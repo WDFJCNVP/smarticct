@@ -30,6 +30,21 @@ class Card extends Model
         return $this->hasMany(TopUpTransaction::class);
     }
 
+    public function cardReports()
+    {
+        return $this->hasMany(CardReport::class);
+    }
+
+    public function reportedAsLost()
+    {
+        return $this->hasMany(CardReport::class, 'card_id');
+    }
+
+    public function isReplacementFor()
+    {
+        return $this->hasMany(CardReport::class, 'new_card_id');
+    }
+
     protected static function booted(): void
     {
         static::creating(function (Card $card) {

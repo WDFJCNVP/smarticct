@@ -77,7 +77,15 @@ new class extends Component
 
    public function saveInterest() {
 
-    $attributes = $this->validate();
+    try {
+        $attributes = $this->validate();
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        // Errors render inline below each field, but the modal is a long
+        // scrolling form — if the user is scrolled down near the Send
+        // button, those errors can be off-screen and easy to miss.
+        $this->dispatch('trip-request-validation-failed');
+        throw $e;
+    }
 
     $user_valid_id_path = $this->user_valid_id ? $this->user_valid_id->store('valid_id', 'public') : null;
     $driver_valid_id_path = $this->driver_valid_id ? $this->driver_valid_id->store('valid_id', 'public') : null;
@@ -109,7 +117,11 @@ new class extends Component
 };
 ?>
 
-<div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
+<div
+    class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5"
+    x-data
+    @trip-request-validation-failed.window="$el.scrollTo({ top: 0, behavior: 'smooth' })"
+>
     <div class="flex items-start justify-between">
         <div>
             <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
@@ -126,6 +138,15 @@ new class extends Component
             </button>
         </flux:modal.close>
     </div>
+
+    @if ($errors->any())
+        <flux:callout
+            variant="danger"
+            icon="exclamation-triangle"
+            heading="Please fix {{ $errors->count() === 1 ? 'this field' : 'these ' . $errors->count() . ' fields' }} before sending"
+            text="Scroll down to review the highlighted fields below."
+        />
+    @endif
 
     <form wire:submit="saveInterest" class="space-y-5">
 
@@ -149,24 +170,28 @@ new class extends Component
                         Name
                     </flux:label>
                     <x-input placeholder="Your name" wire:model="name" disabled class="mt-1 bg-light-subtle dark:bg-dark-subtle" />
+                    <flux:error name="name" />
                 </flux:field>
                 <flux:field>
                     <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                         Phone number
                     </flux:label>
                     <x-input placeholder="Your phone number" wire:model="phone_number" disabled class="mt-1 bg-light-subtle dark:bg-dark-subtle" />
+                    <flux:error name="phone_number" />
                 </flux:field>
                 <flux:field>
                     <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                         Home address
                     </flux:label>
                     <x-input placeholder="Your address" wire:model="address" disabled class="mt-1 bg-light-subtle dark:bg-dark-subtle" />
+                    <flux:error name="address" />
                 </flux:field>
                 <flux:field>
                     <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                         Email address
                     </flux:label>
                     <x-input placeholder="Email address" wire:model="email_address" disabled class="mt-1 bg-light-subtle dark:bg-dark-subtle" />
+                    <flux:error name="email_address" />
                 </flux:field>
             </div>
         </div>
@@ -204,6 +229,7 @@ new class extends Component
                             From
                         </flux:label>
                         <x-input placeholder="e.g. Nabua" wire:model="pick_up_location" class="mt-1" />
+                        <flux:error name="pick_up_location" />
                     </flux:field>
 
                     <flux:icon.arrows-right-left class="shrink-0 mt-8" size="sm"/>
@@ -213,6 +239,7 @@ new class extends Component
                             To
                         </flux:label>
                         <x-input placeholder="e.g. Legaspi" wire:model="drop_off_location" class="mt-1" />
+                        <flux:error name="drop_off_location" />
                     </flux:field>
                 </div>
 
@@ -222,6 +249,7 @@ new class extends Component
                             From
                         </flux:label>
                         <x-input placeholder="e.g. Nabua" wire:model="pick_up_location" class="mt-1" />
+                        <flux:error name="pick_up_location" />
                     </flux:field>
 
                     <flux:icon.arrow-right class="shrink-0 mt-8" size="sm"/>
@@ -231,6 +259,7 @@ new class extends Component
                             To
                         </flux:label>
                         <x-input placeholder="e.g. Legaspi" wire:model="drop_off_location" class="mt-1" />
+                        <flux:error name="drop_off_location" />
                     </flux:field>
                 </div>
             </div>
@@ -241,12 +270,14 @@ new class extends Component
                         Trip date
                     </flux:label>
                     <x-input placeholder="Date" type="date" wire:model="trip_date" class="mt-1" />
+                    <flux:error name="trip_date" />
                 </flux:field>
                 <flux:field>
                     <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                         Number of passengers
                     </flux:label>
                     <x-input placeholder="e.g. 20" type="number" wire:model="body_count" class="mt-1" />
+                    <flux:error name="body_count" />
                 </flux:field>
             </div>
         </div>
@@ -291,6 +322,8 @@ new class extends Component
                         </div>
                     </div>
                 @endif
+
+                <flux:error name="user_valid_id" />
             </flux:field>
         </div>
 
@@ -313,24 +346,28 @@ new class extends Component
                             Driver full name
                         </flux:label>
                         <x-input placeholder="e.g. Juan Tamad" wire:model="driver_name" class="mt-1" />
+                        <flux:error name="driver_name" />
                     </flux:field>
                     <flux:field>
                         <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                             Driver age
                         </flux:label>
                         <x-input placeholder="e.g. 34" wire:model="driver_age" class="mt-1" />
+                        <flux:error name="driver_age" />
                     </flux:field>
                     <flux:field>
                         <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                             Driver home address
                         </flux:label>
                         <x-input placeholder="e.g. 123 Main St" wire:model="driver_home_address" class="mt-1" />
+                        <flux:error name="driver_home_address" />
                     </flux:field>
                     <flux:field>
                         <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                             Driver contact number
                         </flux:label>
                         <x-input placeholder="e.g. 09123456789" wire:model="driver_contact_number" class="mt-1" />
+                        <flux:error name="driver_contact_number" />
                     </flux:field>
                 </div>
 
@@ -377,6 +414,8 @@ new class extends Component
                         </div>
                     </flux:field>
                 @endif
+
+                <flux:error name="driver_valid_id" />
             @endif
         </div>
 
@@ -390,6 +429,7 @@ new class extends Component
                 rows="3"
                 class="mt-1"
             />
+            <flux:error name="purpose" />
         </flux:field>
 
         <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">

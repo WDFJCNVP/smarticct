@@ -14,20 +14,20 @@
     <flux:header container class="sticky top-0 z-50 bg-light-secondary dark:bg-dark-secondary border-b border-light-bd-default dark:border-dark-bd-default">
         <flux:sidebar.toggle class="lg:hidden mr-3" icon="bars-2" inset="left" />
 
-        <div class="flex-1 flex items-center gap-3 lg:gap-3 md:ml-4 lg:ml-6">
-        <a href="/">
+        <div class="flex-1 flex items-center gap-2 sm:gap-3 lg:gap-3 md:ml-4 lg:ml-6 min-w-0">
+        <a href="/" class="shrink-0">
             <img
-                src="{{ asset('images/logo.png') }}"
-                alt="SmartICCT" 
-                class="h-9 w-auto lg:h-10"
+                src="{{ Vite::asset('resources/images/logo.png') }}"
+                alt="SmartICCT"
+                class="h-8 w-auto sm:h-9 lg:h-10"
             >
         </a>
 
-    <div class="flex flex-col leading-tight">
-        <a href="/" class="text-base font-bold font-primary text-light-txt-primary dark:text-dark-txt-primary lg:text-lg">
+    <div class="flex flex-col leading-tight min-w-0">
+        <a href="/" class="text-sm sm:text-base font-bold font-primary text-light-txt-primary dark:text-dark-txt-primary lg:text-lg truncate">
             SmartICCT
         </a>
-        <span class="text-xs font-secondary text-light-txt-muted dark:text-dark-txt-muted lg:text-sm">
+        <span class="hidden sm:block sm:text-xs font-secondary text-light-txt-muted dark:text-dark-txt-muted lg:text-sm whitespace-nowrap">
             Iriga City Central Terminal
         </span>
     </div>
@@ -72,12 +72,11 @@
 
     </flux:header>
 
-    <flux:sidebar sticky collapsible="mobile" class="lg:hidden bg-light-secondary dark:bg-dark-secondary border-r border-zinc-200 dark:border-zinc-700">
+    <flux:sidebar sticky collapsible="mobile" class="lg:hidden bg-light-secondary dark:bg-dark-secondary border-r border-light-bd-default dark:border-dark-bd-default">
         <flux:sidebar.header>
             <flux:sidebar.brand
                 href="/"
-                logo="{{ asset('images/logo.png') }}"
-                logo:dark="{{ asset('images/dark-mode-logo.png') }}"
+                logo="{{ Vite::asset('resources/images/logo.png') }}"
                 name="SmartICCT"
             />
 

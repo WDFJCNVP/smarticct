@@ -128,7 +128,7 @@ new class extends Component
                     : 'text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-body dark:hover:text-dark-txt-body'"
                 class="px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap"
             >
-                Interested commuters
+                Interested {{ auth()->user()->role === 'operator' ? 'commuters' : 'operators' }}
             </button>
 
             <button

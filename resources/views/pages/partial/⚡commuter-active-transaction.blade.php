@@ -72,9 +72,21 @@ new class extends Component
             return;
         }
 
-        $this->getActiveTransactionRecord->update(['status' => 'completed']);
+        $activeTransactionRecord = $this->getActiveTransactionRecord;
+        $post = $this->post;
 
-        $rentalOffer = RentalOffer::where('id', $this->getActiveTransactionRecord->rental_offer_id)->update(['status' => 'completed']);
+        $activeTransactionRecord->update(['status' => 'completed']);
+
+        $rentalOffer = RentalOffer::where('id', $activeTransactionRecord->rental_offer_id)->update(['status' => 'completed']);
+
+        $post->update([
+            'status' => 'archived',
+            'metadata' => array_merge($post->metadata ?? [], [
+                'transaction_completed'  => true,
+                'completed_at'           => now()->toDateTimeString(),
+                'completed_with_user_id' => $activeTransactionRecord->interested_user_id,
+            ]),
+        ]);
 
         unset($this->getActiveTransactionRecord);
         unset($this->interestedUser);
@@ -206,14 +218,6 @@ new class extends Component
                 </flux:modal.close>
             </div>
 
-            <!-- Body -->
-            <div>
-                <flux:text class="text-light-txt-body dark:text-dark-txt-body">
-                    You're about to mark this transaction as complete.<br>
-                    This action cannot be undone.
-                </flux:text>
-            </div>
-
             <!-- Footer -->
             <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
                 <flux:modal.close>
@@ -235,9 +239,6 @@ new class extends Component
         </div>
     </flux:modal>
 
-    <!-- ==================== -->
-    <!-- MARK AS CANCEL MODAL (feed style) -->
-    <!-- ==================== -->
     <flux:modal
         wire:model="isMarkAsCancelModalOpen"
         :closable="false"
@@ -259,14 +260,6 @@ new class extends Component
                         <flux:icon name="x-mark" class="w-5 h-5" />
                     </button>
                 </flux:modal.close>
-            </div>
-
-            <!-- Body -->
-            <div>
-                <flux:text class="text-light-txt-body dark:text-dark-txt-body">
-                    You're about to mark this transaction as cancelled.<br>
-                    This action cannot be undone.
-                </flux:text>
             </div>
 
             <!-- Footer -->

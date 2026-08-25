@@ -36,6 +36,13 @@ new class extends Component {
         ProcessAfterDepart::dispatch($queue->id);
 
         $this->refreshQueuedVehicleList();
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Vehicle departed',
+            text: 'Your vehicle has been marked as departed early.',
+        );
     }
 
     public function dispatchVehicle($queueId)
@@ -59,6 +66,13 @@ new class extends Component {
         ProcessAfterDepart::dispatch($queue->id);
 
         $this->refreshQueuedVehicleList();
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Vehicle dispatched',
+            text: 'The vehicle has been dispatched.',
+        );
     }
 
     #[Computed]

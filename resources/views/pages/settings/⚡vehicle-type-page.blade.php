@@ -31,6 +31,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->vehicle_type = "";
         $this->queueing_fee = null;
         unset($this->getOperatorTicket);
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Vehicle type added',
+            text: 'The vehicle type and queueing fee have been saved.',
+        );
     }
 
     public function edit($id) {
@@ -58,6 +65,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         unset($this->getOperatorTicket);
         $this->modal('edit')->close();
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Vehicle type updated',
+            text: 'The vehicle type and queueing fee have been updated.',
+        );
     }
 
     #[Computed]
