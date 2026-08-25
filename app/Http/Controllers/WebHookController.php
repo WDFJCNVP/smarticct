@@ -6,7 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Models\TopUpTransaction;
-use App\Models\Card; 
+use App\Models\Card;
+use App\Models\Notification;
+use App\Models\UserNotification;
+use App\Events\NotificationEvent;
 
 class WebHookController extends Controller
 {
@@ -63,6 +66,19 @@ class WebHookController extends Controller
                 //  Add points 
                 Card::where('id', $topUp->card_id)
                     ->increment('balance', $topUp->points_to_load);
+
+                $notification = Notification::create([
+                    'type'    => 'Top-up',
+                    'title'   => 'Points Loaded',
+                    'message' => "You've successfully loaded {$topUp->points_to_load} points to your card.",
+                ]);
+
+                UserNotification::create([
+                    'notification_id' => $notification->id,
+                    'user_id'         => $topUp->user_id,
+                ]);
+
+                broadcast(new NotificationEvent());
 
                 Log::info('Top-up credited', [
                     'topup_id'       => $topUp->id,

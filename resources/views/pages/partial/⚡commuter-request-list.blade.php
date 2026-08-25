@@ -7,8 +7,11 @@ use Livewire\Attributes\On;
 use App\Models\Post;
 use App\Models\RentalOffer;
 use App\Models\RentTransaction;
+use App\Models\Notification;
+use App\Models\UserNotification;
 
 use App\Events\LiveActionEvent;
+use App\Events\NotificationEvent;
 
 new class extends Component
 {
@@ -47,12 +50,35 @@ new class extends Component
     public function declineThisinterested_user($id) {
         RentalOffer::where('id', $id)->update(['status' => 'decline']);
 
+        // Let the operator know their rental offer was declined.
+        if ($this->interested_user) {
+            $notification = Notification::create([
+                'type'    => 'Declined',
+                'title'   => 'Rental Offer Declined',
+                'message' => "Your rental offer was declined by {$this->post->user->name}.",
+            ]);
+
+            UserNotification::create([
+                'notification_id' => $notification->id,
+                'user_id'         => $this->interested_user->user_id,
+            ]);
+
+            broadcast(new NotificationEvent());
+        }
+
         unset($this->getRentalOffer);
 
         $this->is_show_decline_modal = false;
         $this->interested_user = null;
 
         $this->dispatch('interested-list-updated');
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Offer declined',
+            text: 'The rental offer has been declined.',
+        );
     }
 
     public function showDeclineModal($id) {
@@ -85,64 +111,55 @@ new class extends Component
                  @continue
             @endif
 
-            <x-card class="my-2" variant="subtle" disabled>
-
-                <div class="flex items-start gap-2">
-                    <div class="flex-1 flex items-start gap-2">
-                        <div>
-                            <x-avatar name="{{ $rentalOffer->user->name }}" color="lime"/>
-                        </div>
-                        <div class="flex flex-col gap-1 items-start">
-                            <div>
+            <x-card
+                class="!rounded-xl !border !border-light-bd-default dark:!border-dark-bd-default !bg-light-secondary dark:!bg-dark-secondary !shadow-sm my-3 opacity-60"
+                disabled
+            >
+                <div class="flex flex-col sm:flex-row items-start gap-3">
+                    <div class="flex items-start gap-3 flex-1 min-w-0">
+                        <x-avatar name="{{ $rentalOffer->user->name }}" color="lime" />
+                        <div class="flex flex-col gap-1">
+                            <div class="flex flex-wrap items-center gap-x-2">
                                 <x-text variant="strong">{{ $rentalOffer->user->name }}</x-text>
                                 <x-text size="sm" variant="subtle">
-                                    {{ $rentalOffer->created_at->diffForHumans(['short' => true]) }}
+                                    Requested {{ $rentalOffer->created_at->diffForHumans(['short' => true]) }}
                                 </x-text>
                             </div>
-
-                            <div class="flex items-center gap-1">
-
+                            <div class="flex flex-wrap items-center gap-1">
                                 <x-badge color="green">
                                     {{ $rentalOffer->metadata['vehicle_name'] }}
                                 </x-badge>
-                                
                                 <x-badge color="green" icon="map-pin">
                                     {{ $rentalOffer->destination_coverage }}
                                 </x-badge>
-
                                 <x-badge color="green" icon="calendar">
                                     {{ $rentalOffer->available_from->format('D, M j Y') }}
                                     -
                                     {{ $rentalOffer->available_until->format('D, M j Y') }}
                                 </x-badge>
                             </div>
-
-                            <div class="mt-2">
-                                <x-text>
-                                {{ $post->message }}
-                                </x-text>
+                            <div class="mt-1">
+                                <x-text>{{ $post->message }}</x-text>
                             </div>
-
                         </div>
                     </div>
-                    <div>
-                        <div class="flex flex-col items-center gap-2">
-                            <x-button wire:click="$dispatch('open-confirm-modal', { id: {{ $rentalOffer->id }} })" variant="primary" color="green" disabled>Accepts</x-button>
-                            <x-button wire:click="showDeclineModal({{ $rentalOffer->id }})" variant="primary" color="red" disabled>Decline</x-button>
+                    <div class="flex flex-col items-end gap-2 shrink-0 w-full sm:w-auto">
+                        <div class="flex flex-row sm:flex-col items-center gap-2 w-full sm:w-auto">
+                            <x-button wire:click="$dispatch('open-confirm-modal', { id: {{ $rentalOffer->id }} })" variant="primary" color="green" disabled class="w-full sm:w-auto">Accept</x-button>
+                            <x-button wire:click="showDeclineModal({{ $rentalOffer->id }})" variant="primary" color="red" disabled class="w-full sm:w-auto">Decline</x-button>
                         </div>
-                        <div class="mt-4">
-                            <x-text wire:click="showViewMoreModal({{ $rentalOffer->id }})" class="cursor-pointer hover:underline hover:text-gray-800 transition">View more</x-text>
-                        </div>
+                        <button
+                            type="button"
+                            wire:click="showViewMoreModal({{ $rentalOffer->id }})"
+                            class="w-full sm:w-auto text-center text-xs font-medium font-secondary px-3 py-1.5 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-primary dark:hover:text-dark-txt-primary hover:bg-light-subtle dark:hover:bg-dark-subtle transition cursor-pointer"
+                        >
+                            View more
+                        </button>
                     </div>
                 </div>
             </x-card>
         @empty
-            <x-card class="!rounded-xl !border !border-dashed !border-light-bd-strong dark:!border-dark-bd-strong !bg-light-secondary dark:!bg-dark-secondary !text-center !p-8">
-            <flux:icon name="clipboard-document-list" class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
-            <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
-                No interested operators yet
-            </x-text>
-        </x-card>
+            {{-- Nothing else pending — the banner above already says everything that's needed here. --}}
         @endforelse
     @else
         @forelse ($this->getRentalOffer as $rentalOffer)
@@ -151,58 +168,52 @@ new class extends Component
                  @continue
             @endif
 
-            <x-card class="my-2" variant="subtle" disabled>
-
+            <x-card
+                class="!rounded-xl !border !border-light-bd-default dark:!border-dark-bd-default !bg-light-secondary dark:!bg-dark-secondary !shadow-sm my-3"
+            >
                 @if ($rentalOffer->status === 'cancel')
-                    <flux:badge class="my-4" color="red" size="sm">Cancelled</flux:badge>
+                    <flux:badge color="orange" size="sm" class="mb-2">Cancelled</flux:badge>
                 @endif
-
-                <div class="flex items-start gap-2">
-                    <div class="flex-1 flex items-start gap-2">
-                        <div>
-                            <x-avatar name="{{ $rentalOffer->user->name }}" color="lime"/>
-                        </div>
-                        <div class="flex flex-col gap-1 items-start">
-                            <div>
+                <div class="flex flex-col sm:flex-row items-start gap-3">
+                    <div class="flex items-start gap-3 flex-1 min-w-0">
+                        <x-avatar name="{{ $rentalOffer->user->name }}" color="lime" />
+                        <div class="flex flex-col gap-1">
+                            <div class="flex flex-wrap items-center gap-x-2">
                                 <x-text variant="strong">{{ $rentalOffer->user->name }}</x-text>
                                 <x-text size="sm" variant="subtle">
-                                    {{ $rentalOffer->created_at->diffForHumans(['short' => true]) }}
+                                    Requested {{ $rentalOffer->created_at->diffForHumans(['short' => true]) }}
                                 </x-text>
                             </div>
-
-                            <div class="flex items-center gap-1">
-
+                            <div class="flex flex-wrap items-center gap-1">
                                 <x-badge color="green">
                                     {{ $rentalOffer->metadata['vehicle_name'] }}
                                 </x-badge>
-                                
                                 <x-badge color="green" icon="map-pin">
                                     {{ $rentalOffer->destination_coverage }}
                                 </x-badge>
-
                                 <x-badge color="green" icon="calendar">
                                     {{ $rentalOffer->available_from->format('D, M j Y') }}
                                     -
                                     {{ $rentalOffer->available_until->format('D, M j Y') }}
                                 </x-badge>
                             </div>
-
-                            <div class="mt-2">
-                                <x-text>
-                                {{ $rentalOffer->message }}
-                                </x-text>
+                            <div class="mt-1">
+                                <x-text>{{ $rentalOffer->message }}</x-text>
                             </div>
-
                         </div>
                     </div>
-                    <div>
-                        <div class="flex flex-col items-center gap-2">
-                            <x-button wire:click="$dispatch('open-confirm-modal', { id: {{ $rentalOffer->id }} })" variant="primary" color="green">Accepts</x-button>
-                            <x-button wire:click="showDeclineModal({{ $rentalOffer->id }})" variant="primary" color="red">Decline</x-button>
+                    <div class="flex flex-col items-end gap-2 shrink-0 w-full sm:w-auto">
+                        <div class="flex flex-row sm:flex-col items-center gap-2 w-full sm:w-auto">
+                            <x-button wire:click="$dispatch('open-confirm-modal', { id: {{ $rentalOffer->id }} })" variant="primary" color="green" class="w-full sm:w-auto">Accept</x-button>
+                            <x-button wire:click="showDeclineModal({{ $rentalOffer->id }})" variant="primary" color="red" class="w-full sm:w-auto">Decline</x-button>
                         </div>
-                        <div class="mt-4">
-                            <x-text wire:click="showViewMoreModal({{ $rentalOffer->id }})" class="cursor-pointer hover:underline hover:text-gray-800 transition">View more</x-text>
-                        </div>
+                        <button
+                            type="button"
+                            wire:click="showViewMoreModal({{ $rentalOffer->id }})"
+                            class="w-full sm:w-auto text-center text-xs font-medium font-secondary px-3 py-1.5 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-primary dark:hover:text-dark-txt-primary hover:bg-light-subtle dark:hover:bg-dark-subtle transition cursor-pointer"
+                        >
+                            View more
+                        </button>
                     </div>
                 </div>
             </x-card>
@@ -303,7 +314,7 @@ new class extends Component
                     <!-- Contact details -->
                     <div class="rounded-lg border border-light-bd-default dark:border-dark-bd-default divide-y divide-light-bd-default dark:divide-dark-bd-default">
                         <div class="flex items-center justify-between gap-3 p-3">
-                            <div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                            <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
                                 <flux:icon.map-pin class="w-4 h-4" />
                                 <x-text class="text-inherit" style="font-size: var(--text-table-row)">Address</x-text>
                             </div>
@@ -311,7 +322,7 @@ new class extends Component
                         </div>
 
                         <div class="flex items-center justify-between gap-3 p-3">
-                            <div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                            <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
                                 <flux:icon.phone class="w-4 h-4" />
                                 <x-text class="text-inherit" style="font-size: var(--text-table-row)">Phone no.</x-text>
                             </div>
@@ -332,14 +343,14 @@ new class extends Component
                                 <div class="grid grid-cols-3 gap-1.5 auto-rows-[110px]">
                                     @foreach ($urls as $i => $url)
                                         @if ($i === 0)
-                                            <button type="button" @click="open = true; index = {{ $i }}" class="col-span-2 row-span-2 relative rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 group cursor-pointer">
+                                            <button type="button" @click="open = true; index = {{ $i }}" class="col-span-2 row-span-2 relative rounded-lg overflow-hidden bg-light-subtle dark:bg-dark-secondary group cursor-pointer">
                                                 <img src="{{ $url }}" alt="Vehicle attachment image" class="w-full h-full object-cover" loading="lazy" />
                                                 <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center">
                                                     <flux:icon.magnifying-glass-plus class="size-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
                                             </button>
                                         @elseif ($i < 3)
-                                            <button type="button" @click="open = true; index = {{ $i }}" class="relative rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 group cursor-pointer">
+                                            <button type="button" @click="open = true; index = {{ $i }}" class="relative rounded-lg overflow-hidden bg-light-subtle dark:bg-dark-secondary group cursor-pointer">
                                                 <img src="{{ $url }}" alt="Vehicle attachment image" class="w-full h-full object-cover" loading="lazy" />
                                                 @if ($i === 2 && count($urls) > 3)
                                                     <div class="absolute inset-0 bg-black/45 flex items-center justify-center text-white text-sm font-medium">
@@ -360,10 +371,10 @@ new class extends Component
                                     class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6"
                                     @keydown.escape.window="open = false"
                                     >
-                                    <div @click.outside="open = false" class="bg-white dark:bg-zinc-900 rounded-xl overflow-hidden max-w-lg w-full">
-                                        <div class="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-700">
-                                            <span class="text-sm text-zinc-500" x-text="(index + 1) + ' / ' + images.length"></span>
-                                            <button @click="open = false" class="text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer">
+                                    <div @click.outside="open = false" class="bg-white dark:bg-dark-primary rounded-xl overflow-hidden max-w-lg w-full">
+                                        <div class="flex items-center justify-between px-4 py-2.5 border-b border-light-bd-default dark:border-dark-bd-default">
+                                            <span class="text-sm text-light-txt-muted" x-text="(index + 1) + ' / ' + images.length"></span>
+                                            <button @click="open = false" class="text-light-txt-muted hover:text-light-txt-primary dark:hover:text-white cursor-pointer">
                                                 <flux:icon.x-mark class="size-5" />
                                             </button>
                                         </div>

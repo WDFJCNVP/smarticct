@@ -16,6 +16,13 @@ new class extends Component
         if ($notification) {
             $notification->delete();
 
+            Flux::toast(
+                duration: 4000,
+                variant: 'success',
+                heading: 'Notification deleted',
+                text: 'The notification has been removed.',
+            );
+
            return $this->redirect(route('notifications'), navigate: true);
         }
     }
@@ -45,7 +52,7 @@ new class extends Component
 
 <div>
     <div class="flex mb-4">
-        <flux:breadcrumbs class="flex-1">
+        <flux:breadcrumbs class="flex-1 font-secondary">
             <flux:breadcrumbs.item href="{{ route('notifications') }}" wire:navigate>
                 Notifications
             </flux:breadcrumbs.item>
@@ -53,25 +60,25 @@ new class extends Component
         </flux:breadcrumbs>
 
         <flux:modal.trigger name="delete-notification">
-            <flux:button variant="ghost" icon="trash" size="sm" class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950" />
+            <flux:button variant="ghost" icon="trash" size="sm" class="!text-danger dark:!text-dark-danger hover:!bg-danger/10 dark:hover:!bg-dark-danger/10" />
         </flux:modal.trigger>
     </div>
 
     <x-card class="overflow-hidden">
-        <div class="h-1 w-full bg-blue-500 -mt-4 mb-4 rounded-t-xl"></div>
+        <div class="h-1 w-full bg-primary -mt-4 mb-4 rounded-t-xl"></div>
 
         <div class="flex items-start gap-4 px-2">
-            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                <flux:icon.envelope class="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
+                <flux:icon.envelope class="w-5 h-5 text-primary dark:text-white" />
             </div>
 
             <div class="flex-1 min-w-0">
                 <x-pages-heading
-                    class="!text-blue-600 dark:!text-blue-400 !mb-0.5"
+                    class="font-primary !text-primary dark:!text-white !mb-0.5"
                     heading="{{ $this->notificationDetails->notification->title ?? 'No Title' }}"
                 />
                 <div class="flex items-center gap-2 flex-wrap">
-                    <x-text class="text-xs text-gray-400">
+                    <x-text class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">
                         {{ $this->notificationDetails->created_at?->format('F d, Y \a\t h:i a') ?? 'N/A' }}
                     </x-text>
                 </div>
@@ -81,7 +88,7 @@ new class extends Component
         <flux:separator class="my-4" />
 
         <div class="px-2 pb-2">
-            <x-text variant="strong">
+            <x-text variant="strong" class="font-secondary text-light-txt-body dark:text-dark-txt-body">
 
                 {{ $this->notificationDetails->notification->message ?? 'No Message Content available.' }}
             </x-text>
@@ -91,8 +98,8 @@ new class extends Component
     <flux:modal name="delete-notification" class="min-w-[22rem]">
         <div class="space-y-6">
             <div>
-                <flux:heading size="lg">Delete notification?</flux:heading>
-                <flux:text class="mt-2">
+                <flux:heading size="lg" class="font-primary">Delete notification?</flux:heading>
+                <flux:text class="mt-2 font-secondary text-light-txt-muted dark:text-dark-txt-muted">
                     You're about to delete this notification.<br>
                     This action cannot be reversed.
                 </flux:text>
@@ -100,9 +107,9 @@ new class extends Component
             <div class="flex gap-2">
                 <flux:spacer />
                 <flux:modal.close>
-                    <flux:button variant="ghost">Cancel</flux:button>
+                    <flux:button variant="ghost" class="font-secondary">Cancel</flux:button>
                 </flux:modal.close>
-                <flux:button variant="danger" wire:click="destroyNotification({{ $this->user_notification->id }})">Delete notification</flux:button>
+                <flux:button variant="danger" class="font-secondary" wire:click="destroyNotification({{ $this->user_notification->id }})">Delete notification</flux:button>
             </div>
         </div>
     </flux:modal>

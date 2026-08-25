@@ -12,8 +12,11 @@ use App\Models\Card;
 use App\Models\RouteList;
 use App\Models\Vehicle;
 use App\Models\User;
+use App\Models\Notification;
+use App\Models\UserNotification;
 use App\Http\Controllers\Api\CardController;
 
+use App\Events\NotificationEvent;
 use App\Services\AuditLogsService;
 
 new #[Layout('layouts.cashier-layout')] class extends Component
@@ -93,6 +96,20 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                         ],
                     ]);
 
+                    $notification = Notification::create([
+                        'type'    => 'Queued',
+                        'title'   => 'Vehicle Queued',
+                        'message' => "Your {$queue->vehicle_type} with plate number {$queue->plate_number} has joined the queue.",
+                        'metadata' => json_encode(['plate_number' => $queue->plate_number, 'vehicle_type' => $queue->vehicle_type]),
+                    ]);
+
+                    UserNotification::create([
+                        'notification_id' => $notification->id,
+                        'user_id'         => $this->selectedOperator->id,
+                    ]);
+
+                    broadcast(new NotificationEvent());
+
                     Flux::toast(
                         variant: 'success',
                         heading: 'Vehicle Queued Successfully',
@@ -118,20 +135,30 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         }
 
         // --- Card mode ---
-        $request = new Request();
-        $request->merge([
-            'uid'              => $this->card_number,
-            'driver_name'      => $this->driver_name,
-            'vehicle_id'       => $this->selectedVehicle->id,
-            'transaction_type' => 'operator_payment',
-            'amount'           => $this->selectedVehicle->route_list->operatorTicketRate->queueing_fee,
-            'destination'      => $this->selectedVehicle->route_list->terminal,
-            'vehicle_type'     => $this->selectedVehicle->vehicle_type,
-            'plate_number'     => $this->selectedVehicle->plate_number,
-        ]);
+        try {
+            $request = new Request();
+            $request->merge([
+                'uid'              => $this->card_number,
+                'driver_name'      => $this->driver_name,
+                'vehicle_id'       => $this->selectedVehicle->id,
+                'transaction_type' => 'operator_payment',
+                'amount'           => $this->selectedVehicle->route_list->operatorTicketRate->queueing_fee,
+                'destination'      => $this->selectedVehicle->route_list->terminal,
+                'vehicle_type'     => $this->selectedVehicle->vehicle_type,
+                'plate_number'     => $this->selectedVehicle->plate_number,
+            ]);
 
-        $response = (new CardController())->tap($request);
-        $responseData = $response->getData(true);
+            $response = (new CardController())->tap($request);
+            $responseData = $response->getData(true);
+        } catch (\Exception $e) {
+            Flux::toast(
+                variant: 'warning',
+                heading: 'Failed to Queue Vehicle',
+                text: $e->getMessage()
+            );
+
+            return;
+        }
 
         if ($responseData['success'] === true) {
             Flux::toast(
@@ -395,7 +422,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         </div>
 
         <flux:breadcrumbs class="shrink-0 pt-1">
-            <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Back to Live Queue</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Live Queue</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>Queue Vehicle</flux:breadcrumbs.item>
         </flux:breadcrumbs>
     </div>
