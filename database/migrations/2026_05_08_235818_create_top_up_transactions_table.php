@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignIdFor(\App\Models\User::class)->constrained()->onDelete('cascade');
             $table->foreignIdFor(\App\Models\Card::class)->constrained()->onDelete('cascade');
+            $table->foreignId('processed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('checkout_session_id')->nullable(); // from PayMongo
             $table->integer('points_to_load');                 // e.g. 100
             $table->decimal('amount_paid', 10, 2);             // e.g. 100.00
