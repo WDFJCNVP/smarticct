@@ -3,8 +3,15 @@
 @php
     $isOwner = $post->user_id === auth()->id();
     $isAnnouncement = $post->type === 'announcement';
+    $authUser = auth()->user();
+
+    // A post archived because a transaction was completed on it (see markAsComplete()
+    // in the active-transaction partials) is different from an owner manually archiving
+    // their own post: it shouldn't be labeled "Archived" and it shouldn't be unarchivable.
+    $isCompletedTransaction = $post->status === 'archived' && !empty($post->metadata['transaction_completed']);
 
     $statusLabel = match(true) {
+        $isCompletedTransaction => 'Completed',
         $post->status === 'rented' => 'Not available',
         $post->status === 'archived' => 'Archived',
         $post->status === 'published' && $post->user->role === 'commuter' => 'Looking for a ride',
@@ -13,12 +20,33 @@
     };
 
     $statusColor = match(true) {
+        $isCompletedTransaction => 'zinc',
         $post->status === 'rented' => 'red',
         $post->status === 'archived' => 'zinc',
         $post->status === 'published' && $post->user->role === 'commuter' => 'green',
         $post->status === 'published' => 'green',
         default => 'zinc',
     };
+
+    // Admins may archive (not delete) a rental post belonging to an operator/commuter as a
+    // moderation action.
+    $canModerate = !$isOwner
+        && $authUser
+        && $authUser->role === 'admin'
+        && $post->type === 'rental'
+        && $post->status !== 'archived';
+
+    // Operators/commuters may fully delete their own post, but only while nobody has an
+    // active (pending or accepted/ongoing) request on it, and never on a post that's
+    // archived because a transaction on it was completed.
+    $canDeleteOwnPost = $isOwner
+        && $authUser
+        && in_array($authUser->role, ['operator', 'commuter'])
+        && ! $isCompletedTransaction
+        && ! $post->tripRequest()->whereIn('status', ['pending', 'accept'])->exists()
+        && ! $post->rentalOffer()->whereIn('status', ['pending', 'accept'])->exists();
+
+    $hasOwnerDropdownAction = $isOwner && ! $isCompletedTransaction;
 @endphp
 
 <flux:card
@@ -41,17 +69,31 @@
             </div>
         </div>
 
-        @if ($isOwner)
+        @if ($hasOwnerDropdownAction || $canModerate)
             <flux:dropdown>
                 <flux:button variant="ghost" size="sm" icon="ellipsis-vertical" inset="top bottom" />
                 <flux:menu>
-                    @if ($post->status === 'archived')
-                        <flux:menu.item icon="arrow-path" wire:click="restorePost({{ $post->id }})">
-                            Unarchive Post
-                        </flux:menu.item>
-                    @else
+                    @if ($isOwner)
+                        @if ($post->status === 'archived')
+                            @if (! $isCompletedTransaction)
+                                <flux:menu.item icon="arrow-path" wire:click="restorePost({{ $post->id }})">
+                                    Unarchive Post
+                                </flux:menu.item>
+                            @endif
+                        @else
+                            <flux:menu.item icon="archive-box" variant="danger" wire:click="archivePost({{ $post->id }})">
+                                Archive Post
+                            </flux:menu.item>
+                        @endif
+
+                        @if ($canDeleteOwnPost)
+                            <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeletePost({{ $post->id }})">
+                                Delete Post
+                            </flux:menu.item>
+                        @endif
+                    @elseif ($canModerate)
                         <flux:menu.item icon="archive-box" variant="danger" wire:click="archivePost({{ $post->id }})">
-                            Archive Post
+                            Archive Post (moderation)
                         </flux:menu.item>
                     @endif
                 </flux:menu>

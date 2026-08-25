@@ -19,6 +19,7 @@ return new class extends Migration
             $table->enum('status', ['published', 'rented', 'archived'])->index();
             $table->json('metadata')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
