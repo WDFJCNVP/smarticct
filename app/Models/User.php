@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -12,7 +13,7 @@ class User extends Authenticatable
 {
 
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -31,7 +32,7 @@ class User extends Authenticatable
         'password',
         'valid_id',
         'type',
-        'last_feed_viewed_at'
+        'last_feed_viewed_at',
     ];
 
     /**
@@ -58,6 +59,16 @@ class User extends Authenticatable
         ];
     }
 
+    public function userStatus()
+    {
+        return $this->hasOne(UserStatus::class);
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->userStatus?->status === 'suspended';
+    }
+
     public function postInterests() {
         return $this->hasMany(PostInterest::class);
     }
@@ -82,7 +93,17 @@ class User extends Authenticatable
         return $this->hasMany(Vehicle::class);
     }
 
-        public function initials(): string
+    public function cardReports()
+    {
+        return $this->hasMany(CardReport::class);
+    }
+
+    public function approvedCardReports()
+    {
+        return $this->hasMany(CardReport::class, 'approved_by');
+    }
+
+    public function initials(): string
     {
         return Str::of($this->name)
             ->explode(' ')
@@ -96,6 +117,10 @@ class User extends Authenticatable
         static::creating(function (User $user) {
             $latest = static::max('id') ?? 0;
             $user->user_code = 'USR-' . str_pad($latest + 1, 4, '0', STR_PAD_LEFT);
+        });
+
+        static::created(function (User $user) {
+            $user->userStatus()->create(['status' => 'active']);
         });
     }
 }
