@@ -30,6 +30,13 @@ new class extends Component
 
             });
 
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Rental cancelled',
+                text: 'This rental has been cancelled.',
+            );
+
         }
 
     }
@@ -51,6 +58,13 @@ new class extends Component
                 ]);
 
             });
+
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Rental completed',
+                text: 'This rental has been marked as completed.',
+            );
 
         }
 

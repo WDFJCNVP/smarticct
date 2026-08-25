@@ -10,62 +10,87 @@ new #[Layout('layouts.commuter-layout')]class extends Component
 ?>
 
 <div>
+    <div class="flex items-start justify-between gap-4 mb-6">
+        <div>
+            <x-heading
+                size="xl"
+                class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+                style="font-size: var(--text-page-title)"
+            >
+                Transactions
+            </x-heading>
+            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
+                View and manage your transactions.
+            </x-text>
+        </div>
+    </div>
 
-    <x-pages-heading heading="Transactions" description="View and manage your transactions." />
-
-    <div x-data="{ tab: 'active' }" class="space-y-6 mt-6">
-        <div class="flex gap-6 border-b border-zinc-200 dark:border-zinc-700 text-sm justify-end">
+    <div x-data="{ tab: 'active' }" class="space-y-6">
+        <div class="flex gap-6 border-b border-light-bd-default dark:border-dark-bd-default text-sm">
             <button
                 type="button"
                 @click="tab = 'active'"
                 :class="tab === 'active'
-                    ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400 font-medium'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'"
-                class="pb-3 border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    ? 'border-primary text-primary dark:text-primary font-medium'
+                    : 'border-transparent text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-primary dark:hover:text-dark-txt-primary'"
+                class="pb-3 border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer font-secondary"
             >
                 Active Renting Transaction
             </button>
-
             <button
                 type="button"
                 @click="tab = 'rent-transaction'"
                 :class="tab === 'rent-transaction'
-                    ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400 font-medium'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'"
-                class="pb-3 border-b-2 transition-colors cursor-pointer"
+                    ? 'border-primary text-primary dark:text-primary font-medium'
+                    : 'border-transparent text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-primary dark:hover:text-dark-txt-primary'"
+                class="pb-3 border-b-2 transition-colors cursor-pointer font-secondary"
             >
                 Renting Transaction History
             </button>
-
             <button
                 type="button"
                 @click="tab = 'card-history'"
                 :class="tab === 'card-history'
-                    ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400 font-medium'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'"
-                class="pb-3 border-b-2 transition-colors cursor-pointer"
+                    ? 'border-primary text-primary dark:text-primary font-medium'
+                    : 'border-transparent text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-primary dark:hover:text-dark-txt-primary'"
+                class="pb-3 border-b-2 transition-colors cursor-pointer font-secondary"
             >
                 Card Transactions History
             </button>
         </div>
 
         <div x-show="tab === 'active'" x-cloak class="space-y-3">
-
             <livewire:pages::content-by-role.commuter.active-renting-transaction />
-
         </div>
 
         <div x-show="tab === 'rent-transaction'" x-cloak class="space-y-4">
-
-          <livewire:pages::partial.commuter-transaction-history />
-
+            <livewire:pages::partial.commuter-transaction-history />
         </div>
 
         <div x-show="tab === 'card-history'" x-cloak>
-
-            Card Transactions History
-
+            {{-- Table with borders --}}
+            <flux:card class="overflow-hidden p-0">
+                <flux:table>
+                    <flux:table.columns sticky class="bg-white dark:bg-zinc-900">
+                        <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">#</flux:table.column>
+                        <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Reference</flux:table.column>
+                        <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Type</flux:table.column>
+                        <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Amount</flux:table.column>
+                        <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Status</flux:table.column>
+                        <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Date</flux:table.column>
+                    </flux:table.columns>
+                    <flux:table.rows>
+                        <flux:table.row>
+                            <flux:table.cell colspan="6" class="text-center py-12">
+                                <div class="flex flex-col items-center justify-center gap-2">
+                                    <flux:icon.document-text class="w-8 h-8 text-zinc-300" />
+                                    <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">No card transactions yet.</p>
+                                </div>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    </flux:table.rows>
+                </flux:table>
+            </flux:card>
         </div>
-
     </div>
 </div>

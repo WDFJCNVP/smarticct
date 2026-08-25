@@ -123,6 +123,7 @@ new class extends Component
                         </flux:select.option>
                     @endforeach
                 </flux:select>
+                <flux:error name="selected_vehicle_type" />
             @else
                 <x-text variant="subtle" style="font-size: var(--text-table-row)" class="mt-1">
                     None of your registered vehicles match the vehicle type ({{ $this->selected_post->metadata['vehicle_type'] ?? 'requested' }}) this commuter is asking for.
@@ -140,6 +141,7 @@ new class extends Component
                 required
                 class="mt-1"
             />
+            <flux:error name="vehicle_name" />
         </flux:field>
 
         <flux:field>
@@ -152,6 +154,7 @@ new class extends Component
                 disabled
                 class="mt-1 bg-light-subtle dark:bg-dark-subtle"
             />
+            <flux:error name="total_seats_capacity" />
         </flux:field>
 
         <flux:field>
@@ -164,6 +167,7 @@ new class extends Component
                 required
                 class="mt-1"
             />
+            <flux:error name="destination_coverage" />
         </flux:field>
 
         <div>
@@ -176,12 +180,14 @@ new class extends Component
                         Available from
                     </flux:label>
                     <x-input wire:model="available_from" type="date" required class="mt-1" />
+                    <flux:error name="available_from" />
                 </flux:field>
                 <flux:field>
                     <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                         Available until
                     </flux:label>
                     <x-input wire:model="available_until" type="date" required class="mt-1" />
+                    <flux:error name="available_until" />
                 </flux:field>
             </div>
         </div>
@@ -228,6 +234,9 @@ new class extends Component
                     @endforeach
                 </div>
             @endif
+
+            <flux:error name="vehicle_images" />
+            <flux:error name="vehicle_images.*" />
         </flux:field>
 
         <flux:field>
@@ -241,6 +250,7 @@ new class extends Component
                 rows="3"
                 class="mt-1"
             />
+            <flux:error name="message" />
         </flux:field>
 
         <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">

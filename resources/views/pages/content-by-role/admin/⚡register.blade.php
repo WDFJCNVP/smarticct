@@ -389,7 +389,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 };
 ?>
 
-<div class="mx-auto max-w-5xl px-4 py-8 sm:px-10"
+<div
      x-on:open-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).show()"
      x-on:close-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).close()">
     
@@ -399,7 +399,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             {{ $this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User' }}
         </flux:heading>
         <flux:breadcrumbs>
-            <flux:breadcrumbs.item class="text-lg!" href="{{ route('admin.users') }}" wire:navigate>Back to Users</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item href="{{ route('admin.users') }}" wire:navigate>Back to Users</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>Registration</flux:breadcrumbs.item>
         </flux:breadcrumbs>
     </div>

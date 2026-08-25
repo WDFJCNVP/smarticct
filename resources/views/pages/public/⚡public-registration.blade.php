@@ -9,7 +9,7 @@ use App\Mail\RegistrationOtpMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
 
-new #[Layout('layouts::public-layout')] class extends Component
+new #[Layout('layouts.public-account-setup')] class extends Component
 {
 
     #[Validate('required|string|email|max:255|unique:users,email_address')]
@@ -45,7 +45,7 @@ new #[Layout('layouts::public-layout')] class extends Component
         Mail::to($this->email_address)->send(new RegistrationOtpMail($generatedOtp));
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Code resent!',
             text: 'A new verification code has been sent to your email.',
@@ -95,7 +95,7 @@ new #[Layout('layouts::public-layout')] class extends Component
     Scrapped the arch/banner idea — dropped it back to the exact structure
     the login page already uses (two-panel, h-full overflow-hidden, no page
     scroll). Since this component uses the SAME layout as login
-    (layouts::public-layout), we know this fits the viewport without
+    (layouts.public-account-setup), we know this fits the viewport without
     scrolling. Only the right-hand panel's content swaps between the
     email/password step and the OTP step; the hero panel stays static.
 
@@ -146,7 +146,7 @@ new #[Layout('layouts::public-layout')] class extends Component
         <div class="w-full max-w-sm mx-auto">
 
             @if (session('status'))
-                <div class="mb-3 font-secondary text-sm font-medium text-green-600 dark:text-green-400">
+                <div class="mb-3 font-secondary text-sm font-medium text-success">
                     {{ session('status') }}
                 </div>
             @endif
@@ -245,7 +245,7 @@ new #[Layout('layouts::public-layout')] class extends Component
                             wire:model="otp"
                             placeholder="000000"
                             maxlength="6"
-                            class="text-center font-primary text-2xl tracking-[0.4em] font-bold py-3 border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted/50"
+                            class="font-mono text-center tracking-widest text-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
                         <flux:error name="otp" class="mt-0! font-secondary text-helper text-danger dark:text-dark-danger" />
                     </flux:field>

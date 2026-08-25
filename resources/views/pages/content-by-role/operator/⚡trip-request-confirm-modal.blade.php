@@ -29,6 +29,13 @@ new class extends Component
 
             });
 
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Trip cancelled',
+                text: 'This trip has been cancelled.',
+            );
+
         }
 
     }
@@ -50,6 +57,13 @@ new class extends Component
                 ]);
 
             });
+
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Trip completed',
+                text: 'This trip has been marked as completed.',
+            );
 
         }
 

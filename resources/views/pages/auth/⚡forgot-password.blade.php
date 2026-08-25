@@ -138,7 +138,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                     placeholder="Enter your registered email"
                     class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                 />
-                @error('email') <span class="font-secondary text-helper text-danger mt-1 block">{{ $message }}</span> @enderror
+                @error('email') <flux:error class="font-secondary text-helper text-danger dark:text-dark-danger mt-1">{{ $message }}</flux:error> @enderror
             </flux:field>
 
             <flux:button wire:click="sendOtp" wire:loading.attr="disabled" variant="primary" class="w-full justify-center">
@@ -147,7 +147,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             </flux:button>
 
             <div class="text-center">
-                <a href="{{ route('login') }}" class="font-secondary text-table-row font-medium text-secondary hover:text-secondary/80">← Back to login</a>
+                <flux:link href="{{ route('login') }}" wire:navigate class="font-secondary text-table-row font-medium text-secondary hover:text-secondary/80">← Back to login</flux:link>
             </div>
         </div>
 
@@ -171,7 +171,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                     placeholder="000000"
                     class="font-mono text-center tracking-widest text-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                 />
-                @error('otp') <span class="font-secondary text-helper text-danger mt-1 block text-center">{{ $message }}</span> @enderror
+                @error('otp') <flux:error class="font-secondary text-helper text-danger dark:text-dark-danger mt-1 text-center">{{ $message }}</flux:error> @enderror
             </flux:field>
 
             <flux:button wire:click="verifyOtp" wire:loading.attr="disabled" variant="primary" class="w-full justify-center">
@@ -207,7 +207,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                     viewable
                     class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                 />
-                @error('password') <span class="font-secondary text-helper text-danger mt-1 block">{{ $message }}</span> @enderror
+                @error('password') <flux:error class="font-secondary text-helper text-danger dark:text-dark-danger mt-1">{{ $message }}</flux:error> @enderror
             </flux:field>
 
             <flux:field>
