@@ -7,6 +7,6 @@
   <title>Success</title>
 </head>
 <body>
-  <a href="http://localhost:8000/user/card">Go back</a>
+  <a href="https://smarticct.app/user/card">Go back</a>
 </body>
 </html>

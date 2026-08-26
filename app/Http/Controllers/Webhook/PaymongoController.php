@@ -90,9 +90,26 @@ class PaymongoController extends Controller
         return response()->json(['status' => 'success']);
     }
 
+    // private function isValidSignature(string $payload, ?string $sigHeader, ?string $secret): bool
+    // {
+    //     if (!$sigHeader || !$secret) return false;
+    //     $parts = [];
+    //     foreach (explode(',', $sigHeader) as $part) {
+    //         $data = explode('=', $part, 2);
+    //         if (count($data) === 2) {
+    //             $parts[trim($data[0])] = trim($data[1]);
+    //         }
+    //     }
+    //     $timestamp = $parts['t'] ?? '';
+    //     $received  = $parts['te'] ?? ($parts['li'] ?? '');
+    //     $expected  = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret);
+    //     return hash_equals($expected, $received);
+    // }
+
     private function isValidSignature(string $payload, ?string $sigHeader, ?string $secret): bool
     {
         if (!$sigHeader || !$secret) return false;
+
         $parts = [];
         foreach (explode(',', $sigHeader) as $part) {
             $data = explode('=', $part, 2);
@@ -101,8 +118,18 @@ class PaymongoController extends Controller
             }
         }
         $timestamp = $parts['t'] ?? '';
-        $received  = $parts['te'] ?? ($parts['li'] ?? '');
+        $received  = $parts['li'] ?? ($parts['te'] ?? '');
         $expected  = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret);
+
+        Log::warning('SIG DEBUG', [
+            'raw_header' => $sigHeader,
+            'timestamp'  => $timestamp,
+            'expected'   => $expected,
+            'received'   => $received,
+            'payload_len'=> strlen($payload),
+            'payload_first_50' => substr($payload, 0, 50),
+        ]);
+
         return hash_equals($expected, $received);
     }
 }
