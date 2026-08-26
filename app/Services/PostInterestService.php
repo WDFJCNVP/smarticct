@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\DB;
 use App\Events\NotificationEvent;
 
 use App\Models\RentalOffer;
+use App\Models\Notification;
+use App\Models\UserNotification;
 
 class PostInterestService
 {
@@ -37,6 +39,20 @@ class PostInterestService
                     ]
                 ]
             );
+
+            // Let the post owner (commuter) know an operator sent a rental offer.
+            if ($selected_post->user_id) {
+                $notification = Notification::create([
+                    'type'    => 'Rental Offer',
+                    'title'   => 'New Rental Offer',
+                    'message' => auth()->user()->name . " submitted a rental offer for your post. Check the details on your post's Interested operators tab.",
+                ]);
+
+                UserNotification::create([
+                    'notification_id' => $notification->id,
+                    'user_id'         => $selected_post->user_id,
+                ]);
+            }
 
             event(new NotificationEvent());
 

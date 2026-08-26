@@ -17,9 +17,12 @@ use App\Models\Queue;
 use App\Models\Vehicle;
 use App\Models\DailyScheduleSlot;
 use App\Models\TravelRecord;
+use App\Models\Notification;
+use App\Models\UserNotification;
 use App\Jobs\ProcessAfterDepart;
 use App\Events\QueuedVehicleEvent;
 use App\Events\TriggerDepartingEvent;
+use App\Events\NotificationEvent;
 
 use App\Services\AuditLogsService;
 
@@ -48,6 +51,23 @@ class CardController extends Controller
         return Queue::where('plate_number', $plateNumber)
             ->whereIn('status', ['loading', 'staging'])
             ->exists();
+    }
+
+    private function notifyQueueJoined(int $user_id, string $vehicleType, string $plateNumber, string $message): void
+    {
+        $notification = Notification::create([
+            'type'    => 'Queued',
+            'title'   => 'Vehicle Queued',
+            'message' => $message,
+            'metadata' => json_encode(['plate_number' => $plateNumber, 'vehicle_type' => $vehicleType]),
+        ]);
+
+        UserNotification::create([
+            'notification_id' => $notification->id,
+            'user_id'         => $user_id,
+        ]);
+
+        broadcast(new NotificationEvent());
     }
 
     private function deductUserCard(Card $card, float $amount, float $balanceBefore): array
@@ -166,6 +186,13 @@ class CardController extends Controller
             ProcessAfterDepart::dispatch($myQueue->id)->delay($departs_in);
         }
 
+        $this->notifyQueueJoined(
+            $vehicle->user->id,
+            $vehicle->vehicle_type,
+            $vehicle->plate_number,
+            "Your {$vehicle->vehicle_type} with plate number {$vehicle->plate_number} has joined the queue and is now accepting passengers."
+        );
+
         return [
             'success' => true,
             'message' => "Vehicle successfully activated and is now accepting passengers. Scheduled departure: {$departs_in?->format('h:i A')}.",
@@ -197,6 +224,14 @@ class CardController extends Controller
                 'status'        => 'staging',
                 'departs_at'    => null,
             ]);
+
+            $this->notifyQueueJoined(
+                $user_id,
+                $vehicle->vehicle_type,
+                $vehicle->plate_number,
+                "Your {$vehicle->vehicle_type} with plate number {$vehicle->plate_number} has joined the queue for {$validated['destination']}. You'll be notified when it's your turn to load."
+            );
+
             return;
         }
 
@@ -227,6 +262,13 @@ class CardController extends Controller
         if ($departs_in !== null) {
             ProcessAfterDepart::dispatch($queue->id)->delay($queue->departs_at);
         }
+
+        $this->notifyQueueJoined(
+            $user_id,
+            $vehicle->vehicle_type,
+            $vehicle->plate_number,
+            "Your {$vehicle->vehicle_type} with plate number {$vehicle->plate_number} has joined the queue and is now accepting passengers."
+        );
     }
 
     // Main tap endpoint

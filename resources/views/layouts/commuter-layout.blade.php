@@ -62,15 +62,18 @@
                     Routes
                 </x-dashboard.sidebar-menu.sidebar-item>
 
+                {{-- Queue – keep the truck icon, it's fitting --}}
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.queue') }}" icon="truck" wire:navigate>
                     Queue
                 </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('commuter.travel.record') }}" icon="truck" wire:navigate>
+                {{-- Travel Record – use a clipboard or receipt icon --}}
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('commuter.travel.record') }}" icon="clipboard-document-list" wire:navigate>
                     Travel Record
                 </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('commuter.transaction') }}" icon="truck" wire:navigate>
+                {{-- Transactions – use a money/banknotes icon --}}
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('commuter.transaction') }}" icon="banknotes" wire:navigate>
                     Transactions
                 </x-dashboard.sidebar-menu.sidebar-item>
 
@@ -81,7 +84,7 @@
 
             <flux:spacer />
 
-            <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
+            <livewire:pages::sidebar-profile variant="sidebar" class="hidden lg:block" />
         </flux:sidebar>
 
         <flux:header class="lg:hidden border-b border-zinc-200 dark:border-zinc-700">
@@ -89,65 +92,7 @@
 
             <flux:spacer />
 
-            <flux:dropdown position="top" align="end">
-                <flux:profile
-                    :initials="auth()->user()->initials()"
-                    icon-trailing="chevron-down"
-                />
-
-                <flux:menu>
-                    <flux:menu.radio.group>
-                        <div class="p-0 text-sm font-normal">
-                            <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                                <flux:avatar
-                                    :name="auth()->user()->name"
-                                    :initials="auth()->user()->initials()"
-                                />
-
-                                <div class="grid flex-1 text-start text-sm leading-tight">
-                                    <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
-                                    <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
-                                </div>
-                            </div>
-                        </div>
-                    </flux:menu.radio.group>
-
-                    <flux:menu.separator />
-
-                    <flux:menu.radio.group>
-                        <flux:menu.item href="{{ route('notifications') }}" icon="bell" wire:navigate>
-                            Notifications
-                        </flux:menu.item>
-                    </flux:menu.radio.group>
-
-                    <flux:menu.separator />
-
-                    <flux:menu.radio.group>
-                        <flux:menu.item
-                            :href="route('profile.edit')"
-                            icon="cog"
-                            wire:navigate
-                        >
-                            Settings
-                        </flux:menu.item>
-                    </flux:menu.radio.group>
-
-                    <flux:menu.separator />
-
-                    <form method="POST" action="{{route('logout')}}" class="w-full">
-                        @csrf
-                        <flux:menu.item
-                            as="button"
-                            type="submit"
-                            icon="arrow-right-start-on-rectangle"
-                            class="w-full cursor-pointer"
-                            data-test="logout-button"
-                        >
-                            Log out
-                        </flux:menu.item>
-                    </form>
-                </flux:menu>
-            </flux:dropdown>
+            <livewire:pages::sidebar-profile variant="mobile" />
         </flux:header>
 
         <flux:main>

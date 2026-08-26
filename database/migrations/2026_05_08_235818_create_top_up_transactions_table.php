@@ -19,6 +19,7 @@ return new class extends Migration
             $table->decimal('amount_paid', 10, 2); 
             $table->decimal('points_credited', 10, 2); 
             $table->string('status', 30)->default('pending'); 
+            $table->foreignId('processed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('payment_method')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();

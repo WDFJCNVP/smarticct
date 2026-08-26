@@ -1,6 +1,9 @@
 <?php
 
 use App\Concerns\ProfileValidationRules;
+use App\Models\Notification;
+use App\Models\UserNotification;
+use App\Events\NotificationEvent;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -68,15 +71,47 @@ new #[Title('Profile settings')] class extends Component {
     }
 
     /**
+     * Notify the currently authenticated user that they successfully
+     * updated their own account (as opposed to an admin updating it for
+     * them, which already has its own notification in UserService).
+     */
+    private function notifySelfUpdate(string $title, string $message): void
+    {
+        $notification = Notification::create([
+            'type'    => 'Update',
+            'title'   => $title,
+            'message' => $message,
+        ]);
+
+        UserNotification::create([
+            'notification_id' => $notification->id,
+            'user_id'         => Auth::id(),
+        ]);
+
+        broadcast(new NotificationEvent());
+    }
+
+    /**
      * Update the profile information for the currently authenticated user.
      */
     public function updateProfileInformation(): void
     {
         $user = Auth::user();
 
-        $rules = array_merge($this->profileRules($user->id), [
-            'phone_number' => 'required|string|regex:/^09\d{9}$/',
-        ]);
+        // Get rules from trait
+        $rules = $this->profileRules($user->id);
+
+        // Remove 'username' – it's not used in this component
+        unset($rules['username']);
+
+        // Rename 'email' to 'email_address' to match the component property
+        if (isset($rules['email'])) {
+            $rules['email_address'] = $rules['email'];
+            unset($rules['email']);
+        }
+
+        // Add phone number validation
+        $rules['phone_number'] = 'required|string|regex:/^09\d{9}$/';
 
         $validated = $this->validate($rules, [
             'phone_number.regex' => 'Enter a valid mobile number (e.g. 09171234567).',
@@ -84,11 +119,18 @@ new #[Title('Profile settings')] class extends Component {
 
         $user->fill($validated);
 
+        // This check is now harmless because 'username' is never set,
+        // but it doesn't cause errors.
         if ($user->isDirty('username')) {
             $user->email_verified_at = null;
         }
 
         $user->save();
+
+        $this->notifySelfUpdate(
+            'Profile Updated',
+            'You\'ve successfully updated your personal information.'
+        );
 
         Flux::toast(
             variant: 'success',
@@ -120,6 +162,11 @@ new #[Title('Profile settings')] class extends Component {
         $this->address = implode(', ', $parts);
 
         Auth::user()->update(['address' => $this->address]);
+
+        $this->notifySelfUpdate(
+            'Address Updated',
+            'You\'ve successfully updated your address.'
+        );
 
         $this->resetValidation();
         $this->dispatch('address-saved');

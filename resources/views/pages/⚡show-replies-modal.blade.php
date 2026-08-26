@@ -16,6 +16,13 @@ new class extends Component
     public function declineThisClient() {
         $this->replies->update(['status' => 'decline']);
         $this->declineModal = false;
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Client declined',
+            text: 'This client has been declined.',
+        );
     }
 
     public function showDeclineModal() {
@@ -26,6 +33,13 @@ new class extends Component
     public function cancelThisClient() {
         $this->replies->update(['status' => 'cancel']);
         $this->cancelModal = false;
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Client cancelled',
+            text: 'This client has been cancelled.',
+        );
     }
 
     public function showCancelModal() {
@@ -39,6 +53,13 @@ new class extends Component
 
     public function acceptThisClient() {
         $this->replies->update(['status' => 'accept']);
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Client accepted',
+            text: 'This client has been accepted.',
+        );
     }
 
     public function showAcceptModal() {

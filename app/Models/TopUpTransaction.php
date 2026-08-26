@@ -11,6 +11,7 @@ class TopUpTransaction extends Model
         'id',
         'user_id',
         'card_id',
+        'processed_by',
         'checkout_session_id',
         'points_credited',
         'points_to_load',
@@ -25,5 +26,9 @@ class TopUpTransaction extends Model
 
     public function card() {
         return $this->belongsTo(Card::class);
+    }
+
+    public function processedBy() {
+        return $this->belongsTo(User::class, 'processed_by');
     }
 }

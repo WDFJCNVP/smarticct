@@ -71,7 +71,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             'agree'         => 'accepted', // <-- new rule
         ]);
 
-        $user = app(UserService::class)->update(auth()->user(), $data);
+        $user = app(UserService::class)->update(auth()->user(), $data, byAdmin: false);
 
         if ($user) {
             return $this->redirect('/' . auth()->user()->role . '/dashboard');
@@ -80,7 +80,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
 };
 ?>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-6 sm:px-6 lg:px-8 bg-light-primary dark:bg-dark-bg">
+<div class="min-h-screen flex items-center justify-center px-4 py-6 sm:px-6 lg:px-8 bg-light-primary dark:bg-dark-primary">
 
     <div class="w-full max-w-md lg:max-w-4xl rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 bg-white dark:bg-dark-surface">
 
@@ -97,6 +97,10 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                     <p class="font-secondary text-nav-label font-semibold uppercase tracking-widest text-white/70 mb-0.5">
                         Step 2 of 2 · Account Setup
                     </p>
+                    <div class="flex gap-1.5 mb-1.5 max-w-[160px]">
+                        <div class="flex-1 h-[3px] rounded-full bg-white"></div>
+                        <div class="flex-1 h-[3px] rounded-full bg-white"></div>
+                    </div>
                     <h2 class="font-primary text-table-row sm:text-page-title font-bold text-white leading-tight">
                         Complete your profile
                     </h2>
@@ -124,7 +128,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             placeholder="e.g. John Doe"
                             class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
-                        <flux:error name="name" />
+                        <flux:error name="name" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
 
                     <flux:field>
@@ -139,7 +143,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             <flux:select.option value="senior">Senior Citizen</flux:select.option>
                             <flux:select.option value="pwd">PWD</flux:select.option>
                         </flux:select>
-                        <flux:error name="commuter_type" />
+                        <flux:error name="commuter_type" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
 
                     <flux:field>
@@ -152,7 +156,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             max="120"
                             class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
-                        <flux:error name="age" />
+                        <flux:error name="age" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
 
                 </div>
@@ -171,7 +175,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                                 placeholder="e.g. 09171234567"
                                 class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                             />
-                            <flux:error name="phone_number" />
+                            <flux:error name="phone_number" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                         </flux:field>
 
                         <flux:field>
@@ -190,7 +194,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                                     <span class="text-light-txt-muted dark:text-dark-txt-muted">Tap to set your address</span>
                                 @endif
                             </button>
-                            <flux:error name="address" />
+                            <flux:error name="address" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                         </flux:field>
 
                         {{-- AGREEMENT CHECKBOX --}}
@@ -248,7 +252,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                     placeholder="e.g. Blk 3 Lot 5, Hillside Subd."
                     class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
-                <flux:error name="house_subd" />
+                <flux:error name="house_subd" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
             <flux:field>
@@ -261,7 +265,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                     placeholder="e.g. 3"
                     class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
-                <flux:error name="zone_number" />
+                <flux:error name="zone_number" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
             <flux:field>
@@ -271,7 +275,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                     placeholder="e.g. San Roque"
                     class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
-                <flux:error name="barangay" />
+                <flux:error name="barangay" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
             <flux:field>
@@ -281,7 +285,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                     placeholder="e.g. Iriga City"
                     class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
-                <flux:error name="municipality" />
+                <flux:error name="municipality" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
             <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">

@@ -44,7 +44,7 @@ Route::livewire('/user/queue', 'pages::queue-page')
     ->name('user.queue');
 
 //Pannels
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'active'])->group(function () {
 
     Route::livewire('/user/card', 'pages::card')
         ->name('user.card');
@@ -75,6 +75,10 @@ Route::middleware('auth')->group(function () {
         ->name('admin.card.transaction')
         ->middleware('role:admin');
 
+    Route::livewire('/admin/topups', 'pages::content-by-role.admin.card-topups')
+        ->name('admin.topups')
+        ->middleware('role:admin');
+
     Route::livewire('/admin/travel/record', 'pages::content-by-role.admin.travel-record')
         ->name('admin.travel.record')
         ->middleware('role:admin');
@@ -100,6 +104,10 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/cashier/active/group', 'pages::content-by-role.cashier.active-group')
         ->middleware('role:cashier,admin')
         ->name('cashier.active-group');
+
+    Route::livewire('/cashier/cards', 'pages::content-by-role.cashier.cards')
+        ->middleware('role:cashier,admin')
+        ->name('cashier.cards');
 
     //Operator Section
     Route::livewire('/operator/dashboard', 'pages::content-by-role.operator.index')
@@ -153,6 +161,7 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/feed/create', 'pages::create-post')->name('post.create');
     Route::livewire('/feed/archived', 'pages::archived-post')->name('post.archived');
     Route::livewire('/feed/my/posts', 'pages::my-posts')->name('post.my-posts');
+    Route::livewire('/feed/trash', 'pages::trash')->name('post.trash');
 
     Route::livewire('/operator/feed/my/post/{post}/{count}', 'pages::post.my-post')
         ->name('my.post');
@@ -181,7 +190,7 @@ Route::livewire('/tap/card', 'pages::tap_card.tap')->name('tap.card');
 Route::livewire('/operator/balance', 'pages::load_points.points_balance')->name('operator.balance');
 
 // Top-up routes
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/topup/success',   [TopUpTransactionController::class, 'success'])->name('topup.success');
     Route::get('/topup/cancel',    [TopUpTransactionController::class, 'cancel'])->name('topup.cancel');
 });

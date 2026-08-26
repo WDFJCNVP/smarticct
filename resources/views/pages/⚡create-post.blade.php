@@ -59,12 +59,8 @@ new class extends Component
     }
 
     public function postPreview() {
-        if (in_array(auth()->user()->role, ['admin', 'cashier'])) {
-            $this->publish();
-        } else {
-            $this->is_post_preview = false;
-            $this->is_post_preview = true;
-        }
+        $this->is_post_preview = false;
+        $this->is_post_preview = true;
     }
 
     public function openVehicle() {

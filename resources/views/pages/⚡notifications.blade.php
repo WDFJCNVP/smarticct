@@ -46,7 +46,7 @@ new class extends Component
 <div>
     <div class="flex items-center mb-6">
         <div class="flex-1 flex items-center gap-2">
-            <flux:heading size="xl">Notifications</flux:heading>
+            <flux:heading size="xl" class="font-primary">Notifications</flux:heading>
 
             @php
                 
@@ -61,11 +61,10 @@ new class extends Component
             @endphp
 
             @if ($total_unread_notification)
-                <flux:badge color="blue" size="sm">{{ $total_unread_notification }} Unread</flux:badge>
+                <flux:badge color="blue" size="sm" class="font-secondary">{{ $total_unread_notification }} Unread</flux:badge>
             @elseif($this->getNotification->isEmpty())
-                {{-- <flux:badge color="zinc" size="sm">No notification</flux:badge> --}}
             @else
-                <flux:badge color="zinc" size="sm">All read</flux:badge>
+                <flux:badge color="zinc" size="sm" class="font-secondary">All read</flux:badge>
             @endif            
         </div>
 
@@ -83,25 +82,25 @@ new class extends Component
             <x-notification-container :notification_id="$notification->id" href="/notification/{{ $notification->id }}" >
                 @if ($notification->is_read === 0)  
                     <div class="relative inline-block">
-                        <span class="absolute -top-0.2 -left-0.2 z-10 block h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-zinc-900"></span>
-                        <flux:icon.envelope class="h-5 w-5 text-blue-600" />
+                        <span class="absolute -top-0.2 -left-0.2 z-10 block h-1.5 w-1.5 rounded-full bg-danger ring-2 ring-white dark:ring-dark-surface"></span>
+                        <flux:icon.envelope class="h-5 w-5 text-primary dark:text-white" />
                     </div>
                 @else
-                    <flux:icon.envelope class="h-5 w-5 text-blue-600" />
+                    <flux:icon.envelope class="h-5 w-5 text-primary dark:text-white" />
                 @endif
 
                 <div class="flex-1 min-w-0">
-                    <x-text color="blue"  variant="strong">
+                    <x-text color="blue" variant="strong" class="font-secondary text-light-txt-primary dark:text-dark-txt-primary">
                         {{ $notification->notification->title }}
                     </x-text>
 
                     <div class="flex items-center" >
-                        <x-text class="flex-1 text-xs text-gray-400 mt-0.5 leading-snug truncate">
+                        <x-text class="flex-1 font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-0.5 leading-snug truncate">
                             {{ $notification->notification->message }}
                         </x-text>
 
                         <div class="flex items-center gap-2 mt-1.5">
-                            <span class="text-xs text-gray-500 flex items-center gap-1">
+                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted flex items-center gap-1">
                                 {{ $notification->created_at->format('F d, Y') }}
                             </span>
                         </div>
@@ -111,7 +110,7 @@ new class extends Component
         @empty
 
         <flux:card>
-            There's no notification yet.
+            <flux:text class="font-secondary text-light-txt-muted dark:text-dark-txt-muted">There's no notification yet.</flux:text>
         </flux:card>
 
         @endforelse

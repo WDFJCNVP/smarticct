@@ -124,12 +124,12 @@
                     >
                         <div class="absolute inset-0 rounded-2xl shadow-2xl overflow-hidden"
                              style="backface-visibility:hidden;-webkit-backface-visibility:hidden;">
-                            <img src="{{ asset('images/card_front.svg') }}" alt="Card front"
+                            <img src="{{ Vite::asset('resources/images/card_front.svg') }}" alt="Card front"
                                  class="w-full h-full object-cover pointer-events-none" draggable="false">
                         </div>
                         <div class="absolute inset-0 rounded-2xl shadow-2xl overflow-hidden"
                              style="transform:rotateY(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;">
-                            <img src="{{ asset('images/card_back.svg') }}" alt="Card back"
+                            <img src="{{ Vite::asset('resources/images/card_back.svg') }}" alt="Card back"
                                  class="w-full h-full object-cover pointer-events-none" draggable="false">
                         </div>
                     </div>
@@ -253,7 +253,7 @@
             {{-- Mock feed preview – now stays at a comfortable width --}}
             <div class="w-full max-w-[320px] mx-auto lg:mx-0 shrink-0 space-y-4">
                 <!-- Card 1: Request (Maya) -->
-                <div class="bg-light-secondary dark:bg-dark-secondary border border-light-bd-default dark:border-dark-bd-default rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow duration-200">
+                <flux:card class="!p-4 shadow-sm hover:shadow-md transition-shadow duration-200">
                     <div class="flex items-center gap-2 mb-2">
                         <span class="!w-7 !h-7 rounded-full !bg-light-subtle dark:!bg-dark-subtle flex items-center justify-center text-[11px] font-bold text-light-txt-primary dark:text-dark-txt-primary shrink-0">MR</span>
                         <div class="flex-1 min-w-0">
@@ -265,22 +265,22 @@
                     <flux:text size="sm" class="!text-light-txt-body dark:!text-dark-txt-body !leading-snug">
                         Need a van this Saturday for a family trip to Bato. Anyone available?
                     </flux:text>
-                </div>
+                </flux:card>
 
                 <!-- Card 2: For rent (Rico) -->
-                <div class="bg-light-secondary dark:bg-dark-secondary border border-light-bd-default dark:border-dark-bd-default rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow duration-200">
+                <flux:card class="!p-4 shadow-sm hover:shadow-md transition-shadow duration-200">
                     <div class="flex items-center gap-2 mb-2">
                         <span class="!w-7 !h-7 rounded-full !bg-secondary/15 flex items-center justify-center text-[11px] font-bold text-secondary shrink-0">RT</span>
                         <div class="flex-1 min-w-0">
                             <flux:text size="xs" class="!font-bold !text-light-txt-primary dark:!text-dark-txt-primary !block !truncate">Rico's Transport</flux:text>
                             <flux:text size="xs" class="!text-light-txt-muted dark:!text-dark-txt-muted">Operator</flux:text>
                         </div>
-                        <flux:badge color="green" size="sm" class="font-secondary !text-[10px] shrink-0">For rent</flux:badge>
+                        <flux:badge color="green" size="sm" class="font-secondary !text-[10px] shrink-0">Available for rent</flux:badge>
                     </div>
                     <flux:text size="sm" class="!text-light-txt-body dark:!text-dark-txt-body !leading-snug">
                         Multicab available for day trips, &#8369;1,500/day, driver included.
                     </flux:text>
-                </div>
+                </flux:card>
             </div>
         </div>
     </div>

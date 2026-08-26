@@ -11,6 +11,13 @@ new class extends Component
         if ($this->selectedDeletingLog) {
             $this->selectedDeletingLog->delete();
             $this->selectedDeletingLog = null;
+
+            Flux::toast(
+                duration: 0,
+                variant: 'success',
+                heading: 'Log deleted',
+                text: 'The audit log entry has been deleted.',
+            );
         }
 
         $this->redirect(route('admin.audit.logs'), navigate: true);

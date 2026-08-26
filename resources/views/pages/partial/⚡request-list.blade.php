@@ -7,6 +7,9 @@ use Livewire\Attributes\On;
 use App\Models\Post;
 use App\Models\RentTransaction;
 use App\Models\TripRequest;
+use App\Models\Notification;
+use App\Models\UserNotification;
+use App\Events\NotificationEvent;
 
 new class extends Component
 {
@@ -67,12 +70,34 @@ new class extends Component
         }
 
         TripRequest::where('id', $id)->update(['status' => 'decline']);
+
+        // Let the commuter know their trip request was declined.
+        $notification = Notification::create([
+            'type'    => 'Declined',
+            'title'   => 'Trip Request Declined',
+            'message' => "Your trip request was declined by {$this->post->user->name}.",
+        ]);
+
+        UserNotification::create([
+            'notification_id' => $notification->id,
+            'user_id'         => $this->interested_user->user_id,
+        ]);
+
+        broadcast(new NotificationEvent());
+
         unset($this->getTripRequest);
 
         $this->is_show_decline_modal = false;
         $this->interested_user = null;
 
         $this->dispatch('interested-list-updated');
+
+        Flux::toast(
+            duration: 0,
+            variant: 'success',
+            heading: 'Request declined',
+            text: 'The trip request has been declined.',
+        );
     }
 
     #[On('transaction-updated')]
@@ -133,17 +158,18 @@ new class extends Component
                             <x-button wire:click="$dispatch('open-confirm-modal', { id: {{ $request->id }} })" variant="primary" color="green" disabled class="w-full sm:w-auto">Accept</x-button>
                             <x-button wire:click="showDeclineModal({{ $request->id }})" variant="primary" color="red" disabled class="w-full sm:w-auto">Decline</x-button>
                         </div>
-                        <x-text wire:click="showViewMoreModal({{ $request->id }})" class="cursor-pointer hover:underline hover:text-light-txt-primary dark:hover:text-dark-txt-primary transition" size="sm">View more</x-text>
+                        <button
+                            type="button"
+                            wire:click="showViewMoreModal({{ $request->id }})"
+                            class="w-full sm:w-auto text-center text-xs font-medium font-secondary px-3 py-1.5 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-primary dark:hover:text-dark-txt-primary hover:bg-light-subtle dark:hover:bg-dark-subtle transition cursor-pointer"
+                        >
+                            View more
+                        </button>
                     </div>
                 </div>
             </x-card>
         @empty
-            <x-card class="!rounded-xl !border !border-dashed !border-light-bd-strong dark:!border-dark-bd-strong !bg-light-secondary dark:!bg-dark-secondary !text-center !p-8">
-            <flux:icon name="clipboard-document-list" class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
-            <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
-                No active transaction.
-            </x-text>
-        </x-card>
+            {{-- Nothing else pending — the banner above already says everything that's needed here. --}}
         @endforelse
     @else
         @forelse ($this->getTripRequest as $request)
@@ -188,12 +214,23 @@ new class extends Component
                             <x-button wire:click="$dispatch('open-confirm-modal', { id: {{ $request->id }} })" variant="primary" color="green" class="w-full sm:w-auto">Accept</x-button>
                             <x-button wire:click="showDeclineModal({{ $request->id }})" variant="primary" color="red" class="w-full sm:w-auto">Decline</x-button>
                         </div>
-                        <x-text wire:click="showViewMoreModal({{ $request->id }})" class="cursor-pointer hover:underline hover:text-light-txt-primary dark:hover:text-dark-txt-primary transition" size="sm">View more</x-text>
+                        <button
+                            type="button"
+                            wire:click="showViewMoreModal({{ $request->id }})"
+                            class="w-full sm:w-auto text-center text-xs font-medium font-secondary px-3 py-1.5 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-primary dark:hover:text-dark-txt-primary hover:bg-light-subtle dark:hover:bg-dark-subtle transition cursor-pointer"
+                        >
+                            View more
+                        </button>
                     </div>
                 </div>
             </x-card>
         @empty
-            <x-text class="block text-center py-4 text-light-txt-muted dark:text-dark-txt-muted">No interested commuters yet.</x-text>
+            <x-card class="!rounded-xl !border !border-dashed !border-light-bd-strong dark:!border-dark-bd-strong !bg-light-secondary dark:!bg-dark-secondary !text-center !p-8">
+                <flux:icon name="clipboard-document-list" class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
+                <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
+                    No interested commuters yet
+                </x-text>
+            </x-card>
         @endforelse
     @endif
 
@@ -221,14 +258,6 @@ new class extends Component
                         <flux:icon name="x-mark" class="w-5 h-5" />
                     </button>
                 </flux:modal.close>
-            </div>
-
-            <!-- Body -->
-            <div>
-                <flux:text class="text-light-txt-body dark:text-dark-txt-body">
-                    You're about to decline this interested user.<br>
-                    This will remove them from the list.
-                </flux:text>
             </div>
 
             <!-- Footer -->
@@ -293,7 +322,7 @@ new class extends Component
                     <!-- Contact details -->
                     <div class="rounded-lg border border-light-bd-default dark:border-dark-bd-default divide-y divide-light-bd-default dark:divide-dark-bd-default">
                         <div class="flex items-center justify-between gap-3 p-3">
-                            <div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                            <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
                                 <flux:icon.map-pin class="w-4 h-4" />
                                 <x-text class="text-inherit" style="font-size: var(--text-table-row)">Address</x-text>
                             </div>
@@ -301,7 +330,7 @@ new class extends Component
                         </div>
 
                         <div class="flex items-center justify-between gap-3 p-3">
-                            <div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                            <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
                                 <flux:icon.phone class="w-4 h-4" />
                                 <x-text class="text-inherit" style="font-size: var(--text-table-row)">Phone no.</x-text>
                             </div>
@@ -325,7 +354,7 @@ new class extends Component
 
                             <div class="rounded-lg border border-light-bd-default dark:border-dark-bd-default divide-y divide-light-bd-default dark:divide-dark-bd-default">
                                 <div class="flex items-center justify-between gap-3 p-3">
-                                    <div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                                    <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
                                         <flux:icon.user class="w-4 h-4" />
                                         <x-text class="text-inherit" style="font-size: var(--text-table-row)">Name</x-text>
                                     </div>
@@ -333,7 +362,7 @@ new class extends Component
                                 </div>
 
                                 <div class="flex items-center justify-between gap-3 p-3">
-                                    <div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                                    <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
                                         <flux:icon.identification class="w-4 h-4" />
                                         <x-text class="text-inherit" style="font-size: var(--text-table-row)">Age</x-text>
                                     </div>
@@ -341,7 +370,7 @@ new class extends Component
                                 </div>
 
                                 <div class="flex items-center justify-between gap-3 p-3">
-                                    <div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                                    <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
                                         <flux:icon.map-pin class="w-4 h-4" />
                                         <x-text class="text-inherit" style="font-size: var(--text-table-row)">Home address</x-text>
                                     </div>
@@ -349,7 +378,7 @@ new class extends Component
                                 </div>
 
                                 <div class="flex items-center justify-between gap-3 p-3">
-                                    <div class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                                    <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
                                         <flux:icon.phone class="w-4 h-4" />
                                         <x-text class="text-inherit" style="font-size: var(--text-table-row)">Phone no.</x-text>
                                     </div>

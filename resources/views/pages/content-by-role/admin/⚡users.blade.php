@@ -41,7 +41,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
 
     #[Computed]
     public function getUsers() {
-        return User::with('card')
+        return User::with('card', 'userStatus')
             ->whereIn('role', ['operator', 'commuter'])
             ->when($this->filtered_role, fn($q) => $q->where('role', $this->filtered_role))
             ->when($this->search, fn($q) => $q->where(function ($q2) {
@@ -211,8 +211,11 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                                     <div class="flex items-center gap-2.5">
                                         <flux:avatar size="sm" src="{{ $user->avatar_url }}" name="{{ $user->name }}" />
                                         <div class="min-w-0 flex flex-col">
-                                            <span class="font-secondary text-xs md:text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary truncate">
+                                            <span class="font-secondary text-xs md:text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary truncate flex items-center gap-1.5">
                                                 {{ $user->name }}
+                                                @if ($user->isSuspended())
+                                                    <flux:badge color="red" size="sm" class="font-secondary text-badge text-xs">Suspended</flux:badge>
+                                                @endif
                                             </span>
                                             <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted truncate">
                                                 {{ $user->email_address }}

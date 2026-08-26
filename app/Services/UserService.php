@@ -101,12 +101,16 @@ class UserService
         });
     }
 
-    public function update(User $user, array $data): User
+    public function update(User $user, array $data, bool $byAdmin = true): User
     {
-        return DB::transaction(function () use ($user, $data) {
+        return DB::transaction(function () use ($user, $data, $byAdmin) {
             $user->update($data);
 
-            if($this->getAdmin()) {
+            // Only notify the admin, and attribute the change to "an administrator",
+            // when an admin actually performed the update. Self-service updates
+            // (e.g. a commuter/operator completing their own registration/profile)
+            // must not trigger the admin-facing or admin-attributed notifications.
+            if ($byAdmin && $this->getAdmin()) {
                 $admin = $this->getAdmin();
                 $notification = Notification::create([
                     'type'    => 'Update',
@@ -121,11 +125,19 @@ class UserService
 
             }
 
-            $notification = Notification::create([
-                'type'    => 'Update',
-                'title'   => 'Profile Updated',
-                'message' => 'Your account details were successfully updated by an administrator on' . now()->format('F d, Y') . '.' . 'by Admin',
-            ]);
+            if ($byAdmin) {
+                $notification = Notification::create([
+                    'type'    => 'Update',
+                    'title'   => 'Profile Updated',
+                    'message' => 'Your account details were successfully updated by an administrator on ' . now()->format('F d, Y') . '.',
+                ]);
+            } else {
+                $notification = Notification::create([
+                    'type'    => 'Update',
+                    'title'   => 'Profile Updated',
+                    'message' => 'Your account details were successfully updated on ' . now()->format('F d, Y') . '.',
+                ]);
+            }
 
             UserNotification::create([
                 'notification_id' => $notification->id,
@@ -146,6 +158,92 @@ class UserService
                 'message'    => "User account information was successfully updated (User ID: {$user->user_code}).",
             ],
         ]);
+
+            return $user;
+        });
+    }
+
+    public function suspend(User $user, string $reason): User
+    {
+        return DB::transaction(function () use ($user, $reason) {
+            $admin = auth()->user();
+
+            $user->userStatus()->updateOrCreate([], [
+                'status'             => 'suspended',
+                'suspension_reason'  => $reason,
+                'suspended_at'       => now(),
+                'suspended_by'       => $admin?->id,
+            ]);
+
+            if ($user->card) {
+                $user->card->update(['status' => 'suspended']);
+            }
+
+            $notification = Notification::create([
+                'type'    => 'Suspension',
+                'title'   => 'Account Suspended',
+                'message' => "Your account has been suspended. Reason: {$reason} Please visit the terminal office with the required documents to have your account reviewed.",
+            ]);
+
+            UserNotification::create([
+                'notification_id' => $notification->id,
+                'user_id'         => $user->id,
+            ]);
+
+            broadcast(new NotificationEvent());
+
+            app(AuditLogsService::class)->create([
+                'user_id' => auth()->id(),
+                'action'  => 'User Suspended',
+                'subject' => 'User Account Suspension',
+                'channel' => 'Web',
+                'metadata' => [
+                    'ip_address' => request()->ip(),
+                    'message'    => "User account was suspended (User ID: {$user->user_code}). Reason: {$reason}",
+                ],
+            ]);
+
+            return $user;
+        });
+    }
+
+    public function reinstate(User $user): User
+    {
+        return DB::transaction(function () use ($user) {
+            $user->userStatus()->updateOrCreate([], [
+                'status'            => 'active',
+                'suspension_reason' => null,
+                'suspended_at'      => null,
+                'suspended_by'      => null,
+            ]);
+
+            if ($user->card) {
+                $user->card->update(['status' => 'active']);
+            }
+
+            $notification = Notification::create([
+                'type'    => 'Reinstatement',
+                'title'   => 'Account Reinstated',
+                'message' => 'Your account has been reviewed and reinstated. You may now log in and use the system as normal.',
+            ]);
+
+            UserNotification::create([
+                'notification_id' => $notification->id,
+                'user_id'         => $user->id,
+            ]);
+
+            broadcast(new NotificationEvent());
+
+            app(AuditLogsService::class)->create([
+                'user_id' => auth()->id(),
+                'action'  => 'User Reinstated',
+                'subject' => 'User Account Reinstatement',
+                'channel' => 'Web',
+                'metadata' => [
+                    'ip_address' => request()->ip(),
+                    'message'    => "User account was reinstated (User ID: {$user->user_code}).",
+                ],
+            ]);
 
             return $user;
         });
