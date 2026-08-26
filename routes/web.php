@@ -75,6 +75,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->name('admin.card.transaction')
         ->middleware('role:admin');
 
+    Route::livewire('/admin/topups', 'pages::content-by-role.admin.card-topups')
+        ->name('admin.topups')
+        ->middleware('role:admin');
+
     Route::livewire('/admin/travel/record', 'pages::content-by-role.admin.travel-record')
         ->name('admin.travel.record')
         ->middleware('role:admin');

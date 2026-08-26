@@ -86,8 +86,9 @@
             >Card</x-dashboard.sidebar-menu.sidebar-item>
 
             <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('cashier.cards') }}"
+                href="{{ route('admin.topups') }}"
                 icon="banknotes"
+                wire:navigate
             >Top-Up</x-dashboard.sidebar-menu.sidebar-item>
         </flux:sidebar.nav>
 
