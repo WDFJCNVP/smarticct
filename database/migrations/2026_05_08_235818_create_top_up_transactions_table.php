@@ -15,11 +15,12 @@ return new class extends Migration
             $table->id();
             $table->foreignIdFor(\App\Models\User::class)->constrained()->onDelete('cascade');
             $table->foreignIdFor(\App\Models\Card::class)->constrained()->onDelete('cascade');
-            $table->string('checkout_session_id')->nullable(); // from PayMongo
-            $table->integer('points_to_load');                 // e.g. 100
-            $table->decimal('amount_paid', 10, 2);             // e.g. 100.00
-            $table->string('payment_method')->nullable();      // gcash/paymaya/card
-            $table->enum('status', ['pending', 'paid', 'failed'])->default('pending');
+            $table->string('checkout_session_id')->unique();
+            $table->decimal('amount_paid', 10, 2); 
+            $table->decimal('points_credited', 10, 2); 
+            $table->string('status', 30)->default('pending'); 
+            $table->string('payment_method')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
         });
     }

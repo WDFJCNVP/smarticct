@@ -12,6 +12,7 @@ class TopUpTransaction extends Model
         'user_id',
         'card_id',
         'checkout_session_id',
+        'points_credited',
         'points_to_load',
         'amount_paid',
         'payment_method',

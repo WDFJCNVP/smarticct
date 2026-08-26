@@ -7,6 +7,6 @@
   <title>Success</title>
 </head>
 <body>
-  <a href="http://localhost:8000/payment/points">Go back</a>
+  <a href="http://localhost:8000/user/card">Go back</a>
 </body>
 </html>

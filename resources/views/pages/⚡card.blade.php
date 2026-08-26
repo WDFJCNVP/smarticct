@@ -3,11 +3,13 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
-
 use App\Models\Card;
+use App\Services\CheckoutSessionService;
 
 new class extends Component
 {
+    public $amount = 100; // Default preset amount
+
     #[Computed]
     public function userCard(): ?Card
     {
@@ -16,10 +18,34 @@ new class extends Component
         }])->where('user_id', auth()->id())->first();
     }
 
+    public function proceedToPayment(CheckoutSessionService $checkoutSession)
+    {
+        // 1. Validate the input locally first
+        $this->validate([
+            'amount' => 'required|numeric|min:1|max:10000',
+        ]);
+
+        $card = $this->userCard;
+        if (!$card) {
+            $this->addError('payment_error', 'No card linked to your account.');
+            return;
+        }
+
+        try {
+            // 2. Generate the PayMongo checkout URL securely from the server
+            $checkoutUrl = $checkoutSession->createCheckoutSession(auth()->user(), $card, (float) $this->amount);
+
+            // 3. Redirect the user to PayMongo's secure hosted page
+            return redirect()->away($checkoutUrl);
+}
+catch (\Exception $e) {
+    $this->addError('payment_error', $e->getMessage());
+}
+    }
+
     public function render()
     {
         $role = auth()->user()->role;
-
         return $this->view()->layout('layouts.' . $role . '-layout');
     }
 };
@@ -82,7 +108,7 @@ new class extends Component
                     </x-text>
 
                     <div class="flex gap-2">
-                        <flux:button size="sm" class="flex-1" icon="plus" variant="primary">
+                        <flux:button x-on:click="$flux.modal('top-up-modal').show()" size="sm" class="flex-1" icon="plus" variant="primary">
                             Top up
                         </flux:button>
                         <flux:button size="sm" variant="ghost" class="flex-1" icon="exclamation-triangle">
@@ -140,5 +166,40 @@ new class extends Component
             <x-text class="text-xs text-zinc-400 mt-1">Visit the terminal to get your RFID card issued.</x-text>
         </div>
     @endif
+
+
+    <flux:modal name="top-up-modal" class="min-w-96">
+        <form wire:submit="proceedToPayment" class="space-y-6">
+            <div>
+                <flux:heading size="lg">Top Up Balance</flux:heading>
+                <x-text class="text-sm text-zinc-500 mt-1">Enter the amount you want to load into your card.</x-text>
+            </div>
+
+            <flux:field>
+                <flux:label>Amount (PHP)</flux:label>
+                <flux:input 
+                    wire:model="amount" 
+                    type="number" 
+                    min="1" 
+                    max="10000" 
+                    placeholder="Enter amount (Min: ₱50)" 
+                />
+                <flux:error name="amount" />
+                @error('payment_error') 
+                    <span class="text-sm text-red-500 mt-1">{{ $message }}</span> 
+                @enderror
+            </flux:field>
+
+            <div class="flex gap-2">
+                <flux:button type="button" x-on:click="$flux.modal('top-up-modal').close()" variant="ghost" class="flex-1">
+                    Cancel
+                </flux:button>
+                <flux:button type="submit" variant="primary" class="flex-1" wire:loading.attr="disabled">
+                    <span wire:loading.remove wire:target="proceedToPayment">Proceed to Pay</span>
+                    <span wire:loading wire:target="proceedToPayment">Processing...</span>
+                </flux:button>
+            </div>
+        </form>
+    </flux:modal>
 
 </div>
