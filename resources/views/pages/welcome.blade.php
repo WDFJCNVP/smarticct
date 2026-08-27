@@ -124,12 +124,12 @@
                     >
                         <div class="absolute inset-0 rounded-2xl shadow-2xl overflow-hidden"
                              style="backface-visibility:hidden;-webkit-backface-visibility:hidden;">
-                            <img src="{{ Vite::asset('resources/images/card_front.svg') }}" alt="Card front"
+                            <img src="{{ asset('images/card_front.svg') }}" alt="Card front"
                                  class="w-full h-full object-cover pointer-events-none" draggable="false">
                         </div>
                         <div class="absolute inset-0 rounded-2xl shadow-2xl overflow-hidden"
                              style="transform:rotateY(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;">
-                            <img src="{{ Vite::asset('resources/images/card_back.svg') }}" alt="Card back"
+                            <img src="{{ asset('images/card_back.svg') }}" alt="Card back"
                                  class="w-full h-full object-cover pointer-events-none" draggable="false">
                         </div>
                     </div>
