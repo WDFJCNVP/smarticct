@@ -294,7 +294,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
                         <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
                         <span class="hidden sm:inline">Filters</span>
                         @if ((int) $this->range !== 7)
-                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-dark-bg text-[10px] font-bold">
+                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">
                                 1
                             </span>
                         @endif
@@ -488,10 +488,10 @@ new #[Layout('layouts.commuter-layout')] class extends Component
                             </span>
                         </div>
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium
-                            @if($req->status === 'pending') bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300
-                            @elseif($req->status === 'accepted') bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
-                            @elseif($req->status === 'ongoing') bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
-                            @else bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300
+                            @if($req->status === 'pending') bg-warning/10 text-warning dark:bg-dark-warning/20 dark:text-dark-warning
+                            @elseif($req->status === 'accepted') bg-info/10 text-info dark:bg-dark-info/20 dark:text-dark-info
+                            @elseif($req->status === 'ongoing') bg-success/10 text-success dark:bg-dark-success/20 dark:text-dark-success
+                            @else bg-light-subtle text-light-txt-muted dark:bg-dark-subtle dark:text-dark-txt-muted
                             @endif">
                             {{ ucfirst($req->status) }}
                         </span>

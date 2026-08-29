@@ -9,7 +9,7 @@ use App\Models\Queue;
 use App\Models\DailyScheduleSlot;
 use App\Services\QueueOrderService;
 
-new #[Layout('layouts.cashier-layout')] class extends Component
+new class extends Component
 {
     #[Computed]
     public function getCurrentActiveGroup()
@@ -82,14 +82,25 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             );
         }
     }
+    public function render()
+    {
+        $role = auth()->user()->role;
+
+        return $this->view()->layout('layouts.' . $role . '-layout');
+    }
 };
 ?>
 
 <div class="flex flex-col h-full">
     <div class="shrink-0">
 
-        <div class="flex items-start justify-between gap-4 mb-6">
-            <div>
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-6">
+            <flux:breadcrumbs class="order-1 sm:order-2 shrink-0 sm:pt-1">
+                <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Back to Live Queue</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item>Active Groups</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+
+            <div class="order-2 sm:order-1 w-full sm:w-auto">
                 <x-heading
                     size="xl"
                     class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
@@ -101,11 +112,6 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                     Manage queue order and advance the next vehicle for today's schedule.
                 </x-text>
             </div>
-
-            <flux:breadcrumbs class="shrink-0 pt-1">
-                <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Back to Live Queue</flux:breadcrumbs.item>
-                <flux:breadcrumbs.item>Active Groups</flux:breadcrumbs.item>
-            </flux:breadcrumbs>
         </div>
 
         {{-- Overview stats --}}
@@ -181,7 +187,8 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                     $isActive => 'ring-1 ring-primary/30 dark:ring-primary/40 !border-primary/30 dark:!border-primary/40 !bg-primary/5 dark:!bg-primary/10',
                     in_array($status, ['departed', 'skipped']) => 'opacity-60',
                     default => '',
-                };
+                
+};
 
                 if ($isFirst) {
                     $cardClasses .= ' !border-2 !border-success dark:!border-dark-success shadow-md';

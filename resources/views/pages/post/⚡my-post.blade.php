@@ -118,15 +118,16 @@ new class extends Component
         </div>
     </x-card>
 
+    {{-- Tabs – now using inline-flex so the bar only wraps the tabs --}}
     <div x-data="{ tab: 'requests' }" class="mt-6">
-        <div class="flex flex-wrap gap-1 bg-light-subtle dark:bg-dark-subtle rounded-full p-1 w-fit">
+        <div class="inline-flex flex-nowrap gap-1 sm:gap-1.5 bg-light-subtle dark:bg-dark-subtle rounded-full p-1 overflow-x-auto mx-auto">
             <button
                 type="button"
                 @click="tab = 'requests'"
                 :class="tab === 'requests'
                     ? 'bg-white dark:bg-dark-secondary shadow-sm text-light-txt-primary dark:text-dark-txt-primary'
                     : 'text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-body dark:hover:text-dark-txt-body'"
-                class="px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap"
+                class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm rounded-full transition-colors whitespace-nowrap shrink-0"
             >
                 Interested {{ auth()->user()->role === 'operator' ? 'commuters' : 'operators' }}
             </button>
@@ -137,7 +138,7 @@ new class extends Component
                 :class="tab === 'active'
                     ? 'bg-white dark:bg-dark-secondary shadow-sm text-light-txt-primary dark:text-dark-txt-primary'
                     : 'text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-body dark:hover:text-dark-txt-body'"
-                class="px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap"
+                class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm rounded-full transition-colors whitespace-nowrap shrink-0"
             >
                 Active transaction
             </button>
@@ -148,7 +149,7 @@ new class extends Component
                 :class="tab === 'history'
                     ? 'bg-white dark:bg-dark-secondary shadow-sm text-light-txt-primary dark:text-dark-txt-primary'
                     : 'text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-body dark:hover:text-dark-txt-body'"
-                class="px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap"
+                class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm rounded-full transition-colors whitespace-nowrap shrink-0"
             >
                 Transaction history
             </button>

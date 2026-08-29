@@ -100,6 +100,49 @@
     --color-secondary-hover: #FFC000;
 }
 
+/* ── Mobile toast override ──
+   On small screens, Flux toasts (ui-toast / ui-toast-group) default to a
+   ~24rem card anchored to whichever corner "position" points at. That reads
+   fine on desktop but looks like it's "popping up anywhere" on a phone.
+   Below `sm`, pin every toast to the top and stretch it full width instead. */
+@media (max-width: 639px) {
+    ui-toast,
+    ui-toast-group {
+        margin: 0 !important;
+        margin-top: calc(env(safe-area-inset-top, 0px) + 1rem) !important;
+        margin-bottom: auto !important; /* always stick to the top on mobile */
+        margin-inline-start: 0.75rem !important;
+        margin-inline-end: 0.75rem !important;
+        max-width: none !important;
+        width: calc(100% - 1.5rem) !important;
+        justify-content: stretch;
+    }
+
+    ui-toast [data-flux-toast-dialog],
+    ui-toast-group [data-flux-toast-dialog] {
+        max-width: none !important;
+        width: 100% !important;
+    }
+
+    ui-toast-group [data-flux-toast-dialog] {
+        left: 0 !important;
+        right: 0 !important;
+    }
+}
+
+/* ── Mobile modal padding ──
+   Flux <dialog> modals center themselves natively (inset: 0 + margin: auto),
+   but each modal's max-w-* utility overrides the browser's own side margin.
+   On a phone narrower than that max-width, the dialog stretches edge-to-edge
+   with no gutter. Force a minimum side inset below `sm` for every modal. */
+@media (max-width: 639px) {
+    [data-flux-modal] > dialog:not([data-flux-flyout]):not([data-flux-modal-overflow]) {
+        max-width: calc(100% - 2rem) !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+}
+
 @layer base {
     html {
         font-family: var(--font-secondary);

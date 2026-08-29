@@ -70,6 +70,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public ?int $zone_number = null;
     public string $barangay = '';
     public string $municipality = '';
+    public string $province = '';      // <-- NEW
 
     protected $validationAttributes = [
         'vehicles.*.seat_capacity'  => 'seat capacity',
@@ -115,7 +116,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             $this->resetValidation($property);
         }
 
-        if (in_array($property, ['house_subd', 'zone_number', 'barangay', 'municipality'])) {
+        if (in_array($property, ['house_subd', 'zone_number', 'barangay', 'municipality', 'province'])) {  // ADDED province
             $this->resetValidation($property);
         }
     }
@@ -173,6 +174,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'zone_number'  => 'required|integer|min:1|max:20',
             'barangay'     => 'required|string|max:255',
             'municipality' => 'required|string|max:255',
+            'province'     => 'required|string|max:255',    // <-- NEW
         ]);
 
         $parts = array_filter([
@@ -180,7 +182,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'Zone ' . $data['zone_number'],
             $data['barangay'],
             $data['municipality'],
-            'Camarines Sur',
+            $data['province'],                             // <-- REPLACED hardcoded
         ]);
 
         $this->address = implode(', ', $parts);
@@ -393,15 +395,16 @@ new #[Layout('layouts.admin-layout')] class extends Component
      x-on:open-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).show()"
      x-on:close-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).close()">
     
-    {{-- Breadcrumbs on the right, aligned with heading --}}
-    <div class="flex items-center justify-between my-8">
-        <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
-            {{ $this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User' }}
-        </flux:heading>
-        <flux:breadcrumbs>
+    {{-- Breadcrumbs on top on mobile; heading + breadcrumbs side-by-side from sm up --}}
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 my-8">
+        <flux:breadcrumbs class="order-1 sm:order-2">
             <flux:breadcrumbs.item href="{{ route('admin.users') }}" wire:navigate>Back to Users</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>Registration</flux:breadcrumbs.item>
         </flux:breadcrumbs>
+
+        <flux:heading size="xl" class="order-2 sm:order-1 !font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+            {{ $this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User' }}
+        </flux:heading>
     </div>
 
     <div class="flex items-center gap-1 mb-6 font-secondary text-timestamp">
@@ -572,7 +575,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 <flux:modal
                     name="edit-vehicle-{{ $index }}"
                     :closable="false"
-                    class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+                    class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
                 >
                     <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
                         <!-- Header -->
@@ -1084,98 +1087,111 @@ new #[Layout('layouts.admin-layout')] class extends Component
         @endif
     </div>
 
+    {{-- ADDRESS MODAL – updated with Province field --}}
     <flux:modal
-    name="address-modal"
-    :closable="false"
-    class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto rounded-xl overflow-hidden"
-    x-on:address-saved.window="$flux.modal('address-modal').close()"
->
-        <!-- Header -->
-    <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
-        <div class="flex items-start justify-between">
-            <div>
-                <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
-                    Set your address
-                </flux:heading>
-                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                    Please provide the complete address.
-                </flux:text>
+        name="address-modal"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto rounded-xl overflow-hidden"
+        x-on:address-saved.window="$flux.modal('address-modal').close()"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            <!-- Header -->
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Set your address
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        Please provide the complete address.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
             </div>
-            <flux:modal.close>
-                <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
-                    <flux:icon name="x-mark" class="w-5 h-5" />
-                </button>
-            </flux:modal.close>
-        </div>
 
-        <!-- Fields (unchanged) -->
-        <flux:field>
-            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
-                House No. / Subdivision
-                <span class="ml-2 text-light-txt-muted dark:text-dark-txt-muted font-normal">(optional)</span>
-            </flux:label>
-            <flux:input
-                wire:model="house_subd"
-                placeholder="e.g. Blk 3 Lot 5, Hillside Subd."
-                class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
-            />
-            <flux:error name="house_subd" />
-        </flux:field>
+            <!-- Fields -->
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
+                    House No. / Subdivision
+                    <span class="ml-2 text-light-txt-muted dark:text-dark-txt-muted font-normal">(optional)</span>
+                </flux:label>
+                <flux:input
+                    wire:model="house_subd"
+                    placeholder="e.g. Blk 3 Lot 5, Hillside Subd."
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="house_subd" />
+            </flux:field>
 
-        <flux:field>
-            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Zone No.</flux:label>
-            <flux:input
-                type="number"
-                wire:model.blur="zone_number"
-                min="1"
-                max="20"
-                placeholder="e.g. 3"
-                class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
-            />
-            <flux:error name="zone_number" />
-        </flux:field>
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Zone No.</flux:label>
+                <flux:input
+                    type="number"
+                    wire:model.blur="zone_number"
+                    min="1"
+                    max="20"
+                    placeholder="e.g. 3"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="zone_number" />
+            </flux:field>
 
-        <flux:field>
-            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Barangay</flux:label>
-            <flux:input
-                wire:model.blur="barangay"
-                placeholder="e.g. San Roque"
-                class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
-            />
-            <flux:error name="barangay" />
-        </flux:field>
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Barangay</flux:label>
+                <flux:input
+                    wire:model.blur="barangay"
+                    placeholder="e.g. San Roque"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="barangay" />
+            </flux:field>
 
-        <flux:field>
-            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Municipality / City</flux:label>
-            <flux:input
-                wire:model.blur="municipality"
-                placeholder="e.g. Iriga City"
-                class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
-            />
-            <flux:error name="municipality" />
-        </flux:field>
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Municipality / City</flux:label>
+                <flux:input
+                    wire:model.blur="municipality"
+                    placeholder="e.g. Iriga City"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="municipality" />
+            </flux:field>
 
-        <!-- Footer -->
-        <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
-            <flux:modal.close class="w-full sm:w-auto">
-                <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
-                    Cancel
+            {{-- NEW Province field --}}
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Province</flux:label>
+                <flux:input
+                    wire:model.blur="province"
+                    placeholder="e.g. Camarines Sur"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="province" />
+            </flux:field>
+
+            <!-- Footer -->
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close class="w-full sm:w-auto">
+                    <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+                <flux:button
+                    type="button"
+                    variant="primary"
+                    icon="check"
+                    wire:click="saveAddress"
+                    wire:loading.attr="disabled"
+                    wire:target="saveAddress"
+                    class="font-secondary w-full sm:w-auto"
+                >
+                    Save address
                 </flux:button>
-            </flux:modal.close>
-            <flux:button
-                type="button"
-                variant="primary"
-                icon="check"
-                wire:click="saveAddress"
-                wire:loading.attr="disabled"
-                wire:target="saveAddress"
-                class="font-secondary w-full sm:w-auto"
-            >
-                Save address
-            </flux:button>
+            </div>
         </div>
-    </div>
-</flux:modal>
+    </flux:modal>
+
     <script>
         document.addEventListener('livewire:initialized', () => {
             Livewire.on('focus-rfid-input', () => {

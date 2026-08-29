@@ -221,22 +221,24 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
         try {
             DB::transaction(function () use ($card, $user, $amount) {
+                $card = Card::where('id', $card->id)->lockForUpdate()->first();
+
                 $balanceBefore = (float) $card->balance;
                 $balanceAfter  = $balanceBefore + $amount;
 
                 // Update card balance
-                $card->lockForUpdate();
                 $card->update(['balance' => $balanceAfter]);
 
                 // Record in top_up_transactions
                 $topUp = TopUpTransaction::create([
-                    'processed_by'   => auth()->id(),
-                    'user_id'        => $user->id,
-                    'card_id'        => $card->id,
-                    'points_to_load' => $amount,
-                    'amount_paid'    => $amount,
-                    'payment_method' => 'cash',
-                    'status'         => 'paid',
+                    'processed_by'         => auth()->id(),
+                    'user_id'              => $user->id,
+                    'card_id'              => $card->id,
+                    'checkout_session_id'  => 'CASH-' . now()->format('YmdHis') . '-' . Str::random(8),
+                    'points_credited'      => $amount,
+                    'amount_paid'          => $amount,
+                    'payment_method'       => 'cash',
+                    'status'               => 'paid',
                 ]);
 
                 // Record in card_transactions for the commuter's activity feed
