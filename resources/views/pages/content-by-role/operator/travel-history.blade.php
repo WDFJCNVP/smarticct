@@ -16,10 +16,6 @@ new class extends Component
     public string $dateFrom = '';
     public string $dateTo = '';
 
-    // Separate state for the export dialog so browsing filters and the
-    // exported file don't silently drift apart — it seeds from whatever
-    // is currently on screen, but can still be narrowed further (or
-    // widened back to "All") before the file is actually generated.
     public string $exportVehicleType = '';
     public string $exportRoute = '';
     public string $exportDateFrom = '';
@@ -64,7 +60,7 @@ new class extends Component
     }
 
     // Called right when the export modal opens, so its fields always start
-    // aligned with whatever is currently on screen.
+    // aligned with whatever the operator is currently looking at.
     public function prepareExportModal()
     {
         $this->exportVehicleType = $this->vehicleTypeFilter;
@@ -76,7 +72,7 @@ new class extends Component
     #[Computed]
     public function exportUrl(): string
     {
-        return route('dispatch-log.export', array_filter([
+        return route('operator.travel.history.export', array_filter([
             'from'         => $this->exportDateFrom ?: $this->dateFrom,
             'to'           => $this->exportDateTo ?: $this->dateTo,
             'vehicle_type' => $this->exportVehicleType,
@@ -88,6 +84,7 @@ new class extends Component
     public function travelRecords()
     {
         return Queue::query()
+            ->where('user_id', auth()->id())
             ->whereDate('time_queued', '>=', $this->dateFrom)
             ->whereDate('time_queued', '<=', $this->dateTo)
             ->when($this->vehicleTypeFilter, fn ($q) => $q->where('vehicle_type', $this->vehicleTypeFilter))
@@ -102,59 +99,54 @@ new class extends Component
     public function stats()
     {
         $base = Queue::query()
+            ->where('user_id', auth()->id())
             ->whereDate('time_queued', '>=', $this->dateFrom)
             ->whereDate('time_queued', '<=', $this->dateTo)
             ->when($this->vehicleTypeFilter, fn ($q) => $q->where('vehicle_type', $this->vehicleTypeFilter))
             ->when($this->routeFilter, fn ($q) => $q->where('destination', $this->routeFilter));
 
         return [
-            'total' => $base->count(),
+            'total'    => $base->count(),
             'departed' => $base->clone()->whereNotNull('time_departed')->count(),
-            'queued' => $base->clone()->whereNull('time_departed')->count(),
-            'overbooked' => $base->clone()->whereColumn('seat_count', '>', 'seat_capacity')->count(),
+            'queued'   => $base->clone()->whereNull('time_departed')->count(),
         ];
     }
 
     #[Computed]
     public function vehicleTypes()
     {
-        return Queue::query()->distinct()->pluck('vehicle_type');
+        return Queue::query()->where('user_id', auth()->id())->distinct()->pluck('vehicle_type');
     }
 
     #[Computed]
     public function routes()
     {
-        return Queue::query()->distinct()->pluck('destination');
+        return Queue::query()->where('user_id', auth()->id())->distinct()->pluck('destination');
     }
 
     public function render(): mixed
     {
-        $layout = match (auth()->user()->role) {
-            'cashier' => 'layouts.cashier-layout',
-            default   => 'layouts.admin-layout',
-        };
-
-        return $this->view()->layout($layout);
+        return $this->view()->layout('layouts.operator-layout');
     }
 };
 ?>
 <div>
-    {{-- Page header with the same style as route page --}}
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+    {{-- Header – consistent with other pages --}}
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
             <x-heading
                 size="xl"
                 class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
                 style="font-size: var(--text-page-title)"
             >
-                Travel Record
+                Travel History
             </x-heading>
             <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                You can monitor travel records here.
+                All queueing &amp; departure activity across your vehicles.
             </x-text>
         </div>
 
-        <div class="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto shrink-0">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
             <div class="flex items-center gap-2 w-full sm:w-auto">
                 <flux:input
                     type="date"
@@ -181,7 +173,7 @@ new class extends Component
                     Today
                 </flux:button>
 
-                <flux:modal.trigger name="export-dispatch-log">
+                <flux:modal.trigger name="export-travel-history">
                     <flux:button
                         wire:click="prepareExportModal"
                         icon="arrow-down-tray"
@@ -196,6 +188,7 @@ new class extends Component
         </div>
     </div>
 
+    {{-- Filters --}}
     <div class="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 w-full sm:w-auto mt-3">
         <flux:select
             wire:model.live="vehicleTypeFilter"
@@ -233,7 +226,8 @@ new class extends Component
         </flux:select>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mt-6 mb-5">
+    {{-- Stats cards – consistent layout --}}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mt-6 mb-5">
         <flux:card class="p-3 sm:p-4">
             <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">
                 <div class="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/10 dark:bg-primary/20 shrink-0">
@@ -275,22 +269,9 @@ new class extends Component
                 {{ $this->stats['queued'] }}
             </x-text>
         </flux:card>
-
-        <flux:card class="p-3 sm:p-4">
-            <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">
-                <div class="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-danger/10 dark:bg-dark-danger/20 shrink-0">
-                    <flux:icon.exclamation-triangle class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-danger dark:text-dark-danger" />
-                </div>
-                <x-text class="font-secondary text-xs sm:text-stat-label text-light-txt-muted dark:text-dark-txt-muted">
-                    Overbooked
-                </x-text>
-            </div>
-            <x-text class="font-primary text-stat-value font-bold {{ $this->stats['overbooked'] > 0 ? 'text-danger dark:text-dark-danger' : 'text-light-txt-primary dark:text-dark-txt-primary' }} block">
-                {{ $this->stats['overbooked'] }}
-            </x-text>
-        </flux:card>
     </div>
 
+    {{-- Table – standard card with p-0 and sticky headers --}}
     <flux:card class="mb-4 p-0! overflow-hidden">
         <div class="overflow-x-auto">
             <flux:table container:class="md:max-h-160">
@@ -307,11 +288,7 @@ new class extends Component
 
                 <flux:table.rows>
                     @forelse ($this->travelRecords as $record)
-                        @php
-                            $isOverbooked = $record->seat_count > $record->seat_capacity;
-                        @endphp
-
-                        <flux:table.row :key="$record->id" class="{{ $isOverbooked ? 'bg-danger/5 dark:bg-dark-danger/10' : '' }}">
+                        <flux:table.row :key="$record->id">
                             <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-mono text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-primary">
                                 {{ $record->plate_number }}
                             </flux:table.cell>
@@ -330,7 +307,7 @@ new class extends Component
                                 {{ $record->destination }}
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp {{ $isOverbooked ? 'text-danger dark:text-dark-danger' : 'text-light-txt-muted dark:text-dark-txt-muted' }}">
+                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                 {{ $record->seat_count }}/{{ $record->seat_capacity }}
                             </flux:table.cell>
 
@@ -346,7 +323,7 @@ new class extends Component
                                 @if ($record->time_departed)
                                     <flux:badge size="sm" color="green" icon="check" class="font-secondary text-badge text-xs">Departed</flux:badge>
                                 @else
-                                    <flux:badge size="sm" color="amber" icon="clock" class="font-secondary text-badge text-xs">Staging</flux:badge>
+                                    <flux:badge size="sm" color="amber" icon="clock" class="font-secondary text-badge text-xs">{{ ucfirst($record->status) }}</flux:badge>
                                 @endif
                             </flux:table.cell>
                         </flux:table.row>
@@ -373,8 +350,9 @@ new class extends Component
         @endif
     </flux:card>
 
+    {{-- Export Modal – consistent with other modals --}}
     <flux:modal
-        name="export-dispatch-log"
+        name="export-travel-history"
         :closable="false"
         class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl mx-auto rounded-xl overflow-hidden"
     >
@@ -383,10 +361,10 @@ new class extends Component
             <div class="flex items-start justify-between">
                 <div>
                     <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
-                        Export dispatch log
+                        Export travel history
                     </flux:heading>
                     <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                        Choose what to include in the PDF. This starts from your current view — narrow it down for a specific route/vehicle type daily log, or leave as "All" for the full log.
+                        Choose what to include in the PDF. This starts from your current view — narrow it down, or leave as "All" for a full daily log.
                     </flux:text>
                 </div>
                 <flux:modal.close>

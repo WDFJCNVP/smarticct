@@ -176,7 +176,7 @@ new class extends Component
 
     </div>
 
-    <flux:modal wire:model="isAccept" class="min-w-[22rem]">
+    <flux:modal wire:model="isAccept" class="w-[calc(100%-2rem)] sm:min-w-[22rem] sm:max-w-none">
         @if ($this->isAccept)
             <div class="space-y-6">
                 <div>
@@ -198,7 +198,7 @@ new class extends Component
         @endif
     </flux:modal>
 
-    <flux:modal wire:model="declineModal" class="min-w-[22rem]">
+    <flux:modal wire:model="declineModal" class="w-[calc(100%-2rem)] sm:min-w-[22rem] sm:max-w-none">
         @if ($this->declineModal)
             <div class="space-y-6">
                 <div>
@@ -219,7 +219,7 @@ new class extends Component
         @endif
     </flux:modal>
 
-    <flux:modal wire:model="cancelModal" class="min-w-[22rem]">
+    <flux:modal wire:model="cancelModal" class="w-[calc(100%-2rem)] sm:min-w-[22rem] sm:max-w-none">
         @if ($this->cancelModal)
             <div class="space-y-6">
                 <div>

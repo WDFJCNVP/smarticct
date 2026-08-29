@@ -103,7 +103,7 @@ new class extends Component
         Flux::toast(
             variant: 'success',
             heading: $isEditing ? 'Route updated' : 'Route added',
-            duration: 3000,
+            duration: 4000,
             text: $isEditing
                 ? 'Your changes were saved successfully.'
                 : 'The new route is now visible on this page.'
@@ -125,7 +125,7 @@ new class extends Component
         Flux::toast(
             variant: 'success',
             heading: 'Route deleted',
-            duration: 3000,
+            duration: 4000,
             text: $terminalName ? "The route for {$terminalName} was removed." : 'The route was removed.'
         );
     }
@@ -205,6 +205,7 @@ new class extends Component
     @php
         $isAdmin = auth()->check() && auth()->user()->role === 'admin';
         $canSeeQueueFee = auth()->check() && in_array(auth()->user()->role, ['operator', 'cashier', 'admin']);
+        $canExportFares = auth()->check() && in_array(auth()->user()->role, ['admin', 'cashier']);
     @endphp
 
     @guest
@@ -240,13 +241,25 @@ new class extends Component
                     </x-text>
                 </div>
 
-                @if ($isAdmin)
-                    <div class="shrink-0">
-                        <flux:modal.trigger name="route-form">
-                            <flux:button wire:click="resetForm" icon="plus" variant="primary" class="font-secondary">Add route</flux:button>
+                <div class="w-full sm:w-auto sm:shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    @if ($canExportFares)
+                        <flux:button
+                            href="{{ route('routes.export') }}"
+                            variant="outline"
+                            icon="arrow-down-tray"
+                            size="sm"
+                            class="font-secondary w-full sm:w-auto justify-center"
+                        >
+                            Export
+                        </flux:button>
+                    @endif
+
+                    @if ($isAdmin)
+                        <flux:modal.trigger name="route-form" class="block w-full sm:w-auto">
+                            <flux:button wire:click="resetForm" icon="plus" variant="primary" class="font-secondary w-full sm:w-auto justify-center">Add route</flux:button>
                         </flux:modal.trigger>
-                    </div>
-                @endif
+                    @endif
+                </div>
             </div>
         @endauth
 
@@ -255,7 +268,7 @@ new class extends Component
             <flux:modal
                 name="route-form"
                 :closable="false"
-                class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl mx-auto rounded-xl overflow-hidden"
+                class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl mx-auto rounded-xl overflow-hidden"
             >
                 {{-- 🔽 Added overflow-y-auto and max-height to make modal scrollable --}}
                 <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
@@ -288,9 +301,10 @@ new class extends Component
                         <flux:input
                             wire:model.blur="terminal"
                             placeholder="e.g. Nabua"
+                            size="sm"
                             class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                         />
-                        <flux:error name="terminal" />
+                        <flux:error name="terminal" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
 
                     <flux:field>
@@ -300,13 +314,14 @@ new class extends Component
                         <flux:select
                             wire:model.blur="operator_ticket_rate_id"
                             placeholder="Choose vehicle type..."
+                            size="sm"
                             class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
                         >
                             @foreach ($this->getOperatorTicketRate as $type)
                                 <flux:select.option value="{{ $type->id }}">{{ $type->vehicle_type }}</flux:select.option>
                             @endforeach
                         </flux:select>
-                        <flux:error name="operator_ticket_rate_id" />
+                        <flux:error name="operator_ticket_rate_id" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
 
                     <div class="grid grid-cols-2 gap-4">
@@ -317,9 +332,10 @@ new class extends Component
                             <flux:input
                                 wire:model.blur="first_trip"
                                 placeholder="e.g. 7:00 am"
+                                size="sm"
                                 class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                             />
-                            <flux:error name="first_trip" />
+                            <flux:error name="first_trip" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                         </flux:field>
 
                         <flux:field>
@@ -329,9 +345,10 @@ new class extends Component
                             <flux:input
                                 wire:model.blur="last_trip"
                                 placeholder="e.g. 6:00 pm"
+                                size="sm"
                                 class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                             />
-                            <flux:error name="last_trip" />
+                            <flux:error name="last_trip" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                         </flux:field>
                     </div>
 
@@ -343,10 +360,11 @@ new class extends Component
                             type="number"
                             wire:model.blur="fare"
                             placeholder="0.00"
-                            icon="currency-yen"
+                            icon="currency-dollar"
+                            size="sm"
                             class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                         />
-                        <flux:error name="fare" />
+                        <flux:error name="fare" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
 
                     <!-- Footer -->
@@ -399,7 +417,7 @@ new class extends Component
         </div>
 
         {{-- Tabs --}}
-        <div class="flex gap-6 border-b border-light-bd-default dark:border-dark-bd-default">
+        <div class="flex justify-center gap-6 border-b border-light-bd-default dark:border-dark-bd-default">
             @php
                 $tabs = [
                     'all'    => 'All routes',
@@ -431,9 +449,10 @@ new class extends Component
             <div class="mt-8">
                 <h2 class="text-section-heading">Local Routes</h2>
 
-                <div class="mt-3 rounded-xl border border-light-bd-default dark:border-dark-bd-default overflow-hidden">
+                {{-- Table container updated to flux:card with p-0! and dark borders --}}
+                <flux:card class="mt-3 p-0! overflow-hidden border border-light-bd-default dark:border-dark-bd-default">
                     <div class="overflow-x-auto">
-                        <flux:table container:class="max-h-160">
+                        <flux:table container:class="md:max-h-160">
                             <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
                                 <flux:table.column align="center" class="px-2! md:px-4! py-2">City/Municipality</flux:table.column>
                                 <flux:table.column align="center" class="px-2 md:px-4 py-2">Vehicle</flux:table.column>
@@ -494,21 +513,25 @@ new class extends Component
 
                                         @if ($isAdmin)
                                             <flux:table.cell align="center" class="px-2! md:px-4! py-1.5 md:py-2">
-                                                <div class="flex items-center justify-center gap-1">
+                                                <div class="flex items-center justify-center gap-1.5">
                                                     <flux:button
                                                         variant="ghost"
                                                         size="sm"
-                                                        icon="pencil"
+                                                        class="font-secondary text-xs md:text-table-row !px-2 md:!px-3"
                                                         wire:click="edit({{ $route->id }})"
                                                         x-on:click="$flux.modal('route-form').show()"
-                                                    />
+                                                    >
+                                                        Edit
+                                                    </flux:button>
                                                     <flux:button
                                                         variant="ghost"
                                                         size="sm"
-                                                        icon="trash"
+                                                        class="font-secondary text-xs md:text-table-row !px-2 md:!px-3 !text-danger dark:!text-dark-danger hover:!bg-danger/10 dark:hover:!bg-dark-danger/10"
                                                         wire:click="delete({{ $route->id }})"
                                                         wire:confirm="Delete the route for {{ $route->terminal }}? This can't be undone."
-                                                    />
+                                                    >
+                                                        Delete
+                                                    </flux:button>
                                                 </div>
                                             </flux:table.cell>
                                         @endif
@@ -543,7 +566,7 @@ new class extends Component
                             {{ $this->getRouteList->links() }}
                         </div>
                     @endif
-                </div>
+                </flux:card>
             </div>
         @endif
 

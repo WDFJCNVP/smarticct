@@ -216,12 +216,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->resetPage();
     }
 };
-
 ?>
 
 <div>
-    {{-- Heading --}}
-    <div class="flex items-start justify-between gap-4 mb-6">
+    {{-- Header – consistent with other pages --}}
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
             <x-heading
                 size="xl"
@@ -236,7 +235,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         </div>
     </div>
 
-    {{-- Stats --}}
+    {{-- Stats cards – same pattern as users / travel record --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-6">
         <flux:card class="p-3 sm:p-4">
             <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">
@@ -281,10 +280,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
         </flux:card>
     </div>
 
-    {{-- Search --}}
+    {{-- Search – dark mode classes added --}}
     <div class="flex items-center gap-3 mb-4">
         <flux:input
-            class="max-w-xs"
+            class="max-w-xs font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
             size="sm"
             icon="magnifying-glass"
             placeholder="Search name, ID, card…"
@@ -292,99 +291,114 @@ new #[Layout('layouts.admin-layout')] class extends Component
         />
     </div>
 
-    {{-- Cards Table --}}
-    <flux:card class="overflow-hidden p-0">
-        <flux:table container:class="max-h-160">
-            <flux:table.columns sticky class="bg-white dark:bg-zinc-900">
-                <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">#</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Owner ID</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Card no.</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Name</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Balance</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Status</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Registered</flux:table.column>
-                <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">Actions</flux:table.column>
-            </flux:table.columns>
+    {{-- Cards table – standard card with p-0 and sticky headers --}}
+    <flux:card class="mb-4 p-0! overflow-hidden">
+        <div class="overflow-x-auto">
+            <flux:table container:class="md:max-h-160">
+                <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
+                    <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">#</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Owner ID</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Card no.</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Name</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Balance</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Status</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Registered</flux:table.column>
+                    <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">Actions</flux:table.column>
+                </flux:table.columns>
 
-            <flux:table.rows>
-                @forelse ($this->getUsers as $index => $user)
-                    <flux:table.row :key="$user->id">
-                        <flux:table.cell align="center" class="px-1! sm:px-2! md:px-4! py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
-                            {{ ($this->getUsers->currentPage() - 1) * $this->getUsers->perPage() + $index + 1 }}
-                        </flux:table.cell>
+                <flux:table.rows>
+                    @forelse ($this->getUsers as $index => $user)
+                        <flux:table.row :key="$user->id">
+                            <flux:table.cell align="center" class="px-1! sm:px-2! md:px-4! py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
+                                {{ ($this->getUsers->currentPage() - 1) * $this->getUsers->perPage() + $index + 1 }}
+                            </flux:table.cell>
 
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
-                            {{ $user->user_code }}
-                        </flux:table.cell>
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
+                                {{ $user->user_code }}
+                            </flux:table.cell>
 
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
-                            <span class="font-mono text-xs md:text-table-row tracking-widest text-light-txt-muted dark:text-dark-txt-muted">
-                                **** **** **** {{ substr($user->card->card_number, -4) }}
-                            </span>
-                        </flux:table.cell>
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                                <span class="font-mono text-xs md:text-table-row tracking-widest text-light-txt-muted dark:text-dark-txt-muted">
+                                    **** **** **** {{ substr($user->card->card_number, -4) }}
+                                </span>
+                            </flux:table.cell>
 
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
-                            <div class="flex items-center justify-center gap-2">
-                                <flux:avatar size="xs" src="{{ $user->avatar_url }}" name="{{ $user->name }}" />
-                                <span class="font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">{{ $user->name }}</span>
-                            </div>
-                        </flux:table.cell>
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                                <div class="flex items-center justify-center gap-2">
+                                    <flux:avatar size="xs" src="{{ $user->avatar_url }}" name="{{ $user->name }}" />
+                                    <span class="font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">{{ $user->name }}</span>
+                                </div>
+                            </flux:table.cell>
 
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row tabular-nums font-medium text-light-txt-primary dark:text-dark-txt-primary">
-                            {{ number_format($user->card->balance, 2) }}
-                        </flux:table.cell>
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row tabular-nums font-medium text-light-txt-primary dark:text-dark-txt-primary">
+                                {{ number_format($user->card->balance, 2) }}
+                            </flux:table.cell>
 
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
-                            @if ($user->card->status === 'active')
-                                <flux:badge color="green" size="sm">Active</flux:badge>
-                            @else
-                                <flux:badge color="red" size="sm">{{ ucfirst($user->card->status) }}</flux:badge>
-                            @endif
-                        </flux:table.cell>
-
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted tabular-nums">
-                            {{ $user->card->created_at->format('Y-m-d') }}
-                        </flux:table.cell>
-
-                        <flux:table.cell align="center" class="px-1! sm:px-2! md:px-4! py-1.5 md:py-2">
-                            <flux:link href="/admin/card/transaction/{{ $user->id }}" wire:navigate>
-                                <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" inset="top bottom" />
-                            </flux:link>
-                        </flux:table.cell>
-                    </flux:table.row>
-                @empty
-                    <flux:table.row>
-                        <flux:table.cell colspan="8">
-                            <div class="flex flex-col items-center justify-center py-12 gap-2">
-                                <flux:icon.credit-card class="w-8 h-8 text-zinc-300" />
-                                <p class="text-sm text-zinc-400">No cards found.</p>
-                                @if ($search)
-                                    <p class="text-xs text-zinc-400">Try a different search term.</p>
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                                @if ($user->card->status === 'active')
+                                    <flux:badge color="green" size="sm" class="font-secondary text-badge text-xs">Active</flux:badge>
+                                @else
+                                    <flux:badge color="red" size="sm" class="font-secondary text-badge text-xs">{{ ucfirst($user->card->status) }}</flux:badge>
                                 @endif
-                            </div>
-                        </flux:table.cell>
-                    </flux:table.row>
-                @endforelse
-            </flux:table.rows>
-        </flux:table>
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted tabular-nums">
+                                {{ $user->card->created_at->format('Y-m-d') }}
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-1! sm:px-2! md:px-4! py-1.5 md:py-2">
+                                <flux:link href="/admin/card/transaction/{{ $user->id }}" wire:navigate>
+                                    <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" inset="top bottom" class="scale-75 md:scale-100" />
+                                </flux:link>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @empty
+                        <flux:table.row>
+                            <flux:table.cell colspan="8" class="px-2 md:px-4 py-4">
+                                <div class="flex flex-col items-center justify-center py-6 md:py-12 gap-2">
+                                    <flux:icon.credit-card class="w-6 h-6 md:w-8 md:h-8 text-light-txt-muted dark:text-dark-txt-muted" />
+                                    <x-text class="font-secondary text-sm md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
+                                        No cards found.
+                                    </x-text>
+                                    @if ($search)
+                                        <x-text class="font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                                            Try a different search term.
+                                        </x-text>
+                                    @endif
+                                </div>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @endforelse
+                </flux:table.rows>
+            </flux:table>
+        </div>
+
+        @if ($this->getUsers->hasPages())
+            <div class="flex flex-wrap items-center justify-end gap-2 px-3 sm:px-4 py-2 border-t border-light-bd-default dark:border-dark-bd-default bg-light-secondary dark:bg-dark-secondary">
+                {{ $this->getUsers->links() }}
+            </div>
+        @endif
     </flux:card>
 
-    {{-- Pagination --}}
-    <div class="mt-4">
-        {{ $this->getUsers->links() }}
-    </div>
-
+    {{-- Card Reports Section --}}
     <div class="mt-10">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div class="flex items-center gap-2">
-                <flux:heading size="lg" class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary">
+                <x-heading
+                    size="lg"
+                    class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+                >
                     Card Reports
-                </flux:heading>
+                </x-heading>
                 @if ($this->pendingReportCount > 0)
-                    <flux:badge color="red" size="sm">{{ $this->pendingReportCount }} pending</flux:badge>
+                    <flux:badge color="red" size="sm" class="font-secondary text-badge text-xs">{{ $this->pendingReportCount }} pending</flux:badge>
                 @endif
             </div>
-            <flux:select wire:model.live="reportFilter" size="sm" class="w-40">
+            <flux:select
+                wire:model.live="reportFilter"
+                size="sm"
+                class="w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+            >
                 <flux:select.option value="pending">Pending</flux:select.option>
                 <flux:select.option value="approved">Approved</flux:select.option>
                 <flux:select.option value="rejected">Rejected</flux:select.option>
@@ -392,93 +406,96 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </flux:select>
         </div>
 
-        {{-- Reports Table --}}
-        <flux:card class="overflow-hidden p-0">
-            <flux:table>
-                <flux:table.columns sticky class="bg-white dark:bg-zinc-900">
-                    <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">#</flux:table.column>
-                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Commuter</flux:table.column>
-                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Reason</flux:table.column>
-                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Submitted</flux:table.column>
-                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Status</flux:table.column>
-                    <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">Actions</flux:table.column>
-                </flux:table.columns>
+        {{-- Reports table – also with p-0 and sticky headers --}}
+        <flux:card class="p-0! overflow-hidden">
+            <div class="overflow-x-auto">
+                <flux:table container:class="md:max-h-160">
+                    <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
+                        <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">#</flux:table.column>
+                        <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Commuter</flux:table.column>
+                        <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Reason</flux:table.column>
+                        <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Submitted</flux:table.column>
+                        <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Status</flux:table.column>
+                        <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">Actions</flux:table.column>
+                    </flux:table.columns>
 
-                <flux:table.rows>
-                    @forelse ($this->cardReports as $index => $report)
-                        <flux:table.row :key="$report->id">
-                            <flux:table.cell align="center" class="px-1! sm:px-2! md:px-4! py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ $index + 1 }}
-                            </flux:table.cell>
+                    <flux:table.rows>
+                        @forelse ($this->cardReports as $index => $report)
+                            <flux:table.row :key="$report->id">
+                                <flux:table.cell align="center" class="px-1! sm:px-2! md:px-4! py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
+                                    {{ $index + 1 }}
+                                </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
-                                <div class="flex items-center justify-center gap-2">
-                                    <flux:avatar size="xs" src="{{ $report->user->avatar_url }}" name="{{ $report->user->name }}" />
-                                    <div class="text-left">
-                                        <p class="font-secondary text-xs md:text-table-row font-medium text-light-txt-primary dark:text-dark-txt-primary">{{ $report->user->name }}</p>
-                                        <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">{{ $report->user->user_code }}</p>
+                                <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <flux:avatar size="xs" src="{{ $report->user->avatar_url }}" name="{{ $report->user->name }}" />
+                                        <div class="text-left">
+                                            <p class="font-secondary text-xs md:text-table-row font-medium text-light-txt-primary dark:text-dark-txt-primary">{{ $report->user->name }}</p>
+                                            <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">{{ $report->user->user_code }}</p>
+                                        </div>
                                     </div>
-                                </div>
-                            </flux:table.cell>
+                                </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
-                                <flux:badge size="sm" color="{{ match($report->reason) { 'lost' => 'red', 'damaged' => 'yellow', default => 'zinc' } }}">
-                                    {{ ucfirst($report->reason) }}
-                                </flux:badge>
-                            </flux:table.cell>
+                                <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                                    <flux:badge size="sm" color="{{ match($report->reason) { 'lost' => 'red', 'damaged' => 'yellow', default => 'zinc' } }}" class="font-secondary text-badge text-xs">
+                                        {{ ucfirst($report->reason) }}
+                                    </flux:badge>
+                                </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted tabular-nums">
-                                {{ $report->created_at->format('M d, Y') }}
-                            </flux:table.cell>
+                                <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted tabular-nums">
+                                    {{ $report->created_at->format('M d, Y') }}
+                                </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
-                                @if ($report->status === 'pending')
-                                    <flux:badge color="yellow" size="sm" icon="clock">Pending</flux:badge>
-                                @elseif ($report->status === 'approved')
-                                    <flux:badge color="green" size="sm" icon="check-circle">Approved</flux:badge>
-                                @else
-                                    <flux:badge color="red" size="sm" icon="x-circle">Rejected</flux:badge>
-                                @endif
-                            </flux:table.cell>
+                                <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                                    @if ($report->status === 'pending')
+                                        <flux:badge color="yellow" size="sm" icon="clock" class="font-secondary text-badge text-xs">Pending</flux:badge>
+                                    @elseif ($report->status === 'approved')
+                                        <flux:badge color="green" size="sm" icon="check-circle" class="font-secondary text-badge text-xs">Approved</flux:badge>
+                                    @else
+                                        <flux:badge color="red" size="sm" icon="x-circle" class="font-secondary text-badge text-xs">Rejected</flux:badge>
+                                    @endif
+                                </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-1! sm:px-2! md:px-4! py-1.5 md:py-2">
-                                <flux:button
-                                    wire:click="viewReport({{ $report->id }})"
-                                    variant="ghost"
-                                    size="sm"
-                                    icon="ellipsis-horizontal"
-                                    inset="top bottom"
-                                />
-                            </flux:table.cell>
-                        </flux:table.row>
-                    @empty
-                        <flux:table.row>
-                            <flux:table.cell colspan="6">
-                                <div class="flex flex-col items-center justify-center py-12 gap-2">
-                                    <flux:icon.document-text class="w-8 h-8 text-zinc-300" />
-                                    <p class="text-sm text-zinc-400">
-                                        No {{ $reportFilter === 'all' ? '' : $reportFilter }} reports found.
-                                    </p>
-                                </div>
-                            </flux:table.cell>
-                        </flux:table.row>
-                    @endforelse
-                </flux:table.rows>
-            </flux:table>
+                                <flux:table.cell align="center" class="px-1! sm:px-2! md:px-4! py-1.5 md:py-2">
+                                    <flux:button
+                                        wire:click="viewReport({{ $report->id }})"
+                                        variant="ghost"
+                                        size="sm"
+                                        icon="ellipsis-horizontal"
+                                        inset="top bottom"
+                                        class="scale-75 md:scale-100"
+                                    />
+                                </flux:table.cell>
+                            </flux:table.row>
+                        @empty
+                            <flux:table.row>
+                                <flux:table.cell colspan="6" class="px-2 md:px-4 py-4">
+                                    <div class="flex flex-col items-center justify-center py-6 md:py-12 gap-2">
+                                        <flux:icon.document-text class="w-6 h-6 md:w-8 md:h-8 text-light-txt-muted dark:text-dark-txt-muted" />
+                                        <x-text class="font-secondary text-sm md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
+                                            No {{ $reportFilter === 'all' ? '' : $reportFilter }} reports found.
+                                        </x-text>
+                                    </div>
+                                </flux:table.cell>
+                            </flux:table.row>
+                        @endforelse
+                    </flux:table.rows>
+                </flux:table>
+            </div>
         </flux:card>
     </div>
 
-    {{-- ─── Report Detail Modal ─────────────────────────────────────────────── --}}
+    {{-- Report Detail Modal – consistent with other modals --}}
     <flux:modal
         name="report-detail-modal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl mx-auto rounded-xl overflow-hidden"
         x-on:open-report-modal.window="$flux.modal('report-detail-modal').show()"
         x-on:close-report-modal.window="$flux.modal('report-detail-modal').close()"
     >
         @if ($this->selectedReport)
             @php $report = $this->selectedReport; @endphp
-            <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
+            <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
 
                 {{-- Header --}}
                 <div class="flex items-start justify-between">
@@ -490,7 +507,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             Submitted {{ $report->created_at->format('M d, Y · h:i A') }}
                         </flux:text>
                     </div>
-
                     <flux:modal.close>
                         <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
                             <flux:icon name="x-mark" class="w-5 h-5" />
@@ -499,7 +515,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 </div>
 
                 {{-- Commuter info --}}
-                <div class="flex items-center gap-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800">
+                <div class="flex items-center gap-3 p-3 rounded-lg bg-light-subtle dark:bg-dark-subtle">
                     <flux:avatar src="{{ $report->user->avatar_url }}" name="{{ $report->user->name }}" />
                     <div>
                         <p class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary">{{ $report->user->name }}</p>
@@ -516,18 +532,18 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mb-1">Reason</p>
-                        <flux:badge size="sm" color="{{ match($report->reason) { 'lost' => 'red', 'damaged' => 'yellow', default => 'zinc' } }}">
+                        <flux:badge size="sm" color="{{ match($report->reason) { 'lost' => 'red', 'damaged' => 'yellow', default => 'zinc' } }}" class="font-secondary text-badge text-xs">
                             {{ ucfirst($report->reason) }}
                         </flux:badge>
                     </div>
                     <div>
                         <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mb-1">Status</p>
                         @if ($report->status === 'pending')
-                            <flux:badge color="yellow" size="sm">Pending</flux:badge>
+                            <flux:badge color="yellow" size="sm" class="font-secondary text-badge text-xs">Pending</flux:badge>
                         @elseif ($report->status === 'approved')
-                            <flux:badge color="green" size="sm">Approved</flux:badge>
+                            <flux:badge color="green" size="sm" class="font-secondary text-badge text-xs">Approved</flux:badge>
                         @else
-                            <flux:badge color="red" size="sm">Rejected</flux:badge>
+                            <flux:badge color="red" size="sm" class="font-secondary text-badge text-xs">Rejected</flux:badge>
                         @endif
                     </div>
                 </div>
@@ -535,7 +551,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 {{-- Description --}}
                 <div>
                     <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mb-1">Description</p>
-                    <p class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body bg-zinc-50 dark:bg-zinc-800 rounded-lg p-3">
+                    <p class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body bg-light-subtle dark:bg-dark-subtle rounded-lg p-3">
                         {{ $report->description }}
                     </p>
                 </div>
@@ -547,14 +563,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         <img
                             src="{{ Storage::url($report->valid_id_path) }}"
                             alt="Valid ID"
-                            class="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 object-cover max-h-52"
+                            class="w-full rounded-lg border border-light-bd-default dark:border-dark-bd-default object-cover max-h-52"
                         />
                     </div>
                 @endif
 
                 {{-- Approved info --}}
                 @if ($report->status === 'approved')
-                    <div class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-3 text-sm text-green-700 dark:text-green-400">
+                    <div class="rounded-lg border border-success/20 dark:border-dark-success/20 bg-success/10 dark:bg-dark-success/10 p-3 text-sm text-success dark:text-dark-success">
                         Approved by <strong>{{ $report->approvedBy?->name ?? 'Admin' }}</strong>
                         on {{ $report->approved_at?->format('M d, Y') }}.
                         New card: <span class="font-mono">**** {{ substr($report->newCard?->card_number, -4) }}</span>
@@ -563,21 +579,20 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
                 {{-- Rejection info --}}
                 @if ($report->status === 'rejected')
-                    <div class="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-400">
+                    <div class="rounded-lg border border-danger/20 dark:border-dark-danger/20 bg-danger/10 dark:bg-dark-danger/10 p-3 text-sm text-danger dark:text-dark-danger">
                         <p class="font-medium mb-1">Rejection reason:</p>
                         <p>{{ $report->rejection_reason }}</p>
                     </div>
                 @endif
 
-                {{-- NEW: New Card UID + Rejection reason (only when pending) --}}
+                {{-- New Card UID + Rejection reason (only when pending) --}}
                 @if ($report->status === 'pending')
-                    {{-- New Card UID field --}}
                     <div>
                         <flux:input
                             wire:model="newCardUid"
                             label="New Card UID"
                             placeholder="Enter the UID of the blank card"
-                            class="font-mono"
+                            class="font-mono font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                         />
                         <flux:error name="newCardUid" />
                         <p class="mt-1 text-xs text-light-txt-muted dark:text-dark-txt-muted">
@@ -585,13 +600,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         </p>
                     </div>
 
-                    {{-- Rejection reason --}}
                     <div>
                         <flux:textarea
                             wire:model="rejectionReason"
                             label="Rejection reason (required to reject)"
                             placeholder="Explain why the report is being rejected…"
                             rows="2"
+                            class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                         />
                         <flux:error name="rejectionReason" />
                     </div>
@@ -600,7 +615,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 {{-- Action buttons --}}
                 <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
                     <flux:modal.close class="w-full sm:w-auto">
-                        <flux:button variant="ghost" class="w-full sm:w-auto justify-center !font-secondary">
+                        <flux:button variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
                             Close
                         </flux:button>
                     </flux:modal.close>
@@ -612,7 +627,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             wire:loading.attr="disabled"
                             wire:target="rejectReport"
                             wire:confirm="Reject this report? The commuter will need to re-submit."
-                            class="w-full sm:w-auto justify-center !font-secondary"
+                            class="w-full sm:w-auto justify-center font-secondary"
                         >
                             <span wire:loading.remove wire:target="rejectReport">Reject</span>
                             <span wire:loading wire:target="rejectReport">Rejecting…</span>
@@ -623,7 +638,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             wire:loading.attr="disabled"
                             wire:target="approveReport"
                             wire:confirm="Approve and issue replacement? The new card will be created with the provided UID."
-                            class="w-full sm:w-auto justify-center !font-secondary"
+                            class="w-full sm:w-auto justify-center font-secondary"
                         >
                             <span wire:loading.remove wire:target="approveReport">Approve & Issue Replacement</span>
                             <span wire:loading wire:target="approveReport">Processing…</span>

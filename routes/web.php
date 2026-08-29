@@ -57,12 +57,17 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('role:admin')
         ->name('admin.routes');
 
+    Route::get('/routes/export', [\App\Http\Controllers\RouteFareExportController::class, 'export'])
+        ->name('routes.export')
+        ->middleware('role:admin,cashier');
+
     Route::livewire('/admin/users', 'pages::content-by-role.admin.users')
         ->middleware('role:admin')
         ->name('admin.users');
 
     Route::livewire('/admin/edit/user/{user}', 'pages::content-by-role.admin.edit-user-info')
-        ->name('admin.edit.user');
+        ->name('admin.edit.user')
+        ->middleware('role:admin');
 
     Route::livewire('/admin/register/user', 'pages::content-by-role.admin.register')
         ->middleware('role:admin')
@@ -81,6 +86,14 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::livewire('/admin/travel/record', 'pages::content-by-role.admin.travel-record')
         ->name('admin.travel.record')
+        ->middleware('role:admin,cashier');
+
+    Route::get('/dispatch-log/export', [\App\Http\Controllers\DispatchLogExportController::class, 'export'])
+        ->name('dispatch-log.export')
+        ->middleware('role:admin,cashier');
+
+    Route::get('/admin/operators/export', [\App\Http\Controllers\OperatorsExportController::class, 'export'])
+        ->name('admin.operators.export')
         ->middleware('role:admin');
 
     Route::livewire('/admin/audit/logs', 'pages::content-by-role.admin.audit-logs')
@@ -120,7 +133,14 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::livewire('/operator/vehicles/{vehicle}', 'pages::content-by-role.operator.queueing_records')
         ->middleware('role:operator')
         ->name('operator.travel.record');
-    
+
+    Route::livewire('/operator/travel-history', 'pages::content-by-role.operator.travel-history')
+        ->middleware('role:operator')
+        ->name('operator.travel.history');
+    Route::get('/operator/travel-history/export', [\App\Http\Controllers\OperatorTravelHistoryExportController::class, 'export'])
+        ->middleware('role:operator')
+        ->name('operator.travel.history.export');
+
     Route::livewire('/operator/queueing', 'pages::content-by-role.operator.live-queue')
         ->middleware('role:operator')
         ->name('operator.live.queue');

@@ -7,6 +7,7 @@ use App\Models\UserNotification;
 use App\Events\NotificationEvent;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Flux\Flux;
 
 new class extends Component
 {
@@ -45,6 +46,13 @@ new class extends Component
         ]);
 
         broadcast(new NotificationEvent());
+
+        Flux::toast(
+            duration: 4000,
+            variant: 'success',
+            heading: 'Password changed',
+            text: 'Your password has been updated successfully.',
+        );
 
         $this->reset('current_password', 'password', 'password_confirmation');
 

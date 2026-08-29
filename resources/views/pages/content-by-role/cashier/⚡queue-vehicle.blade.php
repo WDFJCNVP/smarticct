@@ -19,7 +19,7 @@ use App\Http\Controllers\Api\CardController;
 use App\Events\NotificationEvent;
 use App\Services\AuditLogsService;
 
-new #[Layout('layouts.cashier-layout')] class extends Component
+new class extends Component
 {
     public bool $card_focused = true;
     public string $card_state = 'ready';
@@ -402,13 +402,25 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         $this->card_state = 'ready';
         $this->dispatch('focus-rfid-input');
     }
+
+    public function render()
+    {
+        $role = auth()->user()->role;
+
+        return $this->view()->layout('layouts.' . $role . '-layout');
+    }
 };
 ?>
 
 <div>
 
-    <div class="flex items-start justify-between gap-4 mb-6">
-        <div>
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-6">
+        <flux:breadcrumbs class="order-1 sm:order-2 shrink-0 sm:pt-1">
+            <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Back to Live Queue</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>Queue Vehicle</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
+
+        <div class="order-2 sm:order-1 w-full sm:w-auto">
             <x-heading
                 size="xl"
                 class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
@@ -420,11 +432,6 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 Tap an RFID card to queue an operator's vehicle, or pay with cash.
             </x-text>
         </div>
-
-        <flux:breadcrumbs class="shrink-0 pt-1">
-            <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Live Queue</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>Queue Vehicle</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
     </div>
 
         <x-card class="!p-0">
@@ -505,14 +512,14 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                             @enderror
                         </flux:field>
                     </div>
-                    <div class="shrink-0 flex flex-col gap-1.5">
+                    <div class="shrink-0 flex flex-col gap-1.5 w-full sm:w-auto">
                         <span class="text-xs invisible select-none hidden sm:block" aria-hidden="true">Actions</span>
-                        <div class="flex items-center mb-1 gap-2 h-9">
+                        <div class="flex items-center mb-1 gap-2 h-9 w-full sm:w-auto">
                             <flux:button
                                 wire:click="enableCashMode"
                                 variant="ghost"
                                 size="sm"
-                                class="font-secondary"
+                                class="font-secondary w-full sm:w-auto justify-center"
                                 :disabled="$cashMode || $card_state === 'success'"
                             >
                                 Pay with Cash
@@ -522,7 +529,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                                     wire:click="disableCashMode"
                                     variant="danger"
                                     size="sm"
-                                    class="font-secondary"
+                                    class="font-secondary w-full sm:w-auto justify-center"
                                 >
                                     Cancel Cash
                                 </flux:button>

@@ -173,7 +173,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         </flux:table.cell>
 
                         <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
-                            <flux:badge size="sm" color="{{ $transaction->transaction_type === 'top_up' ? 'green' : 'zinc' }}">
+                            <flux:badge size="sm" color="{{ $transaction->transaction_type === 'top-up' ? 'green' : 'zinc' }}">
                                 {{ ucfirst(str_replace('_', ' ', $transaction->transaction_type)) }}
                             </flux:badge>
                         </flux:table.cell>

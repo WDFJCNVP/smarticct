@@ -9,6 +9,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\Attributes\On;
 use App\Events\UserInfoUpdated;
+use Flux\Flux;
 
 new #[Title('Profile settings')] class extends Component {
     use ProfileValidationRules;
@@ -42,6 +43,13 @@ new #[Title('Profile settings')] class extends Component {
         }
 
         $user->save();
+
+        Flux::toast(
+            duration: 4000,
+            variant: 'success',
+            heading: 'Profile updated',
+            text: 'Your profile information has been saved.',
+        );
 
         $this->dispatch('profile-updated', name: $user->name);
 

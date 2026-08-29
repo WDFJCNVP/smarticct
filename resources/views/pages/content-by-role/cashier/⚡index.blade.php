@@ -377,7 +377,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                         <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
                         <span class="hidden sm:inline">Filters</span>
                         @if ((int) $this->range !== 7)
-                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-dark-bg text-[10px] font-bold">1</span>
+                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">1</span>
                         @endif
                     </button>
                 </flux:modal.trigger>

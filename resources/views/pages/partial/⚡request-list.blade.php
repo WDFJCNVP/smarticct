@@ -240,7 +240,7 @@ new class extends Component
     <flux:modal
         wire:model="is_show_decline_modal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
     >
         <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
             <!-- Header -->
@@ -287,7 +287,7 @@ new class extends Component
     <flux:modal
         wire:model="is_show_view_more_modal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
     >
         <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
             <!-- Header -->
@@ -402,8 +402,6 @@ new class extends Component
         </div>
     </flux:modal>
 
-    {{-- Always mounted so it can catch the 'open-confirm-modal' event dispatched
-         by the Accept buttons above, and render its own confirm modal. --}}
     <livewire:pages::partial.create_rental_transaction
         :key="'create-rental-transaction-' . $post->id"
     />

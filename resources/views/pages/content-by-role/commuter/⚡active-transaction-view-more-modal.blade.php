@@ -72,7 +72,14 @@ new class extends Component
 
         <div class="flex items-center gap-2 justify-between mt-2">
             <x-text variant="subtle">Status</x-text>
-            <x-badge color="green" size="sm">{{ ucfirst($this->rentalOffer->status) }}ed</x-badge>
+            <x-badge color="green" size="sm">{{ match($this->rentalOffer->status) {
+                'accept' => 'Accepted',
+                'pending' => 'Pending',
+                'cancel' => 'Cancelled',
+                'decline' => 'Declined',
+                'ongoing' => 'Ongoing',
+                default => ucfirst($this->rentalOffer->status),
+            } }}</x-badge>
         </div>
 
         <div class="flex items-center gap-2 justify-between mt-2">
@@ -97,7 +104,7 @@ new class extends Component
         </div>
 
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Available From</x-text>
+            <x-text variant="subtle">Available Until</x-text>
             
             <x-text variant="strong" class="truncate max-w-[150px]">{{ $this->rentalOffer->available_until->format('M d, Y') }}</x-text>
         </div>
