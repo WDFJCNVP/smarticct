@@ -14,7 +14,6 @@ class TopUpTransaction extends Model
         'processed_by',
         'checkout_session_id',
         'points_credited',
-        'points_to_load',
         'amount_paid',
         'payment_method',
         'status',
