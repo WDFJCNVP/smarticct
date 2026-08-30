@@ -21,11 +21,35 @@ class OperatorsExport implements FromQuery, WithHeadings, WithMapping, WithEvent
     // Days-out threshold for flagging a document as "expiring soon".
     private const EXPIRY_WARNING_DAYS = 30;
 
+    public function __construct(
+        private readonly ?Carbon $from = null,
+        private readonly ?Carbon $to = null,
+        private readonly ?string $vehicleType = null,
+        private readonly ?string $status = null,
+    ) {
+    }
+
     public function query(): Builder
     {
         return Vehicle::query()
-            ->with(['user', 'route_list'])
+            ->with(['user.userStatus', 'route_list'])
             ->whereHas('user', fn ($q) => $q->where('role', 'operator'))
+            ->when($this->from, fn ($q) => $q->where('created_at', '>=', $this->from))
+            ->when($this->to, fn ($q) => $q->where('created_at', '<=', $this->to))
+            ->when($this->vehicleType, fn ($q) => $q->where('vehicle_type', $this->vehicleType))
+            ->when($this->status, function ($q) {
+                match ($this->status) {
+                    'active' => $q->whereHas('user', function ($u) {
+                        $u->whereDoesntHave('userStatus', function ($s) {
+                            $s->where('is_deleted', true)->orWhere('status', 'suspended');
+                        });
+                    }),
+                    'suspended' => $q->whereHas('user.userStatus', function ($s) {
+                        $s->where('status', 'suspended')->where('is_deleted', false);
+                    }),
+                    default => null,
+                };
+            })
             // Chunked exports page through this query with LIMIT/OFFSET, which
             // is only safe with a UNIQUE order. user_id alone isn't unique here
             // (one operator can own several vehicles), so id is a tie-breaker —
@@ -42,6 +66,7 @@ class OperatorsExport implements FromQuery, WithHeadings, WithMapping, WithEvent
             'Phone Number',
             'Email Address',
             'Address',
+            'Account Status',
             'Vehicle Type',
             'Plate Number',
             'Driver Name',
@@ -63,6 +88,7 @@ class OperatorsExport implements FromQuery, WithHeadings, WithMapping, WithEvent
             $vehicle->user?->phone_number,
             $vehicle->user?->email_address,
             $vehicle->user?->address,
+            $this->accountStatus($vehicle->user),
             $vehicle->vehicle_type,
             $vehicle->plate_number,
             $vehicle->driver_name,
@@ -74,6 +100,23 @@ class OperatorsExport implements FromQuery, WithHeadings, WithMapping, WithEvent
             $vehicle->franchise_expiry_date?->format('Y-m-d') ?? '—',
             $this->documentStatus($vehicle),
         ];
+    }
+
+    private function accountStatus($user): string
+    {
+        if (! $user) {
+            return '—';
+        }
+
+        if ($user->isDeleted()) {
+            return 'Deleted';
+        }
+
+        if ($user->isSuspended()) {
+            return 'Suspended';
+        }
+
+        return 'Active';
     }
 
     /**
@@ -122,10 +165,10 @@ class OperatorsExport implements FromQuery, WithHeadings, WithMapping, WithEvent
                 $sheet = $event->sheet->getDelegate();
 
                 // Header text color (white on the dark header fill set in styles()).
-                $sheet->getStyle('A1:O1')->getFont()->getColor()->setRGB('FFFFFF');
+                $sheet->getStyle('A1:P1')->getFont()->getColor()->setRGB('FFFFFF');
 
                 $highestRow = $sheet->getHighestRow();
-                $statusColumn = 'O';
+                $statusColumn = 'P';
 
                 for ($row = 2; $row <= $highestRow; $row++) {
                     $status = $sheet->getCell($statusColumn . $row)->getValue();
@@ -137,7 +180,7 @@ class OperatorsExport implements FromQuery, WithHeadings, WithMapping, WithEvent
                     };
 
                     if ($color) {
-                        $sheet->getStyle("A{$row}:O{$row}")
+                        $sheet->getStyle("A{$row}:P{$row}")
                             ->getFill()
                             ->setFillType(Fill::FILL_SOLID)
                             ->getStartColor()
