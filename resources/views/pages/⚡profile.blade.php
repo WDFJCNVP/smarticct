@@ -132,6 +132,7 @@ new #[Title('Profile settings')] class extends Component {
 
         Flux::toast(
             variant: 'success',
+            duration: 4000,
             heading: 'Changes saved.',
             text: 'Your profile has been updated.',
         );
@@ -172,6 +173,7 @@ new #[Title('Profile settings')] class extends Component {
 
         Flux::toast(
             variant: 'success',
+            duration: 4000,
             heading: 'Address saved.',
             text: 'Your address has been updated.',
         );
@@ -204,6 +206,13 @@ new #[Title('Profile settings')] class extends Component {
     #[Computed]
     public function showDeleteUser(): bool
     {
+        // Only commuters may delete their own account. Admins can only
+        // suspend accounts (never delete), and cashiers/operators can
+        // never delete their own accounts.
+        if (Auth::user()->role !== 'commuter') {
+            return false;
+        }
+
         return ! Auth::user() instanceof MustVerifyEmail
             || (Auth::user() instanceof MustVerifyEmail && Auth::user()->hasVerifiedEmail());
     }

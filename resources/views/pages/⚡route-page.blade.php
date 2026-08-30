@@ -10,6 +10,8 @@ use Livewire\WithPagination;
 
 use App\Models\RouteList;
 use App\Models\OperatorTicketRate;
+use App\Services\AuditLogsService;
+use App\Services\BroadcastNotificationService;
 
 use Flux\Flux;
 
@@ -96,6 +98,32 @@ new class extends Component
             RouteList::create($payload);
         }
 
+        app(AuditLogsService::class)->create([
+            'user_id'  => auth()->id(),
+            'action'   => $isEditing ? 'Route Updated' : 'Route Added',
+            'subject'  => $isEditing ? 'Admin updated a route/fare entry' : 'Admin added a new route/fare entry',
+            'channel'  => 'Web',
+            'metadata' => [
+                'ip_address' => request()->ip(),
+                'terminal'   => $payload['terminal'],
+                'fare'       => $payload['fare'],
+                'message'    => ($isEditing ? "Updated" : "Added") . " route for terminal \"{$payload['terminal']}\" with fare ₱{$payload['fare']}.",
+            ],
+        ]);
+
+        app(BroadcastNotificationService::class)->notifyRoles(
+            roles: ['commuter', 'operator', 'cashier'],
+            type: 'RouteFareChanged',
+            title: $isEditing ? 'Route/Fare Updated' : 'New Route Added',
+            message: $isEditing
+                ? "The route for {$payload['terminal']} was updated. New fare: ₱{$payload['fare']}."
+                : "A new route for {$payload['terminal']} was added with a fare of ₱{$payload['fare']}.",
+            metadata: [
+                'terminal' => $payload['terminal'],
+                'fare'     => $payload['fare'],
+            ],
+        );
+
         $this->resetForm();
         unset($this->getRouteList);
         $this->dispatch('route-saved');
@@ -121,6 +149,18 @@ new class extends Component
 
         RouteList::where('id', $id)->delete();
         unset($this->getRouteList);
+
+        app(AuditLogsService::class)->create([
+            'user_id'  => auth()->id(),
+            'action'   => 'Route Deleted',
+            'subject'  => 'Admin deleted a route/fare entry',
+            'channel'  => 'Web',
+            'metadata' => [
+                'ip_address' => request()->ip(),
+                'terminal'   => $terminalName,
+                'message'    => $terminalName ? "Deleted route for terminal \"{$terminalName}\"." : "Deleted route (ID: {$id}).",
+            ],
+        ]);
 
         Flux::toast(
             variant: 'success',

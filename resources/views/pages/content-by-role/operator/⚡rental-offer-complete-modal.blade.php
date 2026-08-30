@@ -12,9 +12,17 @@ new class extends Component
     public RentalOffer $rentalOffer;
     public string $modalType;
 
+    // Either the offering operator or the post owner (commuter) may act
+    // on this record.
+    protected function isAuthorized(): bool
+    {
+        return $this->rentalOffer->user_id === auth()->id()
+            || optional($this->rentalOffer->post)->user_id === auth()->id();
+    }
+
     public function cancelTrip() {
 
-        if($this->rentalOffer) {
+        if($this->rentalOffer && $this->isAuthorized()) {
 
             $rentalOffer = $this->rentalOffer;
             
@@ -43,7 +51,7 @@ new class extends Component
 
     public function completeTrip() {
 
-        if($this->rentalOffer) {
+        if($this->rentalOffer && $this->isAuthorized()) {
 
             $rentalOffer = $this->rentalOffer;
             

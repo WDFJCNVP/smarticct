@@ -16,10 +16,6 @@ new class extends Component
     public string $dateFrom = '';
     public string $dateTo = '';
 
-    // Separate state for the export dialog so browsing filters and the
-    // exported file don't silently drift apart — it seeds from whatever
-    // is currently on screen, but can still be narrowed further (or
-    // widened back to "All") before the file is actually generated.
     public string $exportVehicleType = '';
     public string $exportRoute = '';
     public string $exportDateFrom = '';
@@ -63,8 +59,6 @@ new class extends Component
         $this->resetPage();
     }
 
-    // Called right when the export modal opens, so its fields always start
-    // aligned with whatever is currently on screen.
     public function prepareExportModal()
     {
         $this->exportVehicleType = $this->vehicleTypeFilter;
@@ -73,12 +67,40 @@ new class extends Component
         $this->exportDateTo      = $this->dateTo;
     }
 
+    public function setExportRangeAllTime()
+    {
+        $this->exportDateFrom = '';
+        $this->exportDateTo = '';
+    }
+
+    public function setExportRangeToday()
+    {
+        $this->exportDateFrom = today()->toDateString();
+        $this->exportDateTo = today()->toDateString();
+    }
+
+    #[Computed]
+    public function exportRangePreset(): string
+    {
+        if ($this->exportDateFrom === '' && $this->exportDateTo === '') {
+            return 'all';
+        }
+
+        $today = today()->toDateString();
+
+        if ($this->exportDateFrom === $today && $this->exportDateTo === $today) {
+            return 'today';
+        }
+
+        return 'custom';
+    }
+
     #[Computed]
     public function exportUrl(): string
     {
         return route('dispatch-log.export', array_filter([
-            'from'         => $this->exportDateFrom ?: $this->dateFrom,
-            'to'           => $this->exportDateTo ?: $this->dateTo,
+            'from'         => $this->exportDateFrom,
+            'to'           => $this->exportDateTo,
             'vehicle_type' => $this->exportVehicleType,
             'route'        => $this->exportRoute,
         ]));
@@ -397,6 +419,32 @@ new class extends Component
             </div>
 
             <!-- Fields -->
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Date range</flux:label>
+                <div class="flex gap-2 mt-1.5">
+                    <button
+                        type="button"
+                        wire:click="setExportRangeAllTime"
+                        class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
+                            {{ $this->exportRangePreset === 'all'
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
+                    >
+                        All Time
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="setExportRangeToday"
+                        class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
+                            {{ $this->exportRangePreset === 'today'
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
+                    >
+                        Today
+                    </button>
+                </div>
+            </flux:field>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <flux:field>
                     <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">From</flux:label>

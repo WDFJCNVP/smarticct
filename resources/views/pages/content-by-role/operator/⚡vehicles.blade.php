@@ -63,6 +63,16 @@ new #[Layout('layouts.operator-layout')]class extends Component
                 Monitor your vehicles and their current queue status here.
             </x-text>
         </div>
+
+        <flux:button
+            href="{{ route('operator.vehicles.export') }}"
+            variant="primary"
+            icon="arrow-down-tray"
+            size="sm"
+            class="font-secondary shrink-0 w-full sm:w-auto justify-center"
+        >
+            Export fleet PDF
+        </flux:button>
     </div>
 
     {{-- Stats cards – same pattern as other pages --}}

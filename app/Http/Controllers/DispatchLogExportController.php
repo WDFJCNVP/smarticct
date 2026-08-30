@@ -20,11 +20,20 @@ class DispatchLogExportController extends Controller
             'status'       => 'nullable|in:departed,queued',
         ]);
 
-        $from = Carbon::parse($validated['from'] ?? today())->startOfDay();
-        $to   = Carbon::parse($validated['to'] ?? $validated['from'] ?? today())->endOfDay();
+        // Blank from/to = "All time" (a real unbounded query, not a silent
+        // fallback to today) — matches the "All Time"/"Today" quick-select
+        // buttons in the export modal.
+        $hasFrom = !empty($validated['from']);
+        $hasTo = !empty($validated['to']);
+
+        $from = $hasFrom ? Carbon::parse($validated['from'])->startOfDay() : null;
+        $to = $hasTo
+            ? Carbon::parse($validated['to'])->endOfDay()
+            : ($hasFrom ? Carbon::parse($validated['from'])->endOfDay() : null);
 
         $records = Queue::query()
-            ->whereBetween('time_queued', [$from, $to])
+            ->when($from, fn ($q) => $q->where('time_queued', '>=', $from))
+            ->when($to, fn ($q) => $q->where('time_queued', '<=', $to))
             ->when(!empty($validated['vehicle_type']), fn ($q) => $q->where('vehicle_type', $validated['vehicle_type']))
             ->when(!empty($validated['route']), fn ($q) => $q->where('destination', $validated['route']))
             ->when(($validated['status'] ?? null) === 'departed', fn ($q) => $q->whereNotNull('time_departed'))
@@ -58,17 +67,19 @@ class DispatchLogExportController extends Controller
             'channel'  => 'Web',
             'metadata' => [
                 'ip_address'   => $request->ip(),
-                'from'         => $from->toDateString(),
-                'to'           => $to->toDateString(),
+                'from'         => $from?->toDateString() ?? 'All time',
+                'to'           => $to?->toDateString() ?? 'All time',
                 'vehicle_type' => $validated['vehicle_type'] ?? 'All',
                 'route'        => $validated['route'] ?? 'All',
                 'records'      => $records->count(),
             ],
         ]);
 
-        $filename = $from->isSameDay($to)
-            ? 'dispatch-log-' . $from->format('Y-m-d') . '.pdf'
-            : 'dispatch-log-' . $from->format('Y-m-d') . '-to-' . $to->format('Y-m-d') . '.pdf';
+        $filename = $from && $to
+            ? ($from->isSameDay($to)
+                ? 'dispatch-log-' . $from->format('Y-m-d') . '.pdf'
+                : 'dispatch-log-' . $from->format('Y-m-d') . '-to-' . $to->format('Y-m-d') . '.pdf')
+            : 'dispatch-log-all-time.pdf';
 
         return $pdf->download($filename);
     }

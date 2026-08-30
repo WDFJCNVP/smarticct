@@ -25,6 +25,16 @@ return new class extends Migration
                 ->constrained('users')
                 ->nullOnDelete();
 
+            // Set when a commuter permanently deletes their own account
+            // (see UserService::deleteOwnAccount()). Kept separate from
+            // the `status` enum above so the account can be blocked from
+            // logging in without needing an enum/CHECK constraint change.
+            // The related User row is intentionally NOT soft-deleted, so
+            // other users' transaction/travel history can still resolve
+            // it and display "Deleted User".
+            $table->boolean('is_deleted')->default(false);
+            $table->timestamp('deleted_at_by_user')->nullable();
+
             $table->timestamps();
         });
     }

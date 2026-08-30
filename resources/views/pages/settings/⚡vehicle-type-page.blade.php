@@ -5,6 +5,8 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use App\Models\OperatorTicketRate;
+use App\Services\AuditLogsService;
+use App\Services\BroadcastNotificationService;
 
 new #[Layout('layouts.admin-layout')] class extends Component
 {
@@ -27,6 +29,30 @@ new #[Layout('layouts.admin-layout')] class extends Component
         ]);
 
         OperatorTicketRate::create($validated_attributes);
+
+        app(AuditLogsService::class)->create([
+            'user_id'  => auth()->id(),
+            'action'   => 'Fare Rate Added',
+            'subject'  => 'Admin added a queueing fee rate for a vehicle type',
+            'channel'  => 'Web',
+            'metadata' => [
+                'ip_address'    => request()->ip(),
+                'vehicle_type'  => $validated_attributes['vehicle_type'],
+                'queueing_fee'  => $validated_attributes['queueing_fee'],
+                'message'       => "Added queueing fee ₱{$validated_attributes['queueing_fee']} for vehicle type \"{$validated_attributes['vehicle_type']}\".",
+            ],
+        ]);
+
+        app(BroadcastNotificationService::class)->notifyRoles(
+            roles: ['operator', 'cashier'],
+            type: 'FareRateChanged',
+            title: 'New Queueing Fee Added',
+            message: "A queueing fee of ₱{$validated_attributes['queueing_fee']} was set for vehicle type \"{$validated_attributes['vehicle_type']}\".",
+            metadata: [
+                'vehicle_type' => $validated_attributes['vehicle_type'],
+                'queueing_fee' => $validated_attributes['queueing_fee'],
+            ],
+        );
 
         $this->vehicle_type = "";
         $this->queueing_fee = null;
@@ -62,6 +88,30 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'vehicle_type' => $this->edit_vehicle_type,
             'queueing_fee' => $this->edit_queueing_fee,
         ]);
+
+        app(AuditLogsService::class)->create([
+            'user_id'  => auth()->id(),
+            'action'   => 'Fare Rate Updated',
+            'subject'  => 'Admin updated a queueing fee rate for a vehicle type',
+            'channel'  => 'Web',
+            'metadata' => [
+                'ip_address'   => request()->ip(),
+                'vehicle_type' => $this->edit_vehicle_type,
+                'queueing_fee' => $this->edit_queueing_fee,
+                'message'      => "Updated queueing fee to ₱{$this->edit_queueing_fee} for vehicle type \"{$this->edit_vehicle_type}\".",
+            ],
+        ]);
+
+        app(BroadcastNotificationService::class)->notifyRoles(
+            roles: ['operator', 'cashier'],
+            type: 'FareRateChanged',
+            title: 'Queueing Fee Updated',
+            message: "The queueing fee for vehicle type \"{$this->edit_vehicle_type}\" was updated to ₱{$this->edit_queueing_fee}.",
+            metadata: [
+                'vehicle_type' => $this->edit_vehicle_type,
+                'queueing_fee' => $this->edit_queueing_fee,
+            ],
+        );
 
         unset($this->getOperatorTicket);
         $this->modal('edit')->close();

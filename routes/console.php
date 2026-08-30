@@ -7,10 +7,18 @@ use Illuminate\Support\Facades\Storage;
 
 use App\Models\Post;
 use App\Services\QueueManagementService;
+use App\Services\DocumentExpiryNotificationService;
 
 Schedule::call(function () {
     app(QueueManagementService::class)->generateSchedule(today());
 })->daily();
+
+// Operator-facing reminder: notify an operator once a vehicle's OR/CR or
+// franchise is within 7 days of expiring (see DocumentExpiryNotificationService
+// for why this is "within 7 days" + de-dupe rather than an exact day-7 check).
+Schedule::call(function () {
+    app(DocumentExpiryNotificationService::class)->notifyExpiringDocuments(7);
+})->dailyAt('08:00');
 
 Schedule::call(function () {
     // Posts sit in Trash for 30 days after being deleted (see Post::SoftDeletes),

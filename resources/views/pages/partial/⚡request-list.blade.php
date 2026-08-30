@@ -42,7 +42,9 @@ new class extends Component
     {
         $this->is_show_view_more_modal = false;
         $this->is_show_view_more_modal = true;
-        $this->post_interest_info = TripRequest::where('id', $id)->first();
+        $this->post_interest_info = TripRequest::where('id', $id)
+            ->where('post_id', $this->post->id)
+            ->first();
     }
 
     public function showDeclineModal($id)
@@ -65,11 +67,16 @@ new class extends Component
     {
         // Guard: if this already ran (e.g. double-click before the modal
         // finished closing), don't run the update/dispatch a second time.
-        if (! $this->interested_user) {
+        // Also guard that the id being declined matches the request that was
+        // actually opened for this post, so the update can't be redirected
+        // to a request belonging to a different post.
+        if (! $this->interested_user || (int) $this->interested_user->id !== (int) $id) {
             return;
         }
 
-        TripRequest::where('id', $id)->update(['status' => 'decline']);
+        TripRequest::where('id', $id)
+            ->where('post_id', $this->post->id)
+            ->update(['status' => 'decline']);
 
         // Let the commuter know their trip request was declined.
         $notification = Notification::create([

@@ -7,6 +7,7 @@ use Livewire\Attributes\Computed;
 use App\Models\Card;
 use App\Services\CheckoutSessionService;
 use App\Models\CardReport;
+use Illuminate\Support\Facades\Log;
 
 new class extends Component
 {
@@ -44,7 +45,8 @@ new class extends Component
             return redirect()->away($checkoutUrl);
         }
         catch (\Exception $e) {
-            $this->addError('payment_error', $e->getMessage());
+            Log::error('Card top-up checkout session failed', ['error' => $e->getMessage(), 'user_id' => auth()->id()]);
+            $this->addError('payment_error', 'We couldn\'t start your payment right now. Please try again in a moment.');
         }
     }
 
@@ -87,7 +89,7 @@ new class extends Component
         ]);
 
         if ($this->existingPendingReport) {
-            Flux::toast(variant: 'warning', heading: 'Report already submitted.', text: 'You already have a pending report for this card.');
+            Flux::toast(variant: 'warning', duration: 4000, heading: 'Report already submitted.', text: 'You already have a pending report for this card.');
             return;
         }
 
@@ -107,6 +109,7 @@ new class extends Component
 
         Flux::toast(
             variant: 'success',
+            duration: 4000,
             heading: 'Report submitted.',
             text: 'An admin will review your request. Visit the terminal to complete the card replacement.',
         );

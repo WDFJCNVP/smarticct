@@ -22,37 +22,70 @@ new class extends Component
 
     public function tripRequestConfirmModal($id, $type) {
 
+        // Only my own trip requests can be cancelled/completed from here.
+        $tripRequest = TripRequest::with('user', 'post.user')
+            ->where('user_id', auth()->id())
+            ->find($id);
+
+        if (! $tripRequest) {
+            return;
+        }
+
         $this->isTripRequestConfirmModal = false;
         $this->isTripRequestConfirmModal = true;
 
         $this->tripRequestModalType = $type;
 
-        $this->tripRequestData = null;
-        $this->tripRequestData = TripRequest::with('user', 'post.user')->find($id);
+        $this->tripRequestData = $tripRequest;
 
     }
 
     public function rentalOfferCompleteModal($id, $type) {
+
+        // Only rental offers made against one of my own posts can be
+        // cancelled/completed from here.
+        $rentalOffer = RentalOffer::with('post.user')
+            ->whereHas('post', fn ($q) => $q->where('user_id', auth()->id()))
+            ->find($id);
+
+        if (! $rentalOffer) {
+            return;
+        }
 
         $this->isRentalOfferCompleteModal = false;
         $this->isRentalOfferCompleteModal = true;
 
         $this->rentalOfferModalType = $type;
 
-        $this->rentalOfferData = null;
-        $this->rentalOfferData = RentalOffer::with('post.user')->find($id);
+        $this->rentalOfferData = $rentalOffer;
     }
 
     public function showTripRequestViewMoreModal($id) {
 
-        $this->tripRequestData = TripRequest::with('user', 'post.user')->find($id);
+        $tripRequest = TripRequest::with('user', 'post.user')
+            ->where('user_id', auth()->id())
+            ->find($id);
+
+        if (! $tripRequest) {
+            return;
+        }
+
+        $this->tripRequestData = $tripRequest;
 
         $this->isShowTripRequestViewMoreModal = true;
     }
 
     public function showRentalOfferViewMoreModal($id) {
 
-        $this->rentalOfferData = RentalOffer::with('vehicle', 'user', 'post.user')->find($id);
+        $rentalOffer = RentalOffer::with('vehicle', 'user', 'post.user')
+            ->whereHas('post', fn ($q) => $q->where('user_id', auth()->id()))
+            ->find($id);
+
+        if (! $rentalOffer) {
+            return;
+        }
+
+        $this->rentalOfferData = $rentalOffer;
 
         $this->isShowRentalOfferViewMoreModal = true;
     }

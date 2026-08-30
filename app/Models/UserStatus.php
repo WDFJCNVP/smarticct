@@ -12,12 +12,16 @@ class UserStatus extends Model
         'suspension_reason',
         'suspended_at',
         'suspended_by',
+        'is_deleted',
+        'deleted_at_by_user',
     ];
 
     protected function casts(): array
     {
         return [
-            'suspended_at' => 'datetime',
+            'suspended_at'       => 'datetime',
+            'is_deleted'         => 'boolean',
+            'deleted_at_by_user' => 'datetime',
         ];
     }
 
