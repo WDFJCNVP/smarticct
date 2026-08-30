@@ -14,6 +14,7 @@ use App\Models\VehicleGroup;
 use App\Models\OperatorTicketRate;
 
 use App\Services\UserService;
+use App\Services\AuditLogsService;
 
 new #[Layout('layouts.admin-layout')] class extends Component
 {
@@ -195,6 +196,17 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function issueCard(): void
     {
+        if ($this->user->isDeleted()) {
+            Flux::toast(
+                variant: 'danger',
+                duration: 4000,
+                heading: 'Cannot edit this account.',
+                text: 'This account was permanently deleted by the user and can no longer be modified.',
+            );
+
+            return;
+        }
+
         $this->validate([
             'cardUid' => 'required|string|min:4|unique:cards,uid',
         ], [
@@ -215,12 +227,24 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         Flux::toast(
             variant: 'success',
+            duration: 4000,
             heading: 'Card issued.',
             text: 'RFID card has been linked to ' . $this->user->name . '.',
         );
     }
 
     public function save() {
+        if ($this->user->isDeleted()) {
+            Flux::toast(
+                variant: 'danger',
+                duration: 4000,
+                heading: 'Cannot edit this account.',
+                text: 'This account was permanently deleted by the user and can no longer be modified.',
+            );
+
+            return;
+        }
+
         $attributes = $this->validate([
             'name'          => 'required|min:2|string',
             'email_address' => 'nullable|string|email|max:255|unique:users,email_address,' . $this->user->id,
@@ -234,19 +258,26 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         Flux::toast(
             variant: 'success',
+            duration: 4000,
             heading: 'Changes saved.',
             text: 'Your changes have been saved.'
         );
     }
 
-    public function deleteUser() {
-        app(UserService::class)->destroy($this->user);
-        $this->redirect(route('admin.users'), navigate: true);
-    }
-
     public string $suspension_reason_input = '';
 
     public function suspendUser() {
+        if ($this->user->isDeleted()) {
+            Flux::toast(
+                variant: 'danger',
+                duration: 4000,
+                heading: 'Cannot edit this account.',
+                text: 'This account was permanently deleted by the user and can no longer be modified.',
+            );
+
+            return;
+        }
+
         $this->validate([
             'suspension_reason_input' => 'required|string|min:5|max:500',
         ], [], [
@@ -261,12 +292,24 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         Flux::toast(
             variant: 'success',
+            duration: 4000,
             heading: 'User suspended',
             text: "{$this->user->name} has been suspended and signed out.",
         );
     }
 
     public function reinstateUser() {
+        if ($this->user->isDeleted()) {
+            Flux::toast(
+                variant: 'danger',
+                duration: 4000,
+                heading: 'Cannot edit this account.',
+                text: 'This account was permanently deleted by the user and can no longer be modified.',
+            );
+
+            return;
+        }
+
         app(UserService::class)->reinstate($this->user);
 
         $this->user->refresh();
@@ -274,6 +317,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         Flux::toast(
             variant: 'success',
+            duration: 4000,
             heading: 'User reinstated',
             text: "{$this->user->name}'s account has been reactivated.",
         );
@@ -373,6 +417,20 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'has_franchise'         => (bool) $new_vehicle->has_franchise,
                 'franchise_expiry_date' => $new_vehicle->franchise_expiry_date ? $new_vehicle->franchise_expiry_date->format('Y-m-d') : '',
             ];
+
+            app(AuditLogsService::class)->create([
+                'user_id'  => auth()->id(),
+                'action'   => 'Vehicle Added',
+                'subject'  => 'Admin added a vehicle to an operator\'s fleet',
+                'channel'  => 'Web',
+                'metadata' => [
+                    'ip_address'   => request()->ip(),
+                    'operator_id'  => $this->user->id,
+                    'vehicle_id'   => $new_vehicle->id,
+                    'plate_number' => $new_vehicle->plate_number,
+                    'message'      => "Added vehicle (Plate: {$new_vehicle->plate_number}) to operator {$this->user->name} (User No.: {$this->user->user_code}).",
+                ],
+            ]);
         });
 
         $this->reset([
@@ -391,7 +449,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         unset($this->getVehicle);
         $this->addingVehicle(false);
 
-        Flux::toast(variant: 'success', heading: 'Vehicle added.', text: 'New vehicle has been added.');
+        Flux::toast(variant: 'success', duration: 4000, heading: 'Vehicle added.', text: 'New vehicle has been added.');
     }
 
     public function editVehicle(int $vehicle_id) {
@@ -494,20 +552,52 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         $this->dispatch('vehicle-updated', id: $vehicle_id);
 
-        Flux::toast(variant: 'success', heading: 'Vehicle updated.', text: 'Vehicle information has been updated.');
+        app(AuditLogsService::class)->create([
+            'user_id'  => auth()->id(),
+            'action'   => 'Vehicle Updated',
+            'subject'  => 'Admin updated a vehicle in an operator\'s fleet',
+            'channel'  => 'Web',
+            'metadata' => [
+                'ip_address'   => request()->ip(),
+                'operator_id'  => $this->user->id,
+                'vehicle_id'   => $vehicle->id,
+                'plate_number' => $vehicle->plate_number,
+                'message'      => "Updated vehicle (Plate: {$vehicle->plate_number}) belonging to operator {$this->user->name} (User No.: {$this->user->user_code}).",
+            ],
+        ]);
+
+        Flux::toast(variant: 'success', duration: 4000, heading: 'Vehicle updated.', text: 'Vehicle information has been updated.');
     }
 
     public function deleteVehicle(int $vehicle_id) {
+        $vehicle = Vehicle::where('id', $vehicle_id)
+            ->where('user_id', $this->user->id)
+            ->first();
+
         Vehicle::where('id', $vehicle_id)
             ->where('user_id', $this->user->id)
             ->delete();
+
+        app(AuditLogsService::class)->create([
+            'user_id'  => auth()->id(),
+            'action'   => 'Vehicle Deleted',
+            'subject'  => 'Admin deleted a vehicle from an operator\'s fleet',
+            'channel'  => 'Web',
+            'metadata' => [
+                'ip_address'   => request()->ip(),
+                'operator_id'  => $this->user->id,
+                'vehicle_id'   => $vehicle_id,
+                'plate_number' => $vehicle?->plate_number,
+                'message'      => "Deleted vehicle (Plate: " . ($vehicle?->plate_number ?? "ID {$vehicle_id}") . ") belonging to operator {$this->user->name} (User No.: {$this->user->user_code}).",
+            ],
+        ]);
 
         unset($this->editingVehicles[$vehicle_id]);
         unset($this->getVehicle);
 
         $this->dispatch('vehicle-deleted', id: $vehicle_id);
 
-        Flux::toast(variant: 'success', heading: 'Vehicle deleted.', text: 'Vehicle has been deleted.');
+        Flux::toast(variant: 'success', duration: 4000, heading: 'Vehicle deleted.', text: 'Vehicle has been deleted.');
     }
 
     public function updatedCreateVehicleType($value)
@@ -727,7 +817,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
             <div class="p-4 sm:p-6 space-y-4">
                 <div class="grid w-full grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <flux:input label="Name" wire:model="name" class="w-full font-secondary" />
+                    <flux:input label="Name" wire:model="name" class="w-full font-secondary" :readonly="$user->isDeleted()" />
                     <div>
                         <flux:input
                             label="Email"
@@ -735,6 +825,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             type="email"
                             placeholder="Optional"
                             class="w-full font-secondary"
+                            :readonly="$user->isDeleted()"
                         />
                     </div>
                     <div>
@@ -744,6 +835,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             type="tel"
                             placeholder="09XXXXXXXXX"
                             class="w-full font-secondary"
+                            :readonly="$user->isDeleted()"
                         />
                     </div>
                     <div>
@@ -752,19 +844,25 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 Address
                             </flux:label>
 
-                            <flux:modal.trigger name="address-modal">
-                                <button
-                                    type="button"
-                                    wire:click="prepareAddressModal"
-                                    class="w-full text-left font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border border-light-bd-default dark:border-dark-bd-default rounded-lg px-3 py-2.5 transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-secondary/50"
-                                >
-                                    @if ($address)
-                                        {{ $address }}
-                                    @else
-                                        <span class="text-light-txt-muted dark:text-dark-txt-muted">Tap to set address</span>
-                                    @endif
-                                </button>
-                            </flux:modal.trigger>
+                            @if ($user->isDeleted())
+                                <div class="w-full font-secondary text-table-row bg-light-subtle dark:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted border border-light-bd-default dark:border-dark-bd-default rounded-lg px-3 py-2.5 opacity-70">
+                                    {{ $address ?: 'No address on file' }}
+                                </div>
+                            @else
+                                <flux:modal.trigger name="address-modal">
+                                    <button
+                                        type="button"
+                                        wire:click="prepareAddressModal"
+                                        class="w-full text-left font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border border-light-bd-default dark:border-dark-bd-default rounded-lg px-3 py-2.5 transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                                    >
+                                        @if ($address)
+                                            {{ $address }}
+                                        @else
+                                            <span class="text-light-txt-muted dark:text-dark-txt-muted">Tap to set address</span>
+                                        @endif
+                                    </button>
+                                </flux:modal.trigger>
+                            @endif
                             <flux:error name="address" />
                         </flux:field>
                     </div>
@@ -788,17 +886,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
                 <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full pt-4 dark:border-dark-bd-default">
 
-                    <flux:modal.trigger name="delete-user">
-                        <flux:button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            class="text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-950 w-full sm:w-auto order-2 sm:order-1"
-                            icon="trash"
-                        >Delete user</flux:button>
-                    </flux:modal.trigger>
-
-                    @if ($user->isSuspended())
+                    {{-- Admins can only suspend accounts — never delete them.
+                         A commuter who has permanently deleted their own
+                         account can no longer be suspended/reinstated. --}}
+                    @if ($user->isDeleted())
+                        <flux:badge color="zinc" size="sm" class="font-secondary text-badge text-xs w-full sm:w-auto text-center order-2 sm:order-1">
+                            Account permanently deleted by user
+                        </flux:badge>
+                    @elseif ($user->isSuspended())
                         <flux:modal.trigger name="reinstate-user">
                             <flux:button
                                 type="button"
@@ -822,7 +917,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
                     <flux:spacer class="hidden sm:block" />
 
-                    <flux:button size="sm" variant="primary" type="submit" icon="check" class="w-full sm:w-auto order-1 sm:order-2">
+                    <flux:button
+                        size="sm"
+                        variant="primary"
+                        type="submit"
+                        icon="check"
+                        class="w-full sm:w-auto order-1 sm:order-2"
+                        :disabled="$user->isDeleted()"
+                    >
                         Save changes
                     </flux:button>
 
@@ -921,45 +1023,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     class="font-secondary w-full sm:w-auto"
                 >
                     Yes, reinstate user
-                </flux:button>
-            </div>
-        </div>
-    </flux:modal>
-
-    {{-- Delete-user confirmation modal --}}
-    <flux:modal name="delete-user" class="md:w-96">
-        <div class="space-y-4">
-            <div>
-                <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
-                    Delete user?
-                </flux:heading>
-                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                    You're about to permanently delete <strong>{{ $user->name }}</strong>
-                    @if ($user->role === 'operator')
-                        along with all their vehicles.
-                    @else
-                        .
-                    @endif
-                    This cannot be undone.
-                </flux:text>
-            </div>
-
-            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
-                <flux:modal.close>
-                    <flux:button type="button" variant="ghost" class="font-secondary w-full sm:w-auto">
-                        Cancel
-                    </flux:button>
-                </flux:modal.close>
-                <flux:button
-                    type="button"
-                    variant="danger"
-                    icon="trash"
-                    wire:click="deleteUser"
-                    wire:loading.attr="disabled"
-                    wire:target="deleteUser"
-                    class="font-secondary w-full sm:w-auto"
-                >
-                    Yes, delete user
                 </flux:button>
             </div>
         </div>
@@ -1128,9 +1191,15 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <flux:icon.truck class="w-4 h-4 text-white text-primary dark:text-dark-txt-primary" />
                         </div>
                         <div class="min-w-0">
-                            <p class="font-primary text-sm font-bold text-light-txt-body dark:text-dark-txt-body truncate">
+                            <p class="font-primary text-sm font-bold text-light-txt-body dark:text-dark-txt-body truncate flex items-center gap-1.5">
                                 {{ $vehicle->plate_number }}
                                 <span class="font-normal font-secondary text-light-txt-muted dark:text-dark-txt-muted">· {{ $vehicle->vehicle_type }}</span>
+                                @php($docStatus = $vehicle->documentStatus())
+                                @if ($docStatus === 'expired')
+                                    <flux:badge color="red" size="sm" class="font-secondary text-badge text-xs">Docs Expired</flux:badge>
+                                @elseif ($docStatus === 'expiring')
+                                    <flux:badge color="orange" size="sm" class="font-secondary text-badge text-xs">Docs Expiring</flux:badge>
+                                @endif
                             </p>
                             <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted truncate">
                                 {{ $vehicle->total_seats }} seats

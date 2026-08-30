@@ -66,6 +66,7 @@ new class extends Component
         if ($result['success'] === false) {
             Flux::toast(
                 variant: 'warning',
+                duration: 4000,
                 heading: 'Cannot advance queue.',
                 text: $result['message'] ?? 'An unknown error occurred.',
             );
@@ -77,6 +78,7 @@ new class extends Component
 
             Flux::toast(
                 variant: 'success',
+                duration: 4000,
                 heading: 'Vehicle advanced.',
                 text: "{$firstWaitingVehicle->plate_number} has been demoted.",
             );

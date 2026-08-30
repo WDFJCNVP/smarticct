@@ -15,6 +15,11 @@ new class extends Component
 {
     public Post $post;
 
+    public function mount()
+    {
+        abort_if($this->post->user_id !== auth()->id(), 404);
+    }
+
     #[Computed]
     public function count() {
         $role = auth()->user()->role;

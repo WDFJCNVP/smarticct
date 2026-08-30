@@ -12,7 +12,9 @@ new class extends Component
     public UserNotification $user_notification;
 
     public function destroyNotification($notification_id) {
-        $notification = UserNotification::find($notification_id);
+        $notification = UserNotification::where('id', $notification_id)
+            ->where('user_id', auth()->id())
+            ->first();
         if ($notification) {
             $notification->delete();
 
@@ -43,6 +45,8 @@ new class extends Component
     }
 
     public function mount() {
+        abort_if($this->user_notification->user_id !== auth()->id(), 404);
+
         if($this->user_notification->is_read === 0) {
             $this->user_notification->update(['is_read' => true]);
         }

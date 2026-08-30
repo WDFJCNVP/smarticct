@@ -17,19 +17,36 @@ new class extends Component
 
     public function tripRequestConfirmModal($id, $type) {
 
+        // Only trip requests made against one of my own posts can be
+        // cancelled/completed from here.
+        $tripRequest = TripRequest::with('user', 'post.user')
+            ->whereHas('post', fn ($q) => $q->where('user_id', auth()->id()))
+            ->find($id);
+
+        if (! $tripRequest) {
+            return;
+        }
+
         $this->isTripRequestConfirmModal = false;
         $this->isTripRequestConfirmModal = true;
 
         $this->tripRequestModalType = $type;
 
-        $this->tripRequestData = null;
-        $this->tripRequestData = TripRequest::with('user', 'post.user')->find($id);
+        $this->tripRequestData = $tripRequest;
 
     }
 
     public function showTripRequestViewMoreModal($id) {
 
-        $this->tripRequestData = TripRequest::with('user', 'post.user')->find($id);
+        $tripRequest = TripRequest::with('user', 'post.user')
+            ->whereHas('post', fn ($q) => $q->where('user_id', auth()->id()))
+            ->find($id);
+
+        if (! $tripRequest) {
+            return;
+        }
+
+        $this->tripRequestData = $tripRequest;
 
         $this->isShowTripRequestViewMoreModal = true;
     }

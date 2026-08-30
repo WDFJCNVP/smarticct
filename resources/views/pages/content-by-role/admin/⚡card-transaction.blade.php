@@ -48,10 +48,22 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </x-text>
         </div>
 
-        <flux:breadcrumbs class="shrink-0 pt-1">
-            <flux:breadcrumbs.item href="{{ route('admin.cards') }}" wire:navigate>Back to Cards</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>Transaction</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+            <flux:button
+                href="{{ route('admin.card.transaction.export', $this->user) }}"
+                variant="primary"
+                icon="arrow-down-tray"
+                size="sm"
+                class="font-secondary w-full sm:w-auto justify-center"
+            >
+                Export statement
+            </flux:button>
+
+            <flux:breadcrumbs class="shrink-0 pt-1">
+                <flux:breadcrumbs.item href="{{ route('admin.cards') }}" wire:navigate>Back to Cards</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item>Transaction</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
     </div>
 
     {{-- User profile card --}}

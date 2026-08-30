@@ -22,14 +22,27 @@ new class extends Component
         // The type of record being accepted mirrors the acting user's role:
         // an operator accepts a commuter's TripRequest; a commuter accepts
         // an operator's RentalOffer. Same pairing used in createRentalTransaction() below.
-        $this->interested_user = auth()->user()->role === 'operator'
-            ? TripRequest::find($id)
-            : RentalOffer::find($id);
+        $record = auth()->user()->role === 'operator'
+            ? TripRequest::with('post')->find($id)
+            : RentalOffer::with('post')->find($id);
+
+        // Only the owner of the post being requested/offered against may act on it.
+        if (! $record || ! $record->post || $record->post->user_id !== auth()->id()) {
+            return;
+        }
+
+        $this->interested_user = $record;
 
         $this->is_show_confirm_modal = true;
     }
 
     public function createRentalTransaction() {
+
+        if (! $this->interested_user || ! $this->interested_user->post || $this->interested_user->post->user_id !== auth()->id()) {
+            $this->is_show_confirm_modal = false;
+            $this->interested_user = null;
+            return;
+        }
 
         if(auth()->user()->role === 'operator') {
             $rental_transaction = app(PostService::class)->createRentalTransaction([

@@ -67,6 +67,25 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             ]); 
         }
 
+        if (auth()->user()->isDeleted()) {
+            Auth::logout();
+
+            app(AuditLogsService::class)->create([
+                'user_id' => null,
+                'action' => 'login_blocked_deleted',
+                'subject' => "Deleted account login attempt - $this->email_address",
+                'channel' => 'Web',
+                'metadata' => json_encode([
+                    'ip_address' => request()->ip(),
+                    'message' => 'Login blocked: account has been deleted.',
+                ]),
+            ]);
+
+            throw ValidationException::withMessages([
+                'email_address' => 'This account has been deleted.',
+            ]);
+        }
+
         if (auth()->user()->isSuspended()) {
             $reason = auth()->user()->userStatus?->suspension_reason;
 

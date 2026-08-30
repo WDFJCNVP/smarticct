@@ -25,7 +25,9 @@ new class extends Component
         $this->is_show_view_more_modal = false;
         $this->is_show_view_more_modal = true;
 
-        $this->post_interest_info = RentalOffer::where('id', $id)->first();
+        $this->post_interest_info = RentalOffer::where('id', $id)
+            ->where('post_id', $this->post->id)
+            ->first();
     }
 
 
@@ -48,7 +50,16 @@ new class extends Component
     }
 
     public function declineThisinterested_user($id) {
-        RentalOffer::where('id', $id)->update(['status' => 'decline']);
+        // Guard: the id being declined must match the offer that was
+        // actually opened for this post, so the update can't be redirected
+        // to an offer belonging to a different post.
+        if (! $this->interested_user || (int) $this->interested_user->id !== (int) $id) {
+            return;
+        }
+
+        RentalOffer::where('id', $id)
+            ->where('post_id', $this->post->id)
+            ->update(['status' => 'decline']);
 
         // Let the operator know their rental offer was declined.
         if ($this->interested_user) {

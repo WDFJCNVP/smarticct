@@ -18,6 +18,11 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 
     public Vehicle $vehicle;
 
+    public function mount(Vehicle $vehicle)
+    {
+        abort_if($vehicle->user_id !== auth()->id(), 404);
+    }
+
     #[Computed]
     public function getQueuedRecords() {
         return Queue::query()

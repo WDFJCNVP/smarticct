@@ -15,6 +15,58 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $filterAction = '';
     public string $filterChannel = '';
 
+    // ===================== EXPORT MODAL =====================
+    public string $exportDateFrom = '';
+    public string $exportDateTo = '';
+
+    // Left blank by default — an audit trail export scoped to "today" would
+    // miss most of what someone doing an investigation actually needs, so
+    // this starts as "all time" and can be narrowed down from there.
+    public function prepareExportModal()
+    {
+        $this->setExportRangeAllTime();
+    }
+
+    public function setExportRangeAllTime()
+    {
+        $this->exportDateFrom = '';
+        $this->exportDateTo = '';
+    }
+
+    public function setExportRangeToday()
+    {
+        $this->exportDateFrom = today()->toDateString();
+        $this->exportDateTo = today()->toDateString();
+    }
+
+    #[Computed]
+    public function exportRangePreset(): string
+    {
+        if ($this->exportDateFrom === '' && $this->exportDateTo === '') {
+            return 'all';
+        }
+
+        $today = today()->toDateString();
+
+        if ($this->exportDateFrom === $today && $this->exportDateTo === $today) {
+            return 'today';
+        }
+
+        return 'custom';
+    }
+
+    #[Computed]
+    public function exportUrl(): string
+    {
+        return route('admin.audit.logs.export', array_filter([
+            'search'  => $this->search,
+            'action'  => $this->filterAction,
+            'channel' => $this->filterChannel,
+            'from'    => $this->exportDateFrom,
+            'to'      => $this->exportDateTo,
+        ]));
+    }
+
     public $selectedLog;
     public $selectedDeletingLog;
     public bool $showLogModal = false;
@@ -32,6 +84,27 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public function confirmDeleteLog(int $logId) {
         $this->selectedDeletingLog = AuditLog::with('user')->find($logId);
         $this->showDeleteModal = true;
+    }
+
+    // A few legacy action values (from before this was standardized) are
+    // snake_case, e.g. 'login_failed' — everything newer is already a
+    // readable "Title Case" string. This normalizes both for display.
+    public function formatActionLabel(string $action): string
+    {
+        if (! str_contains($action, '_')) {
+            return $action;
+        }
+
+        return ucwords(str_replace('_', ' ', $action));
+    }
+
+    #[Computed]
+    public function availableActions() {
+        return AuditLog::query()
+            ->select('action')
+            ->distinct()
+            ->orderBy('action')
+            ->pluck('action');
     }
 
     #[Computed]
@@ -71,14 +144,16 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </x-text>
         </div>
 
-        <flux:button
-            variant="primary"
-            icon="arrow-down-tray"
-            size="sm"
-            class="font-secondary shrink-0 w-full sm:w-auto justify-center"
-        >
-            Export logs
-        </flux:button>
+        <flux:modal.trigger name="export-audit-logs" wire:click="prepareExportModal">
+            <flux:button
+                variant="primary"
+                icon="arrow-down-tray"
+                size="sm"
+                class="font-secondary shrink-0 w-full sm:w-auto justify-center"
+            >
+                Export logs
+            </flux:button>
+        </flux:modal.trigger>
     </div>
 
     {{-- Search and filters --}}
@@ -98,16 +173,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
             class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
         >
             <flux:select.option value="">All actions</flux:select.option>
-            <flux:select.option value="fare_tap">Fare tap</flux:select.option>
-            <flux:select.option value="top_up">Top up</flux:select.option>
-            <flux:select.option value="queue_vehicle">Queued</flux:select.option>
-            <flux:select.option value="early_depart">Early depart</flux:select.option>
-            <flux:select.option value="queue_departed">Departed</flux:select.option>
-            <flux:select.option value="fare_failed">Fare failed</flux:select.option>
-            <flux:select.option value="login_failed">Login failed</flux:select.option>
-            <flux:select.option value="card_issued">Card issued</flux:select.option>
-            <flux:select.option value="card_blocked">Card blocked</flux:select.option>
-            <flux:select.option value="route_updated">Route updated</flux:select.option>
+            @foreach ($this->availableActions as $action)
+                <flux:select.option value="{{ $action }}">{{ $this->formatActionLabel($action) }}</flux:select.option>
+            @endforeach
         </flux:select>
 
         <flux:select
@@ -122,6 +190,93 @@ new #[Layout('layouts.admin-layout')] class extends Component
             <flux:select.option value="Scheduler">Scheduler</flux:select.option>
         </flux:select>
     </div>
+
+    {{-- ===================== EXPORT MODAL ===================== --}}
+    <flux:modal
+        name="export-audit-logs"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-lg mx-auto rounded-xl overflow-hidden"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Export audit logs
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        Choose a date range for the PDF. Defaults to all time, and keeps whatever search/action/channel filters are active above.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
+            </div>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Date range</flux:label>
+
+                <div class="flex gap-2 mt-1.5">
+                    <button
+                        type="button"
+                        wire:click="setExportRangeAllTime"
+                        class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
+                            {{ $this->exportRangePreset === 'all'
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
+                    >
+                        All Time
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="setExportRangeToday"
+                        class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
+                            {{ $this->exportRangePreset === 'today'
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
+                    >
+                        Today
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2 mt-3">
+                    <flux:input
+                        type="date"
+                        wire:model.live="exportDateFrom"
+                        size="sm"
+                        class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
+                    />
+                    <span class="text-light-txt-muted dark:text-dark-txt-muted text-sm shrink-0">to</span>
+                    <flux:input
+                        type="date"
+                        wire:model.live="exportDateTo"
+                        size="sm"
+                        class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
+                    />
+                </div>
+                <flux:text class="mt-1.5 font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">
+                    Or pick a custom range above.
+                </flux:text>
+            </flux:field>
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close class="w-full sm:w-auto">
+                    <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+                <flux:button
+                    href="{{ $this->exportUrl }}"
+                    icon="arrow-down-tray"
+                    variant="primary"
+                    class="font-secondary w-full sm:w-auto justify-center"
+                >
+                    Download PDF
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 
     {{-- Table – standard card with p-0 and sticky headers --}}
     <flux:card class="mb-4 p-0! overflow-hidden">

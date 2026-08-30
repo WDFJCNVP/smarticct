@@ -5,6 +5,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\Queue;
 use App\Models\CashTransaction;
 
@@ -46,6 +47,7 @@ new class extends Component
             if (!$this->cash_operator_id) {
                 Flux::toast(
                     variant: 'warning',
+                    duration: 4000,
                     heading: 'Missing Operator',
                     text: 'Please select an operator for cash payment.'
                 );
@@ -112,6 +114,7 @@ new class extends Component
 
                     Flux::toast(
                         variant: 'success',
+                        duration: 4000,
                         heading: 'Vehicle Queued Successfully',
                         text: 'Cash payment recorded. Change: ₱' . number_format($this->change, 2)
                     );
@@ -124,10 +127,12 @@ new class extends Component
                 return;
 
             } catch (\Exception $e) {
+                Log::error('Cash-mode vehicle queueing failed', ['error' => $e->getMessage(), 'operator_id' => $this->selectedOperator->id ?? null]);
                 Flux::toast(
                     variant: 'warning',
+                    duration: 4000,
                     heading: 'Failed to Queue Vehicle',
-                    text: $e->getMessage()
+                    text: 'Something went wrong while queuing this vehicle. Please try again.'
                 );
             }
 
@@ -151,10 +156,12 @@ new class extends Component
             $response = (new CardController())->tap($request);
             $responseData = $response->getData(true);
         } catch (\Exception $e) {
+            Log::error('Card-mode vehicle queueing failed', ['error' => $e->getMessage(), 'vehicle_id' => $this->selectedVehicle->id ?? null]);
             Flux::toast(
                 variant: 'warning',
+                duration: 4000,
                 heading: 'Failed to Queue Vehicle',
-                text: $e->getMessage()
+                text: 'Something went wrong while queuing this vehicle. Please try again.'
             );
 
             return;
