@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Web\PublicController;
 use App\Http\Controllers\TopUpTransactionController;
-// use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\Web\Auth\{
     SessionUserController,
     UserSettingController,
@@ -96,8 +96,24 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->name('admin.operators.export')
         ->middleware('role:admin');
 
+    Route::get('/cashier/transactions/export', [\App\Http\Controllers\CashierTransactionExportController::class, 'export'])
+        ->name('cashier.transactions.export')
+        ->middleware('role:admin,cashier');
+
     Route::livewire('/admin/audit/logs', 'pages::content-by-role.admin.audit-logs')
         ->name('admin.audit.logs')
+        ->middleware('role:admin');
+
+    Route::get('/admin/audit/logs/export', [\App\Http\Controllers\AuditLogExportController::class, 'export'])
+        ->name('admin.audit.logs.export')
+        ->middleware('role:admin');
+
+    Route::get('/admin/cards/export', [\App\Http\Controllers\CardInventoryExportController::class, 'export'])
+        ->name('admin.cards.export')
+        ->middleware('role:admin');
+
+    Route::get('/admin/card/transaction/{user}/export', [\App\Http\Controllers\CardStatementExportController::class, 'export'])
+        ->name('admin.card.transaction.export')
         ->middleware('role:admin');
 
         
@@ -130,6 +146,11 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::livewire('/operator/vehicles', 'pages::content-by-role.operator.vehicles')
         ->middleware('role:operator')
         ->name('operator.vehicles');
+
+    Route::get('/operator/vehicles/export', [\App\Http\Controllers\OperatorFleetExportController::class, 'export'])
+        ->middleware('role:operator')
+        ->name('operator.vehicles.export');
+
     Route::livewire('/operator/vehicles/{vehicle}', 'pages::content-by-role.operator.queueing_records')
         ->middleware('role:operator')
         ->name('operator.travel.record');
@@ -140,6 +161,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/operator/travel-history/export', [\App\Http\Controllers\OperatorTravelHistoryExportController::class, 'export'])
         ->middleware('role:operator')
         ->name('operator.travel.history.export');
+
 
     Route::livewire('/operator/queueing', 'pages::content-by-role.operator.live-queue')
         ->middleware('role:operator')
@@ -176,7 +198,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->name('security.edit');
 
     Route::livewire('/setting/vehicle/type', 'pages::settings.vehicle-type-page')
-        ->name('security.vehicle.type');
+        ->name('security.vehicle.type')
+        ->middleware('role:admin');
 
     Route::livewire('/feed/create', 'pages::create-post')->name('post.create');
     Route::livewire('/feed/archived', 'pages::archived-post')->name('post.archived');
@@ -215,4 +238,4 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/topup/cancel',    [TopUpTransactionController::class, 'cancel'])->name('topup.cancel');
 });
 
-// Route::post('/webhook/paymongo', [WebhookController::class, 'handle'])->name('webhook.paymongo');
+Route::post('/webhook/paymongo', [WebhookController::class, 'handle'])->name('webhook.paymongo');
