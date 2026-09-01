@@ -4,6 +4,7 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 use App\Models\Card;
@@ -33,6 +34,150 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
     // ─── Preset amounts ─────────────────────────────────────────────────────
     public array $presets = [50, 100, 200, 500, 1000];
+
+    // ===================== ISSUE NEW CARD =====================
+
+    public string $issueCardUid = '';
+    public string $issueUserSearch = '';
+    public ?int $issueUserId = null;
+
+    #[Computed]
+    public function issueCandidates()
+    {
+        if (strlen($this->issueUserSearch) < 2) {
+            return collect();
+        }
+
+        return User::whereIn('role', ['operator', 'commuter'])
+            ->whereDoesntHave('card')
+            ->where(function ($q) {
+                $q->where('name', 'like', '%' . $this->issueUserSearch . '%')
+                  ->orWhere('user_code', 'like', '%' . $this->issueUserSearch . '%');
+            })
+            ->limit(8)
+            ->get();
+    }
+
+    #[Computed]
+    public function issueSelectedUser(): ?User
+    {
+        return $this->issueUserId ? User::find($this->issueUserId) : null;
+    }
+
+    public function openIssueCardModal(): void
+    {
+        $this->issueCardUid = '';
+        $this->issueUserSearch = '';
+        $this->issueUserId = null;
+        $this->resetValidation();
+        $this->dispatch('open-issue-card-modal');
+    }
+
+    // Shortcut from the "card not recognised" tap state — carries the
+    // already-scanned UID straight into the issue modal so the cashier
+    // doesn't have to re-tap the card.
+    public function openIssueCardModalWithUid(): void
+    {
+        $this->issueCardUid = $this->card_uid;
+        $this->issueUserSearch = '';
+        $this->issueUserId = null;
+        $this->resetValidation();
+        $this->dispatch('open-issue-card-modal');
+    }
+
+    public function resetIssueCardForm(): void
+    {
+        $this->issueCardUid = '';
+        $this->issueUserSearch = '';
+        $this->issueUserId = null;
+        $this->resetValidation();
+    }
+
+    public function selectIssueUser(int $userId): void
+    {
+        $this->issueUserId = $userId;
+        $this->issueUserSearch = User::find($userId)?->name ?? '';
+    }
+
+    public function clearIssueUser(): void
+    {
+        $this->issueUserId = null;
+        $this->issueUserSearch = '';
+    }
+
+    public function issueNewCard(): void
+    {
+        $this->validate([
+            'issueCardUid' => 'required|string|min:4|unique:cards,uid',
+            'issueUserId'  => 'required|integer|exists:users,id',
+        ], [
+            'issueCardUid.unique'  => 'This card UID is already assigned to another user.',
+            'issueCardUid.min'     => 'The scanned UID looks too short — please scan again.',
+            'issueUserId.required' => 'Please select who this card is for.',
+        ]);
+
+        $user = User::findOrFail($this->issueUserId);
+
+        if ($user->card) {
+            Flux::toast(
+                variant: 'danger',
+                duration: 4000,
+                heading: 'User already has a card.',
+                text: $user->name . ' already has a card on file.',
+            );
+            return;
+        }
+
+        Card::create([
+            'user_id' => $user->id,
+            'uid'     => $this->issueCardUid,
+            'balance' => 0,
+        ]);
+
+        app(AuditLogsService::class)->create([
+            'user_id'  => auth()->id(),
+            'action'   => 'Issue Card',
+            'subject'  => 'New RFID card issued via cashier terminal',
+            'channel'  => 'Web',
+            'metadata' => [
+                'ip_address'   => request()->ip(),
+                'issued_to'    => $user->name,
+                'issued_to_id' => $user->id,
+            ],
+        ]);
+
+        $issuedTo = $user->name;
+
+        $this->issueCardUid = '';
+        $this->issueUserSearch = '';
+        $this->issueUserId = null;
+
+        // If this came from a tap that had just failed to resolve, clear
+        // that stale "not recognised" state now that the card is registered.
+        if ($this->card_uid) {
+            $this->clearUser();
+        }
+
+        $this->dispatch('close-issue-card-modal');
+
+        Flux::toast(
+            variant: 'success',
+            duration: 4000,
+            heading: 'Card issued.',
+            text: 'A new card has been assigned to ' . $issuedTo . '.',
+        );
+    }
+
+    // Latest cards issued to commuters/operators — a quick "who just got a
+    // card" history strip for the cashier terminal.
+    #[Computed]
+    public function recentIssuances() {
+        return Card::with('user')
+            ->whereHas('user', fn($q) => $q->whereIn('role', ['operator', 'commuter']))
+            ->latest()
+            ->take(5)
+            ->get();
+    }
 
     // ─── Computed: card record from UID ─────────────────────────────────────
     #[Computed]
@@ -198,19 +343,19 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         $user = $this->resolvedUser;
 
         if (!$card || !$user) {
-            Flux::toast(variant: 'warning', heading: 'No user selected.', text: 'Tap a card or search for a user first.');
+            Flux::toast(variant: 'warning', duration: 4000, heading: 'No user selected.', text: 'Tap a card or search for a user first.');
             return;
         }
 
         if ($card->status !== 'active') {
-            Flux::toast(variant: 'danger', heading: 'Card inactive.', text: 'This card is ' . $card->status . ' and cannot be topped up.');
+            Flux::toast(variant: 'danger', duration: 4000, heading: 'Card inactive.', text: 'This card is ' . $card->status . ' and cannot be topped up.');
             return;
         }
 
         $amount = $this->topUpAmount;
 
         if ($amount <= 0) {
-            Flux::toast(variant: 'warning', heading: 'Invalid amount.', text: 'Please select or enter a top-up amount.');
+            Flux::toast(variant: 'warning', duration: 4000, heading: 'Invalid amount.', text: 'Please select or enter a top-up amount.');
             return;
         }
 
@@ -221,22 +366,24 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
         try {
             DB::transaction(function () use ($card, $user, $amount) {
+                $card = Card::where('id', $card->id)->lockForUpdate()->first();
+
                 $balanceBefore = (float) $card->balance;
                 $balanceAfter  = $balanceBefore + $amount;
 
                 // Update card balance
-                $card->lockForUpdate();
                 $card->update(['balance' => $balanceAfter]);
 
                 // Record in top_up_transactions
                 $topUp = TopUpTransaction::create([
-                    'processed_by'   => auth()->id(),
-                    'user_id'        => $user->id,
-                    'card_id'        => $card->id,
-                    'points_credited' => $amount,
-                    'amount_paid'    => $amount,
-                    'payment_method' => 'cash',
-                    'status'         => 'paid',
+                    'processed_by'         => auth()->id(),
+                    'user_id'              => $user->id,
+                    'card_id'              => $card->id,
+                    'checkout_session_id'  => 'CASH-' . now()->format('YmdHis') . '-' . Str::random(8),
+                    'points_credited'      => $amount,
+                    'amount_paid'          => $amount,
+                    'payment_method'       => 'cash',
+                    'status'               => 'paid',
                 ]);
 
                 // Record in card_transactions for the commuter's activity feed
@@ -299,12 +446,14 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
             Flux::toast(
                 variant: 'success',
+                duration: 4000,
                 heading: 'Top-up successful!',
                 text: "₱{$amount} added. Change: ₱" . number_format($change, 2),
             );
 
         } catch (\Exception $e) {
-            Flux::toast(variant: 'danger', heading: 'Top-up failed.', text: $e->getMessage());
+            Log::error('Cash top-up failed', ['error' => $e->getMessage(), 'user_id' => $user->id ?? null]);
+            Flux::toast(variant: 'danger', duration: 4000, heading: 'Top-up failed.', text: 'Something went wrong while processing this top-up. Please try again.');
         }
     }
 
@@ -334,7 +483,88 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 Load balance onto a commuter or operator card via cash payment.
             </x-text>
         </div>
+
+        <flux:button
+            variant="primary"
+            icon="credit-card"
+            wire:click="openIssueCardModal"
+            class="font-secondary shrink-0"
+        >
+            Issue New Card
+        </flux:button>
     </div>
+
+    {{-- ─── Cash Issuance — recent history of newly issued cards ──────────── --}}
+    <flux:card class="p-0! overflow-hidden mb-6">
+        <div class="px-3 sm:px-4 py-2.5 border-b border-light-bd-default dark:border-dark-bd-default">
+            <p class="font-secondary font-semibold text-sm text-light-txt-primary dark:text-dark-txt-primary">Card Issuance</p>
+            <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">Latest cards issued to registered commuters and operators.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <flux:table>
+                <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
+                    <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">#</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Name</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Role</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Card no.</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Status</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Issued</flux:table.column>
+                </flux:table.columns>
+
+                <flux:table.rows>
+                    @forelse ($this->recentIssuances as $index => $card)
+                        <flux:table.row :key="$card->id">
+                            <flux:table.cell align="center" class="px-1! sm:px-2! md:px-4! py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
+                                {{ $index + 1 }}
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                                <div class="flex items-center justify-center gap-2">
+                                    <flux:avatar size="xs" src="{{ $card->user?->avatar_url }}" name="{{ $card->user?->name }}" />
+                                    <span class="font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">{{ $card->user?->name ?? 'Unknown' }}</span>
+                                </div>
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                                <flux:badge size="sm" color="{{ $card->user?->role === 'operator' ? 'blue' : 'amber' }}" class="font-secondary text-badge text-xs">
+                                    {{ ucfirst($card->user?->role ?? '—') }}
+                                </flux:badge>
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                                <span class="font-mono text-xs md:text-table-row tracking-widest text-light-txt-muted dark:text-dark-txt-muted">
+                                    **** **** **** {{ substr($card->card_number ?? '----', -4) }}
+                                </span>
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                                @if ($card->status === 'active')
+                                    <flux:badge color="green" size="sm" class="font-secondary text-badge text-xs">Active</flux:badge>
+                                @else
+                                    <flux:badge color="red" size="sm" class="font-secondary text-badge text-xs">{{ ucfirst($card->status) }}</flux:badge>
+                                @endif
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted tabular-nums">
+                                {{ $card->created_at->format('M d, Y g:i a') }}
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @empty
+                        <flux:table.row>
+                            <flux:table.cell colspan="6" class="px-2 md:px-4 py-4">
+                                <div class="flex flex-col items-center justify-center py-4 gap-2">
+                                    <flux:icon.credit-card class="w-6 h-6 text-light-txt-muted dark:text-dark-txt-muted" />
+                                    <x-text class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                                        No cards have been issued yet.
+                                    </x-text>
+                                </div>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @endforelse
+                </flux:table.rows>
+            </flux:table>
+        </div>
+    </flux:card>
 
     {{-- ─── Step 1: Find User ──────────────────────────────────────────────── --}}
     <x-card class="!p-0 mb-6">
@@ -385,6 +615,16 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                         class="text-light-txt-muted hover:text-light-txt-primary dark:text-dark-txt-muted dark:hover:text-dark-txt-primary transition shrink-0">
                         <flux:icon name="x-mark" class="w-5 h-5" />
                     </button>
+                @elseif ($card_state === 'warn' && !$this->cardRecord)
+                    <flux:button
+                        wire:click="openIssueCardModalWithUid"
+                        variant="danger"
+                        size="sm"
+                        icon="credit-card"
+                        class="font-secondary shrink-0"
+                    >
+                        Issue this card
+                    </flux:button>
                 @endif
             </div>
         @endif
@@ -682,6 +922,126 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             </x-text>
             <div class="flex justify-end">
                 <flux:button wire:click="$set('showInsufficientAlert', false)" variant="primary">Got it</flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- Issue New Card Modal --}}
+    <flux:modal
+        name="issue-new-card-modal"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-lg mx-auto rounded-xl overflow-hidden"
+        x-on:open-issue-card-modal.window="$flux.modal('issue-new-card-modal').show()"
+        x-on:close-issue-card-modal.window="$flux.modal('issue-new-card-modal').close()"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Issue new card
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        Scan a blank RFID card, then search for the operator or commuter it should be assigned to.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" wire:click="resetIssueCardForm" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
+            </div>
+
+            <flux:field>
+                <flux:label class="flex items-center gap-1.5 font-secondary font-medium uppercase tracking-wide text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
+                    <flux:icon name="credit-card" class="w-3.5 h-3.5" />
+                    Card UID
+                </flux:label>
+                <flux:input
+                    wire:model.live="issueCardUid"
+                    placeholder="Tap the card on the reader..."
+                    autocomplete="off"
+                    class="font-mono tracking-widest"
+                />
+                <flux:error name="issueCardUid" />
+                <flux:description class="font-secondary text-helper text-light-txt-muted dark:text-dark-txt-muted">
+                    The UID is captured automatically by the RFID reader. Do not type this manually.
+                </flux:description>
+            </flux:field>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary flex items-center gap-1.5">
+                    <flux:icon name="magnifying-glass" class="w-3.5 h-3.5" />
+                    Assign to
+                </flux:label>
+                <div class="relative mt-1">
+                    <flux:input
+                        wire:model.live.debounce.300ms="issueUserSearch"
+                        placeholder="Search name or user code…"
+                        autocomplete="off"
+                        :disabled="(bool) $issueUserId"
+                    />
+                    @if (strlen($issueUserSearch) >= 2 && !$issueUserId)
+                        <div class="absolute z-20 w-full mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl max-h-52 overflow-y-auto">
+                            @forelse ($this->issueCandidates as $candidate)
+                                <div
+                                    wire:click="selectIssueUser({{ $candidate->id }})"
+                                    class="flex items-center gap-3 px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer"
+                                >
+                                    <flux:avatar size="xs" src="{{ $candidate->avatar_url }}" name="{{ $candidate->name }}" />
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium text-zinc-800 dark:text-zinc-100 truncate">{{ $candidate->name }}</p>
+                                        <p class="text-xs text-zinc-400">{{ $candidate->user_code }} · {{ ucfirst($candidate->role) }}</p>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="px-3 py-2 text-sm text-zinc-400">No cardless users found.</div>
+                            @endforelse
+                        </div>
+                    @endif
+                </div>
+                <flux:error name="issueUserId" />
+            </flux:field>
+
+            {{-- Assignment preview --}}
+            @if ($this->issueSelectedUser)
+                <div class="rounded-lg bg-light-subtle dark:bg-dark-secondary border border-light-bd-default dark:border-dark-bd-default p-3">
+                    <p class="font-secondary font-medium uppercase tracking-wide text-nav-label text-light-txt-muted dark:text-dark-txt-muted mb-2">
+                        Card will be assigned to
+                    </p>
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <flux:avatar name="{{ $this->issueSelectedUser->name }}" size="sm" class="shrink-0" />
+                            <div class="min-w-0">
+                                <p class="font-secondary font-semibold text-sm text-light-txt-primary dark:text-dark-txt-primary truncate">{{ $this->issueSelectedUser->name }}</p>
+                                <p class="font-secondary font-mono text-helper text-light-txt-muted dark:text-dark-txt-muted truncate">{{ $this->issueSelectedUser->user_code }} · {{ ucfirst($this->issueSelectedUser->role) }}</p>
+                            </div>
+                        </div>
+                        <button type="button" wire:click="clearIssueUser" class="text-light-txt-muted hover:text-danger dark:hover:text-dark-danger transition shrink-0">
+                            <flux:icon name="x-mark" class="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            @endif
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close class="w-full sm:w-auto">
+                    <flux:button type="button" variant="ghost" wire:click="resetIssueCardForm" class="w-full sm:w-auto justify-center font-secondary">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+                <flux:button
+                    type="button"
+                    variant="primary"
+                    icon="credit-card"
+                    wire:click="issueNewCard"
+                    wire:loading.attr="disabled"
+                    wire:target="issueNewCard"
+                    :disabled="empty($issueCardUid) || !$issueUserId"
+                    class="w-full sm:w-auto justify-center font-secondary"
+                >
+                    <span wire:loading.remove wire:target="issueNewCard">Issue card</span>
+                    <span wire:loading wire:target="issueNewCard">Issuing…</span>
+                </flux:button>
             </div>
         </div>
     </flux:modal>

@@ -65,4 +65,43 @@ class Vehicle extends Model
     public function vehicle_group() {
         return $this->hasMany(VehicleGroup::class);
     }
+
+    /**
+     * Worst-case OR/CR + franchise status for this vehicle: 'expired',
+     * 'expiring' (within $warningDays), 'valid', or null if neither
+     * document has a date on file. Mirrors the threshold used by
+     * OperatorsExport so "expiring soon" means the same thing everywhere
+     * in the admin UI.
+     */
+    public function documentStatus(int $warningDays = 30): ?string
+    {
+        $dates = array_filter([$this->or_cr_expiry_date, $this->franchise_expiry_date]);
+
+        if (empty($dates)) {
+            return null;
+        }
+
+        $today = today();
+        $statuses = [];
+
+        foreach ($dates as $date) {
+            if ($date->lt($today)) {
+                $statuses[] = 'expired';
+            } elseif ($date->lte($today->copy()->addDays($warningDays))) {
+                $statuses[] = 'expiring';
+            } else {
+                $statuses[] = 'valid';
+            }
+        }
+
+        if (in_array('expired', $statuses, true)) {
+            return 'expired';
+        }
+
+        if (in_array('expiring', $statuses, true)) {
+            return 'expiring';
+        }
+
+        return 'valid';
+    }
 }

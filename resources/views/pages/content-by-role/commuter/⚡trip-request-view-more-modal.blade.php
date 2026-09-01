@@ -74,7 +74,14 @@ new class extends Component
 
         <div class="flex items-center gap-2 justify-between mt-2">
             <x-text variant="subtle">Status</x-text>
-            <x-badge color="green" size="sm">{{ ucfirst($tripRequest->status) }}ed</x-badge>
+            <x-badge color="green" size="sm">{{ match($tripRequest->status) {
+                'accept' => 'Accepted',
+                'pending' => 'Pending',
+                'cancel' => 'Cancelled',
+                'decline' => 'Declined',
+                'ongoing' => 'Ongoing',
+                default => ucfirst($tripRequest->status),
+            } }}</x-badge>
         </div>
 
         <div class="flex items-center gap-2 justify-between mt-2">

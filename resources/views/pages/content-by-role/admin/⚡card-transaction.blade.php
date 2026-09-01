@@ -48,10 +48,22 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </x-text>
         </div>
 
-        <flux:breadcrumbs class="shrink-0 pt-1">
-            <flux:breadcrumbs.item href="{{ route('admin.cards') }}" wire:navigate>Back to Cards</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>Transaction</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+            <flux:button
+                href="{{ route('admin.card.transaction.export', $this->user) }}"
+                variant="primary"
+                icon="arrow-down-tray"
+                size="sm"
+                class="font-secondary w-full sm:w-auto justify-center"
+            >
+                Export statement
+            </flux:button>
+
+            <flux:breadcrumbs class="shrink-0 pt-1">
+                <flux:breadcrumbs.item href="{{ route('admin.cards') }}" wire:navigate>Back to Cards</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item>Transaction</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
     </div>
 
     {{-- User profile card --}}
@@ -173,7 +185,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         </flux:table.cell>
 
                         <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
-                            <flux:badge size="sm" color="{{ $transaction->transaction_type === 'top_up' ? 'green' : 'zinc' }}">
+                            <flux:badge size="sm" color="{{ $transaction->transaction_type === 'top-up' ? 'green' : 'zinc' }}">
                                 {{ ucfirst(str_replace('_', ' ', $transaction->transaction_type)) }}
                             </flux:badge>
                         </flux:table.cell>

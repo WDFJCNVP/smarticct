@@ -270,6 +270,33 @@ new #[Layout('layouts.operator-layout')] class extends Component
         ];
     }
 
+    #[Computed]
+    public function vehicleDocumentExpiry()
+    {
+        return Vehicle::where('user_id', Auth::id())
+            ->when($this->vehicleTypeFilter, fn ($q, $v) => $q->where('vehicle_type', $v))
+            ->orderBy('plate_number')
+            ->get(['id', 'plate_number', 'has_or_cr', 'or_cr_expiry_date', 'has_franchise', 'franchise_expiry_date']);
+    }
+
+    /**
+     * Buckets a single document's expiry into a status label + badge color
+     * so the blade can just print $status['label'] and use $status['class'].
+     */
+    public function documentStatus(bool $has, $expiry): array
+    {
+        if (! $has || ! $expiry) {
+            return ['label' => 'No record', 'class' => 'bg-light-subtle text-light-txt-muted dark:bg-dark-subtle dark:text-dark-txt-muted'];
+        }
+        if ($expiry->lt(today())) {
+            return ['label' => $expiry->format('m/d/Y'), 'class' => 'bg-danger/10 text-danger dark:bg-dark-danger/20 dark:text-dark-danger'];
+        }
+        if ($expiry->lte(today()->addDays(30))) {
+            return ['label' => $expiry->format('m/d/Y'), 'class' => 'bg-warning/10 text-warning dark:bg-dark-warning/20 dark:text-dark-warning'];
+        }
+        return ['label' => $expiry->format('m/d/Y'), 'class' => 'bg-success/10 text-success dark:bg-dark-success/20 dark:text-dark-success'];
+    }
+
     // ===================== TABLES / LISTS =====================
 
     #[Computed]
@@ -411,6 +438,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
             $this->queuesOverTime,
             $this->vehicleCountByType,
             $this->rentalInterestStatusSplit,
+            $this->vehicleDocumentExpiry,
             $this->vehicleRoster,
             $this->myQueueFeeRates,
             $this->recentQueueEntries,
@@ -507,7 +535,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                         <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
                         <span class="hidden sm:inline">Filters</span>
                         @if ($this->activeFilterCount > 0)
-                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-dark-bg text-[10px] font-bold">
+                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">
                                 {{ $this->activeFilterCount }}
                             </span>
                         @endif
@@ -801,10 +829,10 @@ new #[Layout('layouts.operator-layout')] class extends Component
                             </span>
                         </div>
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium
-                            @if($inquiry->status === 'pending') bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300
-                            @elseif($inquiry->status === 'accepted') bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
-                            @elseif($inquiry->status === 'declined') bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300
-                            @else bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300
+                            @if($inquiry->status === 'pending') bg-warning/10 text-warning dark:bg-dark-warning/20 dark:text-dark-warning
+                            @elseif($inquiry->status === 'accepted') bg-success/10 text-success dark:bg-dark-success/20 dark:text-dark-success
+                            @elseif($inquiry->status === 'declined') bg-danger/10 text-danger dark:bg-dark-danger/20 dark:text-dark-danger
+                            @else bg-light-subtle text-light-txt-muted dark:bg-dark-subtle dark:text-dark-txt-muted
                             @endif">
                             {{ ucfirst($inquiry->status) }}
                         </span>
@@ -816,10 +844,10 @@ new #[Layout('layouts.operator-layout')] class extends Component
         </flux:card>
     </div>
 
-    {{-- ===================== ZONE: VEHICLE ROSTER & ACTIVITY ===================== --}}
+    {{-- ===================== ZONE: VEHICLE ROSTER, ACTIVITY & COMPLIANCE ===================== --}}
     <div class="flex items-center gap-2.5 text-light-txt-primary dark:text-dark-txt-primary">
         <span class="zone-bar bg-info dark:bg-dark-info"></span>
-        <span class="font-secondary text-nav-label font-bold uppercase tracking-widest">Vehicle Roster &amp; Activity</span>
+        <span class="font-secondary text-nav-label font-bold uppercase tracking-widest">Vehicle Roster, Activity &amp; Compliance</span>
     </div>
     <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default">
 
@@ -886,41 +914,53 @@ new #[Layout('layouts.operator-layout')] class extends Component
             </div>
         </flux:card>
 
-        {{-- ===================== RECENT CARD ACTIVITY (disabled – mockup) ===================== --}}
-        {{--
-        <flux:card class="p-4">
-            <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
-                Recent card activity
-            </x-text>
-            <div class="mt-2 space-y-2">
-                @forelse ($this->recentCardTransactions as $txn)
-                    <div class="flex justify-between items-center border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
-                        <div>
-                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body capitalize">
-                                {{ str_replace('_', ' ', $txn->transaction_type) }}
-                            </span>
-                            <span class="block font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ $txn->created_at->diffForHumans() }}
-                            </span>
-                        </div>
-                        <span class="font-primary text-stat-value font-semibold
-                            @if(in_array($txn->transaction_type, ['top-up', 'top_up'])) text-success dark:text-dark-success
-                            @else text-light-txt-primary dark:text-dark-txt-primary
-                            @endif">
-                            {{ in_array($txn->transaction_type, ['top-up', 'top_up']) ? '+' : '-' }}{{ number_format($txn->amount, 0) }}
-                        </span>
-                    </div>
-                @empty
-                    <div class="flex flex-col items-center gap-2 py-6 text-center">
-                        <flux:icon.credit-card class="w-6 h-6 text-light-txt-muted dark:text-dark-txt-muted" />
-                        <p class="text-light-txt-body dark:text-dark-txt-body text-sm max-w-[220px]">
-                            No smart card linked yet. Visit the ICCT Cashier or Admin Office to have one issued before you can use card-based services.
-                        </p>
-                    </div>
-                @endforelse
+        {{-- ===================== OR/CR & FRANCHISE EXPIRY ===================== --}}
+        <flux:card class="p-0 overflow-hidden">
+            <div class="px-4 pt-4">
+                <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                    OR/CR &amp; franchise expiry
+                </x-text>
             </div>
+            <div class="overflow-x-auto mt-2">
+                <table class="w-full font-secondary text-table-row">
+                    <thead>
+                        <tr class="text-left text-light-txt-body dark:text-dark-txt-body border-b border-light-bd-default dark:border-dark-bd-default">
+                            <th class="py-2 px-4 font-semibold">Plate</th>
+                            <th class="py-2 px-4 font-semibold text-right">OR/CR</th>
+                            <th class="py-2 px-4 font-semibold text-right">Franchise</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($this->vehicleDocumentExpiry as $vehicle)
+                            @php
+                                $orCr = $this->documentStatus((bool) $vehicle->has_or_cr, $vehicle->or_cr_expiry_date);
+                                $franchise = $this->documentStatus((bool) $vehicle->has_franchise, $vehicle->franchise_expiry_date);
+                            @endphp
+                            <tr class="border-b border-light-bd-default/50 dark:border-dark-bd-default/50 last:border-0">
+                                <td class="py-2.5 px-4 text-light-txt-body dark:text-dark-txt-body">{{ $vehicle->plate_number }}</td>
+                                <td class="py-2.5 px-4 text-right">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium whitespace-nowrap {{ $orCr['class'] }}">
+                                        {{ $orCr['label'] }}
+                                    </span>
+                                </td>
+                                <td class="py-2.5 px-4 text-right">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium whitespace-nowrap {{ $franchise['class'] }}">
+                                        {{ $franchise['label'] }}
+                                    </span>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="3" class="py-8 text-center text-light-txt-muted dark:text-dark-txt-muted">
+                                    No vehicles registered. Additional vehicles must go through admin.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div class="h-1"></div>
         </flux:card>
-        --}}
     </div>
 
     <flux:modal name="withdraw-modal" class="max-w-md">

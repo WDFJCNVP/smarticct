@@ -35,7 +35,7 @@
     >
         <flux:sidebar.header class="flex items-center justify-between gap-2 px-2 pb-2 w-full">
             <a class="flex items-center gap-2 min-w-0 shrink">
-                <img src="{{ Vite::asset('resources/images/logo.png') }}" alt="SmartICCT"
+                <img src="{{ asset('images/logo.png') }}" alt="SmartICCT"
                      class="h-8 w-8 lg:h-14 lg:w-14 shrink-0 object-contain block">
                 <span class="font-primary text-base sm:text-xl lg:text-2xl font-extrabold text-light-txt-primary dark:text-dark-txt-primary tracking-tight whitespace-nowrap flex items-center">
                     SmartICCT
@@ -97,8 +97,16 @@
     </flux:sidebar>
 
     {{-- Mobile header --}}
-    <flux:header class="lg:hidden border-b border-light-bd-default dark:border-dark-bd-default">
+    <flux:header sticky class="lg:hidden border-b border-light-bd-default dark:border-dark-bd-default bg-light-primary dark:bg-dark-primary z-40">
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+
+        <a class="flex items-center gap-2 ml-2 min-w-0" href="{{ route('admin.dashboard') }}">
+            <img src="{{ Vite::asset('resources/images/logo.png') }}" alt="SmartICCT" class="h-7 w-7 shrink-0 object-contain block">
+            <span class="font-primary text-base font-extrabold text-light-txt-primary dark:text-dark-txt-primary tracking-tight truncate">
+                SmartICCT
+            </span>
+        </a>
+
         <flux:spacer />
         <livewire:pages::sidebar-profile variant="mobile" />
     </flux:header>

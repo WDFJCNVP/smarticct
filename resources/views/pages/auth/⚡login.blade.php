@@ -67,6 +67,25 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             ]); 
         }
 
+        if (auth()->user()->isDeleted()) {
+            Auth::logout();
+
+            app(AuditLogsService::class)->create([
+                'user_id' => null,
+                'action' => 'login_blocked_deleted',
+                'subject' => "Deleted account login attempt - $this->email_address",
+                'channel' => 'Web',
+                'metadata' => json_encode([
+                    'ip_address' => request()->ip(),
+                    'message' => 'Login blocked: account has been deleted.',
+                ]),
+            ]);
+
+            throw ValidationException::withMessages([
+                'email_address' => 'This account has been deleted.',
+            ]);
+        }
+
         if (auth()->user()->isSuspended()) {
             $reason = auth()->user()->userStatus?->suspension_reason;
 
@@ -99,7 +118,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
 };
 ?>
 
-<div class="flex h-full overflow-hidden p-10!"  x-data="{ loaded: false }"  x-init="setTimeout(() => loaded = true, 100)">
+<div class="flex min-h-full md:h-full overflow-y-auto md:overflow-hidden p-4 sm:p-6 md:p-10!"  x-data="{ loaded: false }"  x-init="setTimeout(() => loaded = true, 100)">
 
     {{-- ── HERO PANEL  ── --}}
     <div 
@@ -137,7 +156,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
         x-transition:enter.duration.700.delay.200
         x-transition:enter.start.opacity-0.translate-x-5
         x-transition:enter.end.opacity-100.translate-x-0
-        class="flex flex-1 flex-col justify-center px-6 py-8 sm:px-12 bg-light-secondary dark:bg-dark-secondary overflow-hidden h-full"
+        class="flex flex-1 flex-col justify-center px-6 py-8 sm:px-10 md:px-12 bg-light-secondary dark:bg-dark-secondary overflow-y-auto md:overflow-hidden min-h-full md:h-full"
     >
         <div class="w-full max-w-sm mx-auto">
             <p class="font-secondary text-nav-label font-semibold uppercase tracking-widest text-secondary mb-1">Sign in</p>

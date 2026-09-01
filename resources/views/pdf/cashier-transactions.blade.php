@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Daily Cashier Transactions</title>
+    <style>
+        @page {
+            size: legal portrait;
+            margin: 1.55in 0.9in 1.65in 1.3in;
+        }
+
+        .letterhead-bg {
+            position: fixed;
+            top: -1.55in;
+            left: -1.3in;
+            width: 8.5in;
+            height: 14in;
+            z-index: -1;
+        }
+        .letterhead-bg img {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Helvetica', Arial, sans-serif;
+            color: #1a1a1a;
+            font-size: 10.5px;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            width: 100%;
+            padding-bottom: 8px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #d5d5db;
+        }
+        .header td { vertical-align: top; }
+        .doc-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #1a1a2e;
+        }
+        .doc-subtitle {
+            font-size: 9.5px;
+            color: #666666;
+            margin-top: 2px;
+        }
+        .meta {
+            text-align: right;
+            font-size: 9.5px;
+            color: #444444;
+        }
+        .meta strong { color: #1a1a1a; }
+
+        .section-title {
+            background-color: #1a1a2e;
+            color: #ffffff;
+            font-size: 11.5px;
+            font-weight: bold;
+            padding: 5px 8px;
+            margin-top: 14px;
+            margin-bottom: 0;
+        }
+        .cashier-title {
+            background-color: #f0f0f3;
+            color: #1a1a1a;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 4px 8px;
+            margin-top: 8px;
+            margin-bottom: 0;
+            border: 1px solid #d5d5db;
+            border-bottom: none;
+        }
+
+        table.log-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4px;
+        }
+        table.log-table th {
+            background-color: #f0f0f3;
+            border: 1px solid #d5d5db;
+            padding: 5px 6px;
+            text-align: left;
+            font-size: 9px;
+            text-transform: uppercase;
+            color: #444444;
+        }
+        table.log-table td {
+            border: 1px solid #d5d5db;
+            padding: 5px 6px;
+            font-size: 9.5px;
+            background-color: #ffffff;
+        }
+        table.log-table tr:nth-child(even) td {
+            background-color: #fafafa;
+        }
+        table.log-table td.amount, table.log-table th.amount {
+            text-align: right;
+        }
+        .subtotal-row td {
+            font-weight: bold;
+            background-color: #f0f0f3 !important;
+        }
+        .empty-note {
+            font-size: 10px;
+            color: #888888;
+            font-style: italic;
+            padding: 8px 0;
+        }
+
+        .summary {
+            margin-top: 18px;
+            border-top: 1px solid #d5d5db;
+            padding-top: 8px;
+        }
+        table.summary-table {
+            width: 60%;
+            margin-left: auto;
+            border-collapse: collapse;
+            font-size: 10px;
+        }
+        table.summary-table td {
+            padding: 3px 6px;
+        }
+        table.summary-table td.label { color: #444444; }
+        table.summary-table td.value { text-align: right; }
+        table.summary-table tr.grand-total td {
+            border-top: 1px solid #1a1a1a;
+            font-weight: bold;
+            font-size: 11.5px;
+            padding-top: 6px;
+        }
+
+        .signatures {
+            width: 100%;
+            margin-top: 36px;
+            border-collapse: collapse;
+        }
+        .signatures td {
+            width: 50%;
+            text-align: center;
+            font-size: 9px;
+            color: #444444;
+            padding-top: 28px;
+        }
+        .signature-line {
+            border-top: 1px solid #888888;
+            width: 80%;
+            margin: 0 auto 4px auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="letterhead-bg">
+        <img src="{{ public_path('images/pdf-bg.jpg') }}" alt="">
+    </div>
+
+    <table class="header">
+        <tr>
+            <td>
+                <div class="doc-title">Daily Cashier Transactions</div>
+                <div class="doc-subtitle">
+                    @if ($includeQueueFees && $includeTopUps)
+                        Cash queue fee payments &amp; cash card top-ups
+                    @elseif ($includeQueueFees)
+                        Cash queue fee payments only
+                    @else
+                        Cash card top-ups only
+                    @endif
+                </div>
+            </td>
+            <td class="meta">
+                <div>
+                    <strong>Date:</strong>
+                    @if ($from && $to)
+                        {{ $from->format('M d, Y') }}
+                        @if (!$from->isSameDay($to))
+                            &ndash; {{ $to->format('M d, Y') }}
+                        @endif
+                    @else
+                        All time
+                    @endif
+                </div>
+                <div><strong>Cashier:</strong> {{ $cashier->name ?? 'All cashiers' }}</div>
+                <div><strong>Generated by:</strong> {{ $generatedBy }}</div>
+                <div><strong>Generated on:</strong> {{ $generatedAt->format('M d, Y g:i A') }}</div>
+            </td>
+        </tr>
+    </table>
+
+    {{-- ===================== QUEUE FEE PAYMENTS (CASH) ===================== --}}
+    @if ($includeQueueFees)
+        <div class="section-title">Queue Fee Payments &mdash; Cash</div>
+
+        @if ($groupedQueueFees === null)
+            @include('pdf.partials.queue-fee-table', ['rows' => $queueFees])
+        @else
+            @forelse ($groupedQueueFees as $cashierName => $rows)
+                <div class="cashier-title">{{ $cashierName }}</div>
+                @include('pdf.partials.queue-fee-table', ['rows' => $rows])
+            @empty
+                <p class="empty-note">No cash queue fee payments were recorded for this period.</p>
+            @endforelse
+        @endif
+    @endif
+
+    {{-- ===================== CARD TOP-UPS (CASH) ===================== --}}
+    @if ($includeTopUps)
+        <div class="section-title">Card Top-Ups &mdash; Cash</div>
+
+        @if ($groupedTopUps === null)
+            @include('pdf.partials.topup-table', ['rows' => $topUps])
+        @else
+            @forelse ($groupedTopUps as $cashierName => $rows)
+                <div class="cashier-title">{{ $cashierName }}</div>
+                @include('pdf.partials.topup-table', ['rows' => $rows])
+            @empty
+                <p class="empty-note">No cash card top-ups were recorded for this period.</p>
+            @endforelse
+        @endif
+    @endif
+
+    {{-- ===================== SUMMARY ===================== --}}
+    <div class="summary">
+        <table class="summary-table">
+            @if ($includeQueueFees)
+                <tr>
+                    <td class="label">Queue fee payments ({{ $queueFees->count() }})</td>
+                    <td class="value">&#8369;{{ number_format($queueFeeTotal, 2) }}</td>
+                </tr>
+            @endif
+            @if ($includeTopUps)
+                <tr>
+                    <td class="label">Card top-ups ({{ $topUps->count() }})</td>
+                    <td class="value">&#8369;{{ number_format($topUpTotal, 2) }}</td>
+                </tr>
+            @endif
+            <tr class="grand-total">
+                <td class="label">Total cash collected</td>
+                <td class="value">&#8369;{{ number_format($grandTotal, 2) }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="signatures">
+        <tr>
+            <td>
+                <div class="signature-line"></div>
+                Prepared by
+            </td>
+            <td>
+                <div class="signature-line"></div>
+                Verified by
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

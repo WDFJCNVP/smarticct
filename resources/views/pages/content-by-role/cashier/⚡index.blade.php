@@ -14,6 +14,65 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 {
     public string $range = '7'; // days: 7, 14, 30
 
+    // ===================== EXPORT MODAL =====================
+
+    public string $exportDateFrom = '';
+    public string $exportDateTo = '';
+    public string $exportType = ''; // '', queue_fees, topups
+
+    public function mount()
+    {
+        $this->exportDateFrom = today()->toDateString();
+        $this->exportDateTo = today()->toDateString();
+    }
+
+    // Reset the export dialog back to "today / all" each time it opens, so
+    // it never quietly carries a narrowed filter over to the next export.
+    public function prepareExportModal()
+    {
+        $this->exportDateFrom = today()->toDateString();
+        $this->exportDateTo = today()->toDateString();
+        $this->exportType = '';
+    }
+
+    public function setExportRangeAllTime()
+    {
+        $this->exportDateFrom = '';
+        $this->exportDateTo = '';
+    }
+
+    public function setExportRangeToday()
+    {
+        $this->exportDateFrom = today()->toDateString();
+        $this->exportDateTo = today()->toDateString();
+    }
+
+    #[Computed]
+    public function exportRangePreset(): string
+    {
+        if ($this->exportDateFrom === '' && $this->exportDateTo === '') {
+            return 'all';
+        }
+
+        $today = today()->toDateString();
+
+        if ($this->exportDateFrom === $today && $this->exportDateTo === $today) {
+            return 'today';
+        }
+
+        return 'custom';
+    }
+
+    #[Computed]
+    public function exportUrl(): string
+    {
+        return route('cashier.transactions.export', array_filter([
+            'from' => $this->exportDateFrom,
+            'to'   => $this->exportDateTo,
+            'type' => $this->exportType,
+        ]));
+    }
+
     // ===================== KPI CARDS =====================
 
     #[Computed]
@@ -401,8 +460,18 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                         <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
                         <span class="hidden sm:inline">Filters</span>
                         @if ((int) $this->range !== 7)
-                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-dark-bg text-[10px] font-bold">1</span>
+                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">1</span>
                         @endif
+                    </button>
+                </flux:modal.trigger>
+
+                <flux:modal.trigger name="export-cashier-transactions" wire:click="prepareExportModal">
+                    <button
+                        type="button"
+                        class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-body dark:text-dark-txt-body hover:bg-light-subtle dark:hover:bg-dark-subtle transition font-secondary text-xs sm:text-table-row shrink-0"
+                    >
+                        <flux:icon.arrow-down-tray class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
+                        <span class="hidden sm:inline">Export</span>
                     </button>
                 </flux:modal.trigger>
             </div>
@@ -435,6 +504,107 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 <flux:modal.close>
                     <flux:button variant="primary">Done</flux:button>
                 </flux:modal.close>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- ===================== EXPORT MODAL ===================== --}}
+    <flux:modal
+        name="export-cashier-transactions"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-lg mx-auto rounded-xl overflow-hidden"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Export cashier transactions
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        Choose what to include in the PDF. Defaults to today, covering both queue fees and top-ups.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
+            </div>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Date range</flux:label>
+
+                <div class="flex gap-2 mt-1.5">
+                    <button
+                        type="button"
+                        wire:click="setExportRangeAllTime"
+                        class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
+                            {{ $this->exportRangePreset === 'all'
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
+                    >
+                        All Time
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="setExportRangeToday"
+                        class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
+                            {{ $this->exportRangePreset === 'today'
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
+                    >
+                        Today
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2 mt-3">
+                    <flux:input
+                        type="date"
+                        wire:model.live="exportDateFrom"
+                        size="sm"
+                        class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
+                    />
+                    <span class="text-light-txt-muted dark:text-dark-txt-muted text-sm shrink-0">to</span>
+                    <flux:input
+                        type="date"
+                        wire:model.live="exportDateTo"
+                        size="sm"
+                        class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
+                    />
+                </div>
+                <flux:text class="mt-1.5 font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">
+                    Or pick a custom range above.
+                </flux:text>
+            </flux:field>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Transaction type</flux:label>
+                <flux:select
+                    wire:model.live="exportType"
+                    size="sm"
+                    placeholder="All (queue fees & top-ups)"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
+                >
+                    <flux:select.option value="">All (queue fees &amp; top-ups)</flux:select.option>
+                    <flux:select.option value="queue_fees">Queue fees only</flux:select.option>
+                    <flux:select.option value="topups">Top-ups only</flux:select.option>
+                </flux:select>
+            </flux:field>
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close class="w-full sm:w-auto">
+                    <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+                <flux:button
+                    href="{{ $this->exportUrl }}"
+                    icon="arrow-down-tray"
+                    variant="primary"
+                    class="font-secondary w-full sm:w-auto justify-center"
+                >
+                    Download PDF
+                </flux:button>
             </div>
         </div>
     </flux:modal>

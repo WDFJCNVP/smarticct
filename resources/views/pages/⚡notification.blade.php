@@ -12,7 +12,9 @@ new class extends Component
     public UserNotification $user_notification;
 
     public function destroyNotification($notification_id) {
-        $notification = UserNotification::find($notification_id);
+        $notification = UserNotification::where('id', $notification_id)
+            ->where('user_id', auth()->id())
+            ->first();
         if ($notification) {
             $notification->delete();
 
@@ -43,6 +45,8 @@ new class extends Component
     }
 
     public function mount() {
+        abort_if($this->user_notification->user_id !== auth()->id(), 404);
+
         if($this->user_notification->is_read === 0) {
             $this->user_notification->update(['is_read' => true]);
         }
@@ -65,8 +69,6 @@ new class extends Component
     </div>
 
     <x-card class="overflow-hidden">
-        <div class="h-1 w-full bg-primary -mt-4 mb-4 rounded-t-xl"></div>
-
         <div class="flex items-start gap-4 px-2">
             <div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
                 <flux:icon.envelope class="w-5 h-5 text-primary dark:text-white" />
@@ -95,7 +97,7 @@ new class extends Component
         </div>
     </x-card>
 
-    <flux:modal name="delete-notification" class="min-w-[22rem]">
+    <flux:modal name="delete-notification" class="w-[calc(100%-2rem)] sm:min-w-[22rem] sm:max-w-none">
         <div class="space-y-6">
             <div>
                 <flux:heading size="lg" class="font-primary">Delete notification?</flux:heading>

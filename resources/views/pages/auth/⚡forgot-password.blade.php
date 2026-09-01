@@ -192,7 +192,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
     @elseif($otpVerified)
         <div wire:key="recovery-step-3" class="space-y-4">
             <div class="text-center mb-2">
-                <p class="font-secondary text-table-row text-success font-medium">
+                <p class="font-secondary text-table-row text-success dark:text-dark-success font-medium">
                     ✓ Code verified successfully
                 </p>
                 <p class="font-secondary text-body text-light-txt-muted dark:text-dark-txt-muted mt-1">Please enter your new password below.</p>

@@ -38,7 +38,7 @@ new class extends Component {
         $this->refreshQueuedVehicleList();
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Vehicle departed',
             text: 'Your vehicle has been marked as departed early.',
@@ -68,7 +68,7 @@ new class extends Component {
         $this->refreshQueuedVehicleList();
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Vehicle dispatched',
             text: 'The vehicle has been dispatched.',
@@ -212,10 +212,10 @@ new class extends Component {
                     </x-text>
                 </div>
 
-                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                <div class="flex items-center gap-2 w-full sm:w-auto shrink-0">
                     @if (in_array(auth()->user()->role, ['cashier', 'admin']))
-                        <flux:button size="sm" icon="plus" variant="primary" href="{{ route('cashier.queue.vehicle') }}" wire:navigate class="font-secondary">Queue Vehicle</flux:button>
-                        <flux:button size="sm" href="{{ route('cashier.active-group') }}" wire:navigate class="font-secondary">View Active Groups</flux:button>
+                        <flux:button size="sm" icon="plus" variant="primary" href="{{ route('cashier.queue.vehicle') }}" wire:navigate class="font-secondary flex-1 sm:flex-none justify-center">Queue Vehicle</flux:button>
+                        <flux:button size="sm" href="{{ route('cashier.active-group') }}" wire:navigate class="font-secondary flex-1 sm:flex-none justify-center">View Active Groups</flux:button>
                     @endif
                 </div>
             </div>

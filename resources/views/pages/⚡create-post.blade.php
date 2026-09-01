@@ -221,7 +221,7 @@ new class extends Component
 
         if($post) {
             \Flux::toast(
-                duration: 0,
+                duration: 4000,
                 variant: 'success',
                 heading: 'Posted successfully!',
                 text: 'Your post has been published successfully.',
@@ -269,7 +269,7 @@ new class extends Component
                 />
 
                 @error('body')
-                    <x-text class="!text-red-600 dark:!text-red-400 mt-1 ml-1" style="font-size: var(--text-timestamp)">{{ $message }}</x-text>
+                    <x-text class="!text-danger dark:!text-dark-danger mt-1 ml-1" style="font-size: var(--text-timestamp)">{{ $message }}</x-text>
                 @enderror
 
                 <div wire:loading wire:target="attachments" class="mt-2 ml-1">
@@ -285,7 +285,7 @@ new class extends Component
                                     <button
                                         type="button"
                                         wire:click="removeAttachment({{ $index }})"
-                                        class="absolute top-1 right-1 flex items-center justify-center size-6 rounded-full bg-zinc-900/80 hover:bg-zinc-900 text-white cursor-pointer"
+                                        class="absolute top-1 right-1 flex items-center justify-center size-6 rounded-full bg-black/60 hover:bg-black/80 text-white cursor-pointer"
                                         title="Remove image"
                                     >
                                         <flux:icon name="x-mark" class="size-3.5" color="white" />
@@ -352,7 +352,7 @@ new class extends Component
     <flux:modal 
         wire:model="is_post_preview" 
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
         wire:key="preview-modal-{{ count($attachments) }}"
     >
         <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
@@ -384,7 +384,7 @@ new class extends Component
                         class="mt-1"
                         rows="3"
                     />
-                    <flux:error name="body" />
+                    <flux:error name="body" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                 </flux:field>
 
                 <flux:field>
@@ -409,8 +409,8 @@ new class extends Component
                             Uploading...
                         </div>
                     </div>
-                    <flux:error name="attachments" />
-                    <flux:error name="attachments.*" />
+                    <flux:error name="attachments" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
+                    <flux:error name="attachments.*" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     <div wire:key="attachments-preview-{{ count($attachments) }}" class="mt-2">
                         @if (!empty($attachments))
                             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -421,7 +421,7 @@ new class extends Component
                                             <button
                                                 type="button"
                                                 wire:click="removeAttachment({{ $index }})"
-                                                class="absolute top-1 right-1 flex items-center justify-center size-6 rounded-full bg-zinc-900/80 hover:bg-zinc-900 text-white cursor-pointer"
+                                                class="absolute top-1 right-1 flex items-center justify-center size-6 rounded-full bg-black/60 hover:bg-black/80 text-white cursor-pointer"
                                                 title="Remove image"
                                             >
                                                 <flux:icon name="x-mark" class="size-3.5" color="white" />
@@ -468,7 +468,7 @@ new class extends Component
                                             </flux:select.option>
                                         @endforeach
                                     </flux:select>
-                                    <flux:error name="vehicle_id" />
+                                    <flux:error name="vehicle_id" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                                     @if ($this->selectedVehicle)
                                         @php($vehicle = $this->selectedVehicle)
                                         @if (!$vehicle->has_or_cr || ($vehicle->or_cr_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->or_cr_expiry_date)->isPast()) || !$vehicle->has_franchise || ($vehicle->franchise_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->franchise_expiry_date)->isPast()))
@@ -493,7 +493,7 @@ new class extends Component
                                                 placeholder="Up to {{ $vehicle->total_seats }} seats"
                                                 class="mt-1"
                                             />
-                                            <flux:error name="seats_offered" />
+                                            <flux:error name="seats_offered" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                                         </div>
                                     @endif
                                 </flux:field>
@@ -507,11 +507,11 @@ new class extends Component
                                 <x-inputs-container class="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     <div>
                                         <x-input wire:model="from" placeholder="From" />
-                                        <flux:error name="from" />
+                                        <flux:error name="from" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                                     </div>
                                     <div>
                                         <x-input wire:model="to" placeholder="To" />
-                                        <flux:error name="to" />
+                                        <flux:error name="to" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                                     </div>
                                 </x-inputs-container>
                             </flux:field>
@@ -535,7 +535,7 @@ new class extends Component
                                             </flux:select.option>
                                         @endforeach
                                     </flux:select>
-                                    <flux:error name="vehicle_type" />
+                                    <flux:error name="vehicle_type" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                                 @else
                                     <x-text variant="subtle" style="font-size: var(--text-table-row)" class="mt-1">No record found. Please contact the admin.</x-text>
                                 @endif
@@ -547,11 +547,11 @@ new class extends Component
                                 <x-inputs-container class="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     <div>
                                         <x-input wire:model="from" placeholder="From" />
-                                        <flux:error name="from" />
+                                        <flux:error name="from" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                                     </div>
                                     <div>
                                         <x-input wire:model="to" placeholder="To" />
-                                        <flux:error name="to" />
+                                        <flux:error name="to" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                                     </div>
                                 </x-inputs-container>
                             </flux:field>

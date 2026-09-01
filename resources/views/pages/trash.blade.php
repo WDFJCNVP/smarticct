@@ -63,7 +63,7 @@ new class extends Component
         unset($this->getTrashedPosts);
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Post permanently deleted',
             text: 'This cannot be undone.',
@@ -111,7 +111,7 @@ new class extends Component
         unset($this->getTrashedPosts);
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Post restored',
             text: 'Your post is back in your feed.',
@@ -138,7 +138,7 @@ new class extends Component
 
 <div>
     {{-- Header --}}
-    <div class="flex flex-wrap items-start justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4 sm:mb-6">
         <div>
             <x-heading
                 size="xl"
@@ -152,34 +152,46 @@ new class extends Component
             </x-text>
         </div>
 
-        {{-- Navigation buttons --}}
-        <div class="flex items-center gap-1 sm:gap-2 flex-wrap mt-1 sm:mt-0">
+        {{-- Navigation buttons — matches Feed --}}
+        <div class="flex items-center justify-center gap-2 w-full lg:w-auto">
             <x-button
                 href="{{ route('feed') }}"
                 wire:navigate
                 variant="ghost"
-                icon="home"
-                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2"
+                icon="squares-2x2"
+                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
+                    !border !border-light-bd-default dark:!border-dark-bd-default
+                    !text-light-txt-primary dark:!text-dark-txt-primary
+                    hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                    flex-1 lg:flex-none justify-center"
             >
-                <span class="hidden sm:inline">Feed</span>
+                <span>Feed</span>
             </x-button>
             <x-button
                 href="{{ route('post.my-posts') }}"
                 wire:navigate
                 variant="ghost"
                 icon="document-text"
-                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2"
+                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
+                    !border !border-light-bd-default dark:!border-dark-bd-default
+                    !text-light-txt-primary dark:!text-dark-txt-primary
+                    hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                    flex-1 lg:flex-none justify-center"
             >
-                <span class="hidden sm:inline">My Posts</span>
+                <span>My posts</span>
             </x-button>
             <x-button
                 href="{{ route('post.archived') }}"
                 wire:navigate
                 variant="ghost"
                 icon="archive-box"
-                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2"
+                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
+                    !border !border-light-bd-default dark:!border-dark-bd-default
+                    !text-light-txt-primary dark:!text-dark-txt-primary
+                    hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                    flex-1 lg:flex-none justify-center"
             >
-                <span class="hidden sm:inline">Archived</span>
+                <span>Archived</span>
             </x-button>
         </div>
     </div>
@@ -234,7 +246,7 @@ new class extends Component
     <flux:modal
         wire:model="show_restore_post_modal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
     >
         <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
             <div class="flex items-start justify-between">
@@ -276,7 +288,7 @@ new class extends Component
     <flux:modal
         wire:model="show_delete_post_modal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
     >
         <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
             <div class="flex items-start justify-between">
@@ -305,8 +317,7 @@ new class extends Component
                     wire:click="deletePostPermanently"
                     wire:loading.attr="disabled"
                     type="button"
-                    variant="primary"
-                    color="red"
+                    variant="danger"
                     class="w-full sm:w-auto justify-center !font-secondary"
                 >
                     Delete permanently

@@ -11,9 +11,19 @@ new class extends Component
 {
     public TripRequest $tripRequest;
     public string $modalType;
+
+    // This modal is shared by both the operator flow (acting on a trip
+    // request made against their own post) and the commuter flow (acting
+    // on their own trip request), so either party to the record is valid.
+    protected function isAuthorized(): bool
+    {
+        return $this->tripRequest->user_id === auth()->id()
+            || optional($this->tripRequest->post)->user_id === auth()->id();
+    }
+
     public function cancelTrip() {
 
-        if($this->tripRequest) {
+        if($this->tripRequest && $this->isAuthorized()) {
 
             $tripRequest = $this->tripRequest;
             
@@ -42,7 +52,7 @@ new class extends Component
 
     public function completeTrip() {
 
-        if($this->tripRequest) {
+        if($this->tripRequest && $this->isAuthorized()) {
 
             $tripRequest = $this->tripRequest;
             

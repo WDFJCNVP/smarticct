@@ -22,37 +22,70 @@ new class extends Component
 
     public function tripRequestConfirmModal($id, $type) {
 
+        // Only my own trip requests can be cancelled/completed from here.
+        $tripRequest = TripRequest::with('user', 'post.user')
+            ->where('user_id', auth()->id())
+            ->find($id);
+
+        if (! $tripRequest) {
+            return;
+        }
+
         $this->isTripRequestConfirmModal = false;
         $this->isTripRequestConfirmModal = true;
 
         $this->tripRequestModalType = $type;
 
-        $this->tripRequestData = null;
-        $this->tripRequestData = TripRequest::with('user', 'post.user')->find($id);
+        $this->tripRequestData = $tripRequest;
 
     }
 
     public function rentalOfferCompleteModal($id, $type) {
+
+        // Only rental offers made against one of my own posts can be
+        // cancelled/completed from here.
+        $rentalOffer = RentalOffer::with('post.user')
+            ->whereHas('post', fn ($q) => $q->where('user_id', auth()->id()))
+            ->find($id);
+
+        if (! $rentalOffer) {
+            return;
+        }
 
         $this->isRentalOfferCompleteModal = false;
         $this->isRentalOfferCompleteModal = true;
 
         $this->rentalOfferModalType = $type;
 
-        $this->rentalOfferData = null;
-        $this->rentalOfferData = RentalOffer::with('post.user')->find($id);
+        $this->rentalOfferData = $rentalOffer;
     }
 
     public function showTripRequestViewMoreModal($id) {
 
-        $this->tripRequestData = TripRequest::with('user', 'post.user')->find($id);
+        $tripRequest = TripRequest::with('user', 'post.user')
+            ->where('user_id', auth()->id())
+            ->find($id);
+
+        if (! $tripRequest) {
+            return;
+        }
+
+        $this->tripRequestData = $tripRequest;
 
         $this->isShowTripRequestViewMoreModal = true;
     }
 
     public function showRentalOfferViewMoreModal($id) {
 
-        $this->rentalOfferData = RentalOffer::with('vehicle', 'user', 'post.user')->find($id);
+        $rentalOffer = RentalOffer::with('vehicle', 'user', 'post.user')
+            ->whereHas('post', fn ($q) => $q->where('user_id', auth()->id()))
+            ->find($id);
+
+        if (! $rentalOffer) {
+            return;
+        }
+
+        $this->rentalOfferData = $rentalOffer;
 
         $this->isShowRentalOfferViewMoreModal = true;
     }
@@ -84,7 +117,7 @@ new class extends Component
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @if ($this->rentalOffers && $this->rentalOffers->count())
             @foreach ($this->rentalOffers as $item)
-                <flux:card class="border-t-4 border-t-blue-500 !p-4">
+                <flux:card class="border-t-4 border-t-info dark:border-t-dark-info !p-4">
                     <div class="flex items-center justify-between gap-2">
                         <flux:badge size="xs" color="blue">From your post</flux:badge>
                         <flux:badge size="sm" color="green">Active</flux:badge>
@@ -142,7 +175,7 @@ new class extends Component
 
         @if ($this->tripRequests && $this->tripRequests->count())
             @foreach ($this->tripRequests as $item)
-                <flux:card class="border-t-4 border-t-orange-500 !p-4">
+                <flux:card class="border-t-4 border-t-warning dark:border-t-dark-warning !p-4">
                     <div class="flex items-center justify-between gap-2">
                         <flux:badge size="xs" color="orange">From Operator's Post</flux:badge>
                         <flux:badge size="sm" color="green">Active</flux:badge>
@@ -203,7 +236,7 @@ new class extends Component
     <flux:modal
         wire:model="isTripRequestConfirmModal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-md md:max-w-lg mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-md md:max-w-lg mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
         x-on:close-modal.window="$wire.set('isTripRequestConfirmModal', false)"
     >
         @if ($tripRequestData)
@@ -220,7 +253,7 @@ new class extends Component
     <flux:modal
         wire:model="isRentalOfferCompleteModal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-md md:max-w-lg mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-md md:max-w-lg mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
         x-on:close-modal.window="$wire.set('isRentalOfferCompleteModal', false)"
     >
         @if ($rentalOfferData)
@@ -237,7 +270,7 @@ new class extends Component
     <flux:modal
         wire:model="isShowTripRequestViewMoreModal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-md md:max-w-lg mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-md md:max-w-lg mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
         x-on:close-modal.window="$wire.set('isShowTripRequestViewMoreModal', false)"
     >
         @if ($tripRequestData)
@@ -253,7 +286,7 @@ new class extends Component
     <flux:modal
         wire:model="isShowRentalOfferViewMoreModal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-md md:max-w-lg mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-md md:max-w-lg mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
         x-on:close-modal.window="$wire.set('isShowRentalOfferViewMoreModal', false)"
     >
         @if ($rentalOfferData)
