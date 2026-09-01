@@ -17,12 +17,30 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     // ===================== KPI CARDS =====================
 
     #[Computed]
+    public function queueFeesCollected()
+    {
+        $totalCardFees = CardTransaction::where('transaction_type', 'queueing_fee')
+            ->where('status', 'success')
+            ->sum('amount');
+
+        $totalCashFees = CashTransaction::where('status', 'success')
+            ->sum('amount');
+
+        $totalCollected = $totalCardFees + $totalCashFees;
+
+        // $totalWithdrawn = TerminalTransaction::where('transaction_type', 'withdrawal')
+        //     ->where('status', 'succeeded')
+        //     ->sum('amount');
+
+        return $totalCollected;
+    }
+
+    #[Computed]
     public function myTransactionsToday()
     {
-        // Top-ups aren't included here — top_up_transactions has no cashier-attribution
-        // column, so it can't be scoped to "mine". See topUpsToday() below instead.
         $cardFees = CardTransaction::where('processed_by', Auth::id())
-            ->where('transaction_type', 'operator_payment')
+            ->where('transaction_type', 'queueing_fee')   // fixed
+            ->where('status', 'success')                    // added — only successful ones should count
             ->whereDate('transaction_time', today())
             ->count();
 
@@ -38,7 +56,8 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     public function myCollectedToday()
     {
         $cardFees = CardTransaction::where('processed_by', Auth::id())
-            ->where('transaction_type', 'operator_payment')
+            ->where('transaction_type', 'queueing_fee')   // fixed
+            ->where('status', 'success')                    // also add this — you should only count successful ones
             ->whereDate('transaction_time', today())
             ->sum('amount');
 
@@ -63,7 +82,8 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     public function myQueueFeesToday()
     {
         $card = CardTransaction::where('processed_by', Auth::id())
-            ->where('transaction_type', 'operator_payment')
+            ->where('transaction_type', 'queueing_fee')   // fixed
+            ->where('status', 'success')                    // added
             ->whereDate('transaction_time', today())
             ->count();
 
@@ -100,7 +120,8 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         $end = today();
 
         $cardFees = CardTransaction::where('processed_by', Auth::id())
-            ->where('transaction_type', 'operator_payment')
+            ->where('transaction_type', 'queueing_fee')   // fixed
+            ->where('status', 'success')                    // added
             ->whereBetween('transaction_time', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
             ->selectRaw('DATE(transaction_time) as day, COUNT(*) as total')
             ->groupBy('day')
@@ -138,7 +159,8 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             ->sum('amount');
 
         $cardFees = CardTransaction::where('processed_by', Auth::id())
-            ->where('transaction_type', 'operator_payment')
+            ->where('transaction_type', 'queueing_fee')   // fixed
+            ->where('status', 'success')                    // added
             ->whereBetween('transaction_time', [$start, $end])
             ->sum('amount');
 
@@ -193,7 +215,8 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     public function myRecentTransactions()
     {
         $cardFees = CardTransaction::where('processed_by', Auth::id())
-            ->where('transaction_type', 'operator_payment')
+            ->where('transaction_type', 'queueing_fee')   // fixed
+            ->where('status', 'success')                    // added — don't show failed attempts as "recent transactions"
             ->latest('transaction_time')
             ->limit(5)
             ->get(['id', 'amount', 'transaction_time'])
@@ -252,7 +275,8 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
         $count = function ($start, $end) {
             $card = CardTransaction::where('processed_by', Auth::id())
-                ->where('transaction_type', 'operator_payment')
+                ->where('transaction_type', 'queueing_fee')   // fixed
+                ->where('status', 'success')                    // added
                 ->whereBetween('transaction_time', [$start, $end])
                 ->count();
             $cash = CashTransaction::where('processed_by', Auth::id())
@@ -478,7 +502,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body">Queue fees collected</x-text>
             </div>
             <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-info dark:text-dark-info block mt-2 sm:mt-3">
-                {{ $this->myQueueFeesToday }}
+                ₱{{ number_format($this->queueFeesCollected, 2) }}
             </x-text>
         </flux:card>
 

@@ -133,6 +133,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('role:operator')
         ->name('operator.transaction');
 
+    Route::livewire('/earnings', 'pages::content-by-role.operator.earning')
+        ->middleware('role:operator')
+        ->name('operator.earnings');
+
     //commuter Section
     Route::livewire('/commuter/dashboard', 'pages::content-by-role.commuter.index')
         ->middleware('role:commuter')

@@ -22,7 +22,8 @@ class Card extends Model
         return $this->belongsTo(User::class);
     }
     
-    public function cardTransaction() {
+    public function cardTransactions()
+    {
         return $this->hasMany(CardTransaction::class);
     }
 

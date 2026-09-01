@@ -80,23 +80,12 @@ class CardController extends Controller
             ];
         }
 
-        if ($card->user->role === 'operator') {
-
-            $balanceAfter = DB::transaction(function () use ($card, $amount) {
-                $card = Card::lockForUpdate()
-                        ->findOrFail($card->id);
-                
-                $balanceAfter = (float) $card->balance - $amount;
-                $card->update(['balance' => $balanceAfter, 'updated_at' => now()]);
-
-                return $balanceAfter;
-            });
-        }
-        $card = Card::lockForUpdate()
-                ->findOrFail($card->id);
-        
-        $balanceAfter = (float) $card->balance - $amount;
-        $card->update(['balance' => $balanceAfter, 'updated_at' => now()]);
+        $balanceAfter = DB::transaction(function () use ($card, $amount) {
+            $card = Card::lockForUpdate()->findOrFail($card->id);
+            $balanceAfter = (float) $card->balance - $amount;
+            $card->update(['balance' => $balanceAfter, 'updated_at' => now()]);
+            return $balanceAfter;
+        });
 
         return [
             'success'      => true,
@@ -196,12 +185,13 @@ class CardController extends Controller
         return [
             'success' => true,
             'message' => "Vehicle successfully activated and is now accepting passengers. Scheduled departure: {$departs_in?->format('h:i A')}.",
+            'queue'   => $myQueue,
         ];
     }
 
     // Non-scheduled vehicle types (Multi-cab, etc.)
 
-    private function queueOperatorVehicle(array $validated, Vehicle $vehicle): void
+    private function queueOperatorVehicle(array $validated, Vehicle $vehicle): Queue
     {
         $user_id = $vehicle->user->id;
 
@@ -211,7 +201,7 @@ class CardController extends Controller
             ->exists();
 
         if ($queueExists) {
-            Queue::create([
+            $queue = Queue::create([
                 'user_id'       => $user_id,
                 'vehicle_type'  => $vehicle->vehicle_type,
                 'plate_number'  => $vehicle->plate_number,
@@ -232,7 +222,7 @@ class CardController extends Controller
                 "Your {$vehicle->vehicle_type} with plate number {$vehicle->plate_number} has joined the queue for {$validated['destination']}. You'll be notified when it's your turn to load."
             );
 
-            return;
+            return $queue;
         }
 
         Log::info('Queuing vehicle type: [' . $vehicle->vehicle_type . ']');
@@ -269,6 +259,8 @@ class CardController extends Controller
             $vehicle->plate_number,
             "Your {$vehicle->vehicle_type} with plate number {$vehicle->plate_number} has joined the queue and is now accepting passengers."
         );
+
+        return $queue;
     }
 
     // Main tap endpoint
@@ -352,8 +344,7 @@ class CardController extends Controller
             if ($transaction_type === 'fare_payment') {
 
                 $result = DB::transaction(function () use ($validated, $card, $amount, $balanceBefore) {
-
-                    $queue = Queue::where('status', 'loading')
+                    $queue = Queue::with('user.card')->where('status', 'loading')
                         ->where('destination', $validated['destination'])
                         ->where('vehicle_type', $validated['vehicle_type'])
                         ->lockForUpdate()
@@ -379,29 +370,66 @@ class CardController extends Controller
                             'balanceAfter' => $balanceBefore,
                             'message'      => 'Boarding denied. You already have an active trip in a loading vehicle.',
                         ];
-                        }
+                    }
 
                     $deduction = $this->deductUserCard($card, $amount, $balanceBefore);
 
                     if ($deduction['success']) {
-
                         $queue->increment('seat_count');
                         $queue->refresh();
 
+                        $operatorCard = $queue->user->card;
+                        $operatorBalanceBefore = $operatorCard->balance;
+
                         $this->travel_record = TravelRecord::create([
-                            'user_id'  => $card->user_id,
-                            'queue_id' => $queue->id,
-                            'destination' => $queue->destination,
-                            'vehicle_type' => $queue->vehicle_type,
-                            'plate_number' => $queue->plate_number,
-                            'driver_name' => $queue->driver_name,
-                            'commuter_type' => $card->user->commuter_type,
-                            'fare_amount' => $amount,
-                            'departed_at' => $queue->departs_at,
+                            'user_id'       => $card->user_id,
+                            'queue_id'      => $queue->id,
+                            'destination'   => $queue->destination,
+                            'vehicle_type'  => $queue->vehicle_type,
+                            'plate_number'  => $queue->plate_number,
+                            'driver_name'   => $queue->driver_name,
+                            'user_type'     => $card->user->commuter_type,
+                            'amount'        => $amount,
+                            'departed_at'   => $queue->departs_at,
+                        ]);
+
+                        $operatorCard->increment('balance', $amount);
+                        $operatorCard->refresh();
+
+                        //Create CardTransaction (operator record)
+                        CardTransaction::create([
+                            'card_id'          => $operatorCard->id,
+                            'transaction_type' => 'fare_earning',
+                            'reference_no'     => 'FARE-' . $this->travel_record->id,
+                            'reference_id'     => $this->travel_record->id,
+                            'reference_type'   => TravelRecord::class,
+                            'amount'           => $amount,
+                            'balance_before'   => $operatorBalanceBefore,
+                            'balance_after'    => $operatorCard->balance,
+                            'status'           => 'success',
+                            'transaction_time' => now(),
+                            'source'           => 'cashier',
+                            'message'          => "Fare earning: {$queue->destination} trip, plate {$queue->plate_number}",
+                        ]);
+
+                        //Create CardTransaction (commuter record)
+                        CardTransaction::create([
+                            'card_id'          => $card->id,
+                            'transaction_type' => 'queue_deduction',
+                            'reference_no'     => 'TAPIN-' . $this->travel_record->id,
+                            'reference_id'     => $this->travel_record->id,
+                            'reference_type'   => TravelRecord::class,
+                            'amount'           => $amount,
+                            'balance_before'   => $balanceBefore,
+                            'balance_after'    => $deduction['balanceAfter'],
+                            'status'           => 'success',
+                            'transaction_time' => now(),
+                            'source'           => 'kiosk_tap_in',
+                            'message'          => "Fare paid: {$queue->destination} trip, plate {$queue->plate_number}",
                         ]);
 
                         if (
-                            $queue->seat_count >= $queue->seat_capacity || 
+                            $queue->seat_count >= $queue->seat_capacity ||
                             ($queue->vehicle_type === 'UV-express' && $queue->seat_count >= 9 && $queue->departs_at === null)
                         ) {
                             broadcast(new TriggerDepartingEvent($queue->id));
@@ -414,11 +442,11 @@ class CardController extends Controller
                 $status       = $result['success'] ? 'success' : 'failed';
                 $balanceAfter = $result['balanceAfter'];
                 $message      = $result['message'];
-
                 broadcast(new QueuedVehicleEvent());
             }
 
             if ($transaction_type === 'operator_payment') {
+
                 $vehicle     = $this->getUserVehicle((int) $validated['vehicle_id']);
                 $isScheduled = in_array($vehicle->vehicle_type, ['Bus', 'UV-express']);
 
@@ -447,7 +475,6 @@ class CardController extends Controller
                         $activationResult = $this->activateScheduledVehicle($validated, $vehicle);
 
                         if (!$activationResult['success']) {
-                            
                             $card->update(['balance' => $balanceBefore]);
                             return [
                                 'success'      => false,
@@ -455,6 +482,22 @@ class CardController extends Controller
                                 'message'      => $activationResult['message'],
                             ];
                         }
+
+                        CardTransaction::create([
+                            'card_id'          => $card->id,
+                            'processed_by'     => auth()->id(),
+                            'transaction_type' => 'queueing_fee',
+                            'reference_no'     => 'QFEE-' . now()->timestamp . '-' . $card->id,
+                            'reference_id'     => $activationResult['queue']->id,
+                            'reference_type'   => Queue::class,
+                            'amount'           => $amount,
+                            'balance_before'   => $balanceBefore,
+                            'balance_after'    => $deduction['balanceAfter'],
+                            'status'           => 'success',
+                            'transaction_time' => now(),
+                            'source'           => 'cashier_rfid',
+                            'message'          => "Queueing fee for {$vehicle->vehicle_type}, plate {$vehicle->plate_number}",
+                        ]);
 
                         return [
                             'success'      => true,
@@ -477,11 +520,33 @@ class CardController extends Controller
                         ]);
                     }
 
-                    $result = $this->deductUserCard($card, $amount, $balanceBefore);
+                    $result = DB::transaction(function () use ($validated, $card, $amount, $balanceBefore, $vehicle) {
 
-                    if ($result['success']) {
-                        $this->queueOperatorVehicle($validated, $vehicle);
-                    }
+                        $deduction = $this->deductUserCard($card, $amount, $balanceBefore);
+
+                        if ($deduction['success']) {
+
+                            $queue = $this->queueOperatorVehicle($validated, $vehicle);
+
+                            CardTransaction::create([
+                                'card_id'          => $card->id,
+                                'processed_by'     => auth()->id(), // the cashier operating this counter/session
+                                'transaction_type' => 'queueing_fee',
+                                'reference_no'     => 'QFEE-' . now()->timestamp . '-' . $card->id,
+                                'reference_id'     => $queue->id,
+                                'reference_type'   => Queue::class,
+                                'amount'           => $amount,
+                                'balance_before'   => $balanceBefore,
+                                'balance_after'    => $deduction['balanceAfter'],
+                                'status'           => 'success',
+                                'transaction_time' => now(),
+                                'source'           => 'cashier_rfid',
+                                'message'          => "Queueing fee for {$vehicle->vehicle_type}, plate {$vehicle->plate_number}",
+                            ]);
+                        }
+
+                        return $deduction;
+                    });
 
                     $status       = $result['success'] ? 'success' : 'failed';
                     $balanceAfter = $result['balanceAfter'];
@@ -491,23 +556,23 @@ class CardController extends Controller
                 broadcast(new QueuedVehicleEvent());
             }
 
-            $transaction = CardTransaction::create([
-                'card_id'          => $card->id,
-                'processed_by'     => $card->user->id,
-                'source'           => 'rfid',
-                'reference_no'     => 'TXN-' . now()->format('YmdHis') . '-' . Str::random(6),
-                'metadata'         =>  $validated,
-                'points_deducted'  => $amount,
-                'transaction_type' => 'Purchase',
-                'amount'           => $amount,
-                'balance_before'   => $balanceBefore,
-                'balance_after'    => $balanceAfter,
-                'status'           => $status,
-                'message'          => $message,
-                'transaction_time' => now(),
-            ]);
+            // $transaction = CardTransaction::create([
+            //     'card_id'          => $card->id,
+            //     'processed_by'     => $card->user->id,
+            //     'source'           => 'rfid',
+            //     'reference_no'     => 'TXN-' . now()->format('YmdHis') . '-' . Str::random(6),
+            //     'metadata'         =>  $validated,
+            //     'points_deducted'  => $amount,
+            //     'transaction_type' => 'Purchase',
+            //     'amount'           => $amount,
+            //     'balance_before'   => $balanceBefore,
+            //     'balance_after'    => $balanceAfter,
+            //     'status'           => $status,
+            //     'message'          => $message,
+            //     'transaction_time' => now(),
+            // ]);
 
-            $this->travel_record?->update(['card_transaction_id' => $transaction->id]);
+            // $this->travel_record?->update(['card_transaction_id' => $transaction->id]);
 
             return response()->json([
                 'success'          => $status === 'success',
@@ -517,8 +582,8 @@ class CardController extends Controller
                 'card_type'        => $card->user->role,
                 'balance_before'   => $balanceBefore,
                 'balance_after'    => (float) $balanceAfter,
-                'transaction_id'   => $transaction->id,
-                'timestamp'        => $transaction->transaction_time->toIso8601String(),
+                // 'transaction_id'   => $transaction->id,
+                // 'timestamp'        => $transaction->transaction_time->toIso8601String(),
             ]);
 
         } catch (ValidationException $e) {

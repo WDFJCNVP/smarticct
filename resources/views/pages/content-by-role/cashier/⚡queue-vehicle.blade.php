@@ -38,6 +38,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     public bool $showInsufficientAmountAlert = false;
 
     public function queueVehicle() {
+        
         if ($this->cashMode) {
             if (empty($this->amount_received) || $this->amount_received < $this->queueFee) {
                 $this->showInsufficientAmountAlert = true;

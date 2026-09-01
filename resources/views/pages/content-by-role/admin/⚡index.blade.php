@@ -52,9 +52,28 @@ new #[Layout('layouts.admin-layout')] class extends Component
     #[Computed]
     public function todayRevenue()
     {
-        return TopUpTransaction::where('status', 'paid')
+        $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
+            ->where('status', 'success')
+            ->whereDate('transaction_time', today())
+            ->sum('amount');
+
+        $cashFees = CashTransaction::where('status', 'success')
             ->whereDate('created_at', today())
-            ->sum('amount_paid');
+            ->sum('amount');
+
+        return $cardFees + $cashFees;
+    }
+
+    #[Computed]
+    public function totalRevenue()
+    {
+        $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
+            ->where('status', 'success')
+            ->sum('amount');
+
+        $cashFees = CashTransaction::where('status', 'success')->sum('amount');
+
+        return $cardFees + $cashFees;
     }
 
     #[Computed]
@@ -761,6 +780,18 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     </div>
                 </div>
                 <x-dashboard.trend-pill :value="$this->revenueTodayTrend" class="!bg-white/15 !text-white" suffix="vs yday" />
+            </div>
+            <div class="flex items-center justify-between gap-3 px-5 py-4 flex-1">
+                <div class="flex items-center gap-3">
+                    <flux:icon.banknotes class="w-5 h-5 text-white/70 shrink-0" />
+                    <div>
+                        <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Total Revenue</div>
+                        <div class="font-primary text-3xl font-extrabold tabular-nums">
+                            ₱{{ number_format($this->totalRevenue, 2) }}
+                        </div>
+                    </div>
+                </div>
+                <x-button variant="primary" color="yellow">Withdraw</x-button>
             </div>
         </div>
     </div>

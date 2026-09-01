@@ -70,6 +70,10 @@
                     Transactions
                 </x-dashboard.sidebar-menu.sidebar-item>
 
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.earnings') }}" icon="credit-card" wire:navigate>
+                    Earnings
+                </x-dashboard.sidebar-menu.sidebar-item>
+
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.card') }}" icon="credit-card" wire:navigate>
                     My Card
                 </x-dashboard.sidebar-menu.sidebar-item>

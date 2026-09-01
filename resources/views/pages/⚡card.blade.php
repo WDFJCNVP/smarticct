@@ -7,6 +7,7 @@ use Livewire\Attributes\Computed;
 use App\Models\Card;
 use App\Services\CheckoutSessionService;
 use App\Models\CardReport;
+use App\Models\CardTransaction;
 
 new class extends Component
 {
@@ -20,11 +21,38 @@ new class extends Component
     public $valid_id;
 
     #[Computed]
+    public function recentActivity()
+    {
+        if (!$this->userCard) {
+            return collect();
+        }
+
+        $type = auth()->user()->role === 'operator' ? 'queueing_fee' : 'queue_deduction';
+
+        return $this->userCard
+            ->cardTransactions()
+            ->where('transaction_type', $type)
+            ->latest('transaction_time')
+            ->limit(10)
+            ->get();
+    }
+
+    #[Computed]
+    public function totalEarnings()
+    {
+        return $this->userCard
+            ->cardTransactions()
+            ->where('transaction_type', 'fare_earning')
+            ->where('status', 'success')
+            ->sum('amount');
+    }
+
+    #[Computed]
     public function userCard(): ?Card
     {
-        return Card::with(['user', 'cardTransaction' => function ($query) {
-            $query->latest('transaction_time')->limit(10);
-        }])->where('user_id', auth()->id())->first();
+        return Card::with('user')
+            ->where('user_id', auth()->id())
+            ->first();
     }
 
     public function proceedToPayment(CheckoutSessionService $checkoutSession)
@@ -147,7 +175,6 @@ new class extends Component
         <div class="lg:sticky lg:top-6 lg:z-10 mb-5">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                {{-- Card visual – keep same but use consistent card styling --}}
                 <flux:card class="bg-black text-white !border-0">
                     <div class="flex justify-between items-start mb-7">
                         <div>
@@ -169,12 +196,13 @@ new class extends Component
                             <x-text class="text-sm font-medium capitalize text-white">{{ auth()->user()->role }}</x-text>
                         </div>
                     </div>
-                </flux:card>
+                </flux:card> 
 
-                {{-- Balance card – updated to match queue stats cards --}}
+
+                {{-- Total Balance --}}
                 <flux:card x-data="{ showBalance: false }" class="!p-4">
                     <div class="flex justify-between items-center mb-1">
-                        <x-text class="text-xs text-zinc-500 dark:text-zinc-400">Available balance</x-text>
+                        <x-text class="text-xs text-zinc-500 dark:text-zinc-400">Total balance</x-text>
 
                         <button
                             type="button"
@@ -236,7 +264,7 @@ new class extends Component
             </div>
 
             <div class="space-y-2 max-h-96 overflow-y-auto pr-1">
-                @forelse ($this->userCard->cardTransaction as $transaction)
+                @forelse ($this->recentActivity as $transaction)
                     @php
                         $isCredit = $transaction->transaction_type === 'top_up' || $transaction->amount > 0;
                     @endphp
@@ -268,7 +296,6 @@ new class extends Component
             </div>
         </div>
 
-        {{-- ─── Report History ─────────────────────────────────────────────── --}}
         @if ($this->cardReports->isNotEmpty())
             <div class="mt-8">
                 <div class="flex justify-between items-center mb-2.5">
@@ -485,7 +512,7 @@ new class extends Component
             </flux:field>
 
             {{-- Actions – consistent with create-post modal footer --}}
-            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default     dark:border-dark-bd-default">
                 <flux:modal.close class="w-full sm:w-auto">
                     <flux:button variant="ghost" class="w-full sm:w-auto justify-center !font-secondary">
                         Cancel

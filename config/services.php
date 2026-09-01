@@ -39,6 +39,7 @@ return [
         'secret_key' => env('PAYMONGO_SECRET_KEY'),
         'public_key' => env('PAYMONGO_PUBLIC_KEY'),
         'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
+        'disbursement_webhook_secret' => env('PAYMONGO_DISBURSEMENT_WEBHOOK_SECRET'),
     ]
 
 ];

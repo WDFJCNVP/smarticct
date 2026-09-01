@@ -12,12 +12,115 @@ use App\Models\PostInterest;
 use App\Models\OperatorTicketRate;
 use Illuminate\Support\Facades\Auth;
 
+use App\Services\OperatorDisbursementService;
+use Illuminate\Support\Facades\DB;
+
 new #[Layout('layouts.operator-layout')] class extends Component
 {
     public string $range = '7'; // days: 7, 14, 30
     public string $vehicleTypeFilter = '';
     public string $routeFilter = '';
     public string $paymentMethodFilter = '';
+
+    public bool $showWithdrawModal = false;
+    public string $withdrawAmount = '';
+    public string $provider = 'instapay';
+    public string $accountNumber = '';
+    public string $accountName = '';
+    public string $bic = '';
+
+    public function submitWithdrawal()
+    {
+        $validated = $this->validate([
+            'withdrawAmount' => 'required|numeric|min:1',
+            'provider'       => 'required|in:instapay,pesonet',
+            'accountNumber'  => 'required|string',
+            'accountName'    => 'required|string',
+            'bic'            => 'required|string',
+        ]);
+
+        $card = $this->userCard;
+
+        if (!$card) {
+            $this->addError('withdrawAmount', 'No card found.');
+            return;
+        }
+
+        $fee = $validated['provider'] === 'instapay' ? 10.00 : 0.00;
+        $totalDeduction = $validated['withdrawAmount'] + $fee;
+
+        if ($totalDeduction > $card->balance) {
+            $this->addError('withdrawAmount', 'Insufficient balance to cover this withdrawal plus the transfer fee.');
+            return;
+        }
+
+        $succeeded = DB::transaction(function () use ($card, $validated, $totalDeduction) {
+            $balanceBefore = $card->balance;
+
+            $card->decrement('balance', $totalDeduction);
+            $card->refresh();
+
+            $result = app(OperatorDisbursementService::class)->createWithdrawal([
+                'provider'       => $validated['provider'],
+                'amount'         => $validated['withdrawAmount'],
+                'account_number' => $validated['accountNumber'],
+                'account_name'   => $validated['accountName'],
+                'bic'            => $validated['bic'],
+                'operator_id'    => auth()->id(),
+            ]);
+
+            \Log::info('PayMongo disbursement response', $result['response']); // TEMP — remove after debugging
+
+            CardTransaction::create([
+                'card_id'          => $card->id,
+                'transaction_type' => 'withdrawal',
+                'reference_no'     => $result['reference_number'],
+                'amount'           => $totalDeduction,
+                'balance_before'   => $balanceBefore,
+                'balance_after'    => $card->balance,
+                'status'           => $result['successful'] ? 'pending' : 'failed',
+                'transaction_time' => now(),
+                'source'           => 'operator_dashboard',
+                'message'          => "Withdrawal via {$validated['provider']} to {$validated['accountNumber']}",
+                'metadata'         => $result['response'],
+            ]);
+
+            if (!$result['successful']) {
+                $card->increment('balance', $totalDeduction); // roll back
+            }
+
+            return $result['successful'];
+        });
+
+        if (!$succeeded) {
+            $this->addError('withdrawAmount', 'Withdrawal request failed. Please check your details and try again.');
+            return; // don't reset the form or close the modal
+        }
+
+        $this->reset(['withdrawAmount', 'accountNumber', 'accountName', 'bic']);
+        $this->showWithdrawModal = false;
+        unset($this->cardBalance);
+        $this->dispatch('status-strip-updated', queueing: $this->currentlyQueueing, balance: $this->cardBalance);
+    }
+
+    #[Computed]
+    public function todayEarnings()
+    {
+        return $this->userCard
+            ?->cardTransactions()
+            ->where('transaction_type', 'fare_earning')
+            ->where('status', 'success')
+            ->whereDate('transaction_time', today())
+            ->sum('amount') ?? 0;
+    }
+
+    #[Computed]
+    public function userCard(): ?Card
+    {
+        return Card::with(['user', 'cardTransactions' => function ($query) {
+            $query->latest('transaction_time')->limit(10);
+        }])->where('user_id', auth()->id())->first();
+    }
 
     private function applyQueueFilters($query)
     {
@@ -475,6 +578,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
         x-data="{
             queueing: @js($this->currentlyQueueing),
             balance: @js($this->cardBalance),
+            todayBalance: @js($this->todayEarnings),
             flipQ: false, flipB: false,
         }"
         @status-strip-updated.window="
@@ -493,12 +597,25 @@ new #[Layout('layouts.operator-layout')] class extends Component
             <div class="flex items-center gap-3 px-5 py-4 flex-1">
                 <flux:icon.credit-card class="w-5 h-5 text-white/70 shrink-0" />
                 <div>
-                    <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Card Points</div>
+                    <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Total Earnings Today</div>
                     <div class="font-primary text-3xl font-extrabold tabular-nums" :class="{ 'flap-flip': flipB }">
-                        <span x-show="balance !== null" x-text="Number(balance).toFixed(0)"></span>
+                        <span x-show="balance !== null" x-text="'₱' + Number(todayBalance).toFixed(0)"></span>
                         <span x-show="balance === null" class="text-base font-normal opacity-80">No card</span>
                     </div>
                 </div>
+            </div>
+            <div class="flex items-center gap-3 px-5 py-4 flex-1 justify-between">
+                <div class="flex items-center gap-3">
+                    <flux:icon.credit-card class="w-5 h-5 text-white/70 shrink-0" />
+                    <div>
+                        <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Total Balance</div>
+                        <div class="font-primary text-3xl font-extrabold tabular-nums" :class="{ 'flap-flip': flipB }">
+                            <span x-show="balance !== null" x-text="'₱' + Number(balance).toFixed(0)"></span>
+                            <span x-show="balance === null" class="text-base font-normal opacity-80">No card</span>
+                        </div>
+                    </div>
+                </div>
+               <x-button variant="primary" color="yellow" x-on:click="$flux.modal('withdraw-modal').show()">Withdraw</x-button>
             </div>
         </div>
     </div>
@@ -805,4 +922,27 @@ new #[Layout('layouts.operator-layout')] class extends Component
         </flux:card>
         --}}
     </div>
+
+    <flux:modal name="withdraw-modal" class="max-w-md">
+        <form wire:submit="submitWithdrawal" class="space-y-4">
+            <div>
+                <flux:heading size="lg">Withdraw balance</flux:heading>
+                <flux:subheading>Send your card balance to a bank account or e-wallet.</flux:subheading>
+            </div>
+
+            <flux:input wire:model="withdrawAmount" label="Amount (₱)" type="number" step="0.01" />
+
+            <flux:select wire:model="provider" label="Send via">
+                <flux:select.option value="instapay">InstaPay (instant, ₱10 fee)</flux:select.option>
+                <flux:select.option value="pesonet">PESONet (free, next banking day)</flux:select.option>
+            </flux:select>
+
+            <flux:input wire:model="accountName" label="Account name" />
+            <flux:input wire:model="accountNumber" label="Account number" />
+            <flux:input wire:model="bic" label="Bank/e-wallet BIC code" />
+
+            <flux:button type="submit" variant="primary" class="w-full">Confirm Withdrawal</flux:button>
+        </form>
+    </flux:modal>
+
 </div>
