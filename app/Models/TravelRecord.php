@@ -15,8 +15,8 @@ class TravelRecord extends Model
         'vehicle_type',
         'plate_number',
         'driver_name',
-        'commuter_type',
-        'fare_amount',
+        'user_type',
+        'amount',
         'departed_at',
 
     ];

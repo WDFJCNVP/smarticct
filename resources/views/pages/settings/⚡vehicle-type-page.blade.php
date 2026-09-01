@@ -5,6 +5,8 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use App\Models\OperatorTicketRate;
+use App\Services\AuditLogsService;
+use App\Services\BroadcastNotificationService;
 
 new #[Layout('layouts.admin-layout')] class extends Component
 {
@@ -28,12 +30,36 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         OperatorTicketRate::create($validated_attributes);
 
+        app(AuditLogsService::class)->create([
+            'user_id'  => auth()->id(),
+            'action'   => 'Fare Rate Added',
+            'subject'  => 'Admin added a queueing fee rate for a vehicle type',
+            'channel'  => 'Web',
+            'metadata' => [
+                'ip_address'    => request()->ip(),
+                'vehicle_type'  => $validated_attributes['vehicle_type'],
+                'queueing_fee'  => $validated_attributes['queueing_fee'],
+                'message'       => "Added queueing fee ₱{$validated_attributes['queueing_fee']} for vehicle type \"{$validated_attributes['vehicle_type']}\".",
+            ],
+        ]);
+
+        app(BroadcastNotificationService::class)->notifyRoles(
+            roles: ['operator', 'cashier'],
+            type: 'FareRateChanged',
+            title: 'New Queueing Fee Added',
+            message: "A queueing fee of ₱{$validated_attributes['queueing_fee']} was set for vehicle type \"{$validated_attributes['vehicle_type']}\".",
+            metadata: [
+                'vehicle_type' => $validated_attributes['vehicle_type'],
+                'queueing_fee' => $validated_attributes['queueing_fee'],
+            ],
+        );
+
         $this->vehicle_type = "";
         $this->queueing_fee = null;
         unset($this->getOperatorTicket);
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Vehicle type added',
             text: 'The vehicle type and queueing fee have been saved.',
@@ -63,11 +89,35 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'queueing_fee' => $this->edit_queueing_fee,
         ]);
 
+        app(AuditLogsService::class)->create([
+            'user_id'  => auth()->id(),
+            'action'   => 'Fare Rate Updated',
+            'subject'  => 'Admin updated a queueing fee rate for a vehicle type',
+            'channel'  => 'Web',
+            'metadata' => [
+                'ip_address'   => request()->ip(),
+                'vehicle_type' => $this->edit_vehicle_type,
+                'queueing_fee' => $this->edit_queueing_fee,
+                'message'      => "Updated queueing fee to ₱{$this->edit_queueing_fee} for vehicle type \"{$this->edit_vehicle_type}\".",
+            ],
+        ]);
+
+        app(BroadcastNotificationService::class)->notifyRoles(
+            roles: ['operator', 'cashier'],
+            type: 'FareRateChanged',
+            title: 'Queueing Fee Updated',
+            message: "The queueing fee for vehicle type \"{$this->edit_vehicle_type}\" was updated to ₱{$this->edit_queueing_fee}.",
+            metadata: [
+                'vehicle_type' => $this->edit_vehicle_type,
+                'queueing_fee' => $this->edit_queueing_fee,
+            ],
+        );
+
         unset($this->getOperatorTicket);
         $this->modal('edit')->close();
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Vehicle type updated',
             text: 'The vehicle type and queueing fee have been updated.',
@@ -126,7 +176,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         </x-table-row>
                     @empty
                         <x-table-row>
-                            <x-table-cell colspan="4" class="text-center text-gray-500">There are no current records</x-table-cell>
+                            <x-table-cell colspan="4" class="text-center text-light-txt-muted dark:text-dark-txt-muted">There are no current records</x-table-cell>
                         </x-table-row>
                     @endforelse
                 </x-table-rows>
@@ -143,7 +193,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
             <flux:field>
                 <flux:label>Select Vehicle Type</flux:label>
-                <flux:select wire:model="edit_vehicle_type" placeholder="Choose vehicle type..." disabled>
+                <flux:select wire:model="edit_vehicle_type" placeholder="Choose vehicle type..." size="sm" disabled>
                     <flux:select.option value="Bus">Bus</flux:select.option>
                     <flux:select.option value="UV-express">UV-express</flux:select.option>
                     <flux:select.option value="Multi-cab">Multi-cab</flux:select.option>
@@ -153,8 +203,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </flux:field>
 
             <flux:field>
-                <flux:input type="number" wire:model="edit_queueing_fee" label="Queueing Fee" placeholder="0.00" />
-                <flux:error name="edit_edit_queueing_fee" />
+                <flux:input type="number" wire:model="edit_queueing_fee" label="Queueing Fee" placeholder="0.00" size="sm" />
+                <flux:error name="edit_queueing_fee" />
             </flux:field>
 
             <div class="flex">

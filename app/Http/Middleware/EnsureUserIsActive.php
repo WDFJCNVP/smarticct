@@ -20,6 +20,17 @@ class EnsureUserIsActive
      */
     public function handle(Request $request, Closure $next): Response
     {
+        if (Auth::check() && Auth::user()->isDeleted()) {
+            Auth::logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->withErrors([
+                'email_address' => 'This account has been deleted.',
+            ]);
+        }
+
         if (Auth::check() && Auth::user()->isSuspended()) {
             $reason = Auth::user()->userStatus?->suspension_reason;
 

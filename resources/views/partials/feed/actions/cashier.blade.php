@@ -9,17 +9,7 @@
     @endif
 
     <div class="flex items-center gap-2">
-        @if ($this->canExpressInterest($post))
-            @if ($alreadyInterested)
-                <x-button icon="flag" variant="primary" class="cursor-pointer" wire:click="uninterested({{ $post->id }})">
-                    Following up
-                </x-button>
-            @else
-                <x-button icon="flag" class="cursor-pointer" wire:click="interested({{ $post->id }})">
-                    Mark for follow-up
-                </x-button>
-            @endif
-        @endif
+        <span></span>
     </div>
 @else
     <span></span>

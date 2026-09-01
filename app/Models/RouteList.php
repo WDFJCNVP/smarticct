@@ -26,4 +26,8 @@ class RouteList extends Model
     public function operatorTicketRate() {
         return $this->belongsTo(OperatorTicketRate::class);
     }
+
+    public function vehicles() {
+        return $this->hasMany(Vehicle::class);
+    }
 }

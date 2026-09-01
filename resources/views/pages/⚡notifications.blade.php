@@ -91,12 +91,12 @@ new class extends Component
 
                 <div class="flex-1 min-w-0">
                     <x-text color="blue" variant="strong" class="font-secondary text-light-txt-primary dark:text-dark-txt-primary">
-                        {{ $notification->notification->title }}
+                        {{ $notification->notification?->title ?? 'No Title' }}
                     </x-text>
 
                     <div class="flex items-center" >
                         <x-text class="flex-1 font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-0.5 leading-snug truncate">
-                            {{ $notification->notification->message }}
+                            {{ $notification->notification?->message ?? 'No message content available.' }}
                         </x-text>
 
                         <div class="flex items-center gap-2 mt-1.5">

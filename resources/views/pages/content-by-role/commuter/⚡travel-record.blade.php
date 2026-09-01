@@ -70,7 +70,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
 
     <flux:card class="overflow-hidden p-0">
         <flux:table>
-            <flux:table.columns sticky class="bg-white dark:bg-zinc-900">
+            <flux:table.columns sticky class="bg-light-secondary dark:bg-dark-secondary">
                 <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">Destination</flux:table.column>
                 <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Vehicle Type</flux:table.column>
                 <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Plate No.</flux:table.column>
@@ -121,7 +121,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
                     <flux:table.row>
                         <flux:table.cell colspan="7" class="text-center py-12">
                             <div class="flex flex-col items-center justify-center gap-2">
-                                <flux:icon.document-text class="w-8 h-8 text-zinc-300" />
+                                <flux:icon.document-text class="w-8 h-8 text-light-txt-muted dark:text-dark-txt-muted" />
                                 <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">No travel records yet.</p>
                             </div>
                         </flux:table.cell>

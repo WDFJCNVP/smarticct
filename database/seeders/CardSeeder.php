@@ -12,8 +12,8 @@ class CardSeeder extends Seeder
     /**
      * Run the database seeds.
      */
-    public function run(): void
-    {
-        Card::factory()->create();
-    }
+    // public function run(): void
+    // {
+    //     Card::factory()->create();
+    // }
 }

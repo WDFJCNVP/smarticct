@@ -156,7 +156,7 @@ new class extends Component
             $post->update(['status' => 'rented']);
 
             Flux::toast(
-                duration: 0,
+                duration: 4000,
                 variant: 'success',
                 heading: 'Post marked as rented',
                 text: 'Your post has been marked as rented.',
@@ -181,7 +181,7 @@ new class extends Component
         $post->update(['status' => 'archived']);
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Post archived',
             text: $canModerate
@@ -196,7 +196,7 @@ new class extends Component
             $post->update(['status' => 'published']);
 
             Flux::toast(
-                duration: 0,
+                duration: 4000,
                 variant: 'success',
                 heading: 'Post restored',
                 text: 'Your post is back in the feed.',
@@ -220,7 +220,7 @@ new class extends Component
 
         if ($hasActiveInterest) {
             Flux::toast(
-                duration: 0,
+                duration: 4000,
                 variant: 'danger',
                 heading: 'Cannot delete this post',
                 text: 'This post has pending or active requests. Resolve or cancel those first.',
@@ -271,7 +271,7 @@ new class extends Component
         unset($this->filteredPosts);
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Post moved to Trash',
             text: 'You can restore it within 30 days, from the Trash page.',
@@ -424,7 +424,7 @@ new class extends Component
 ?>
 
 <div class="{{ auth()->guest() ? 'mx-auto max-w-5xl px-4 py-8 sm:px-10' : '' }}">
-    <div class="flex flex-wrap items-start justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4 sm:mb-6">
         <div>
             <x-heading
                 size="xl"
@@ -439,7 +439,7 @@ new class extends Component
         </div>
 
         @auth
-            <div class="flex items-center gap-1 sm:gap-2 flex-wrap mt-1 sm:mt-0">
+            <div class="flex items-center justify-center gap-2 w-full lg:w-auto">
                 <x-button
                     href="{{ route('post.archived') }}"
                     wire:navigate
@@ -448,10 +448,10 @@ new class extends Component
                     class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
                         !border !border-light-bd-default dark:!border-dark-bd-default
                         !text-light-txt-primary dark:!text-dark-txt-primary
-                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle"
+                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                        flex-1 lg:flex-none justify-center"
                 >
-                    <span class="hidden sm:inline">Archived</span>
-                    <span class="sm:hidden">Archived</span>
+                    <span>Archived</span>
                 </x-button>
                 <x-button
                     href="{{ route('post.my-posts') }}"
@@ -461,10 +461,10 @@ new class extends Component
                     class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
                         !border !border-light-bd-default dark:!border-dark-bd-default
                         !text-light-txt-primary dark:!text-dark-txt-primary
-                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle"
+                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                        flex-1 lg:flex-none justify-center"
                 >
-                    <span class="hidden sm:inline">My posts</span>
-                    <span class="sm:hidden">My posts</span>
+                    <span>My posts</span>
                 </x-button>
                 <x-button
                     href="{{ route('post.trash') }}"
@@ -474,24 +474,49 @@ new class extends Component
                     class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
                         !border !border-light-bd-default dark:!border-dark-bd-default
                         !text-light-txt-primary dark:!text-dark-txt-primary
-                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle"
+                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                        flex-1 lg:flex-none justify-center"
                 >
-                    <span class="hidden sm:inline">Trash</span>
-                    <span class="sm:hidden">Trash</span>
+                    <span>Trash</span>
                 </x-button>
             </div>
         @endauth
     </div>
 
-    <div class="flex flex-col lg:flex-row gap-4 h-full min-h-0">
-        <div class="flex-1 min-w-0 flex flex-col gap-4 min-h-0">
-            @auth
-                <div class="shrink-0">
-                    <livewire:pages::create-post />
-                </div>
-            @endauth
+    <div x-data="{ mobileTab: 'feed' }">
+        {{-- Mobile tab switcher: Feed / Announcements --}}
+        <div class="flex lg:hidden gap-2 mb-3">
+            <button
+                type="button"
+                @click="mobileTab = 'feed'"
+                :class="mobileTab === 'feed'
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default'"
+                class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center"
+            >
+                Feed
+            </button>
+            <button
+                type="button"
+                @click="mobileTab = 'announcements'"
+                :class="mobileTab === 'announcements'
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default'"
+                class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center"
+            >
+                Announcements
+            </button>
+        </div>
 
-            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div class="flex flex-col lg:flex-row gap-4 h-full min-h-0">
+            <div class="flex-1 min-w-0 flex-col gap-4 min-h-0" :class="mobileTab === 'feed' ? 'flex' : 'hidden lg:flex'">
+                @auth
+                    <div class="shrink-0">
+                        <livewire:pages::create-post />
+                    </div>
+                @endauth
+
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                 <flux:modal.trigger name="feed-filters">
                     <button
                         type="button"
@@ -503,7 +528,7 @@ new class extends Component
                             $activeFilters = ($filterRole !== 'all') + ($filterVehicleType !== 'all') + ($filterType !== 'all') + ($dateRange !== 'all');
                         @endphp
                         @if ($activeFilters > 0)
-                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-dark-bg text-[10px] font-bold">{{ $activeFilters }}</span>
+                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">{{ $activeFilters }}</span>
                         @endif
                     </button>
                 </flux:modal.trigger>
@@ -512,7 +537,7 @@ new class extends Component
                     <x-input
                         wire:model.live.debounce.300ms="searchQuery"
                         placeholder="Search route or poster"
-                        class="w-full !rounded-full !bg-light-primary dark:!bg-dark-subtle !border-light-bd-default dark:!border-dark-bd-default"
+                        class="w-full !bg-light-primary dark:!bg-dark-subtle !border-light-bd-default dark:!border-dark-bd-default"
                     />
                 </div>
 
@@ -588,7 +613,7 @@ new class extends Component
             </div>
         </div>
 
-        <div class="w-full lg:w-80 shrink-0 flex flex-col gap-3 min-h-0">
+        <div class="w-full lg:w-80 shrink-0 flex-col gap-3 min-h-0" :class="mobileTab === 'announcements' ? 'flex' : 'hidden lg:flex'">
             <x-text variant="strong" class="!font-primary !font-bold !text-xl text-center" style="font-size: var(--text-card-title)">
                 Terminal Announcements
             </x-text>
@@ -602,6 +627,7 @@ new class extends Component
                     </x-card>
                 @endforelse
             </div>
+        </div>
         </div>
     </div>
 
@@ -675,7 +701,7 @@ new class extends Component
         </flux:modal>
     @endguest
 
-    <flux:modal wire:model="rental_offer_modal" :closable="false" class="w-full max-w-sm sm:max-w-md md:max-w-lg lg:min-w-196">
+    <flux:modal wire:model="rental_offer_modal" :closable="false" class="w-[calc(100%-2rem)] max-w-sm sm:max-w-md md:max-w-lg lg:min-w-196">
         @if ($this->selected_post)
             <livewire:pages::interested-operator-modal
                 :selected_post="$selected_post"
@@ -684,7 +710,7 @@ new class extends Component
         @endif
     </flux:modal>
 
-    <flux:modal wire:model="show_trip_request_modal" :closable="false" class="w-full max-w-sm sm:max-w-md md:max-w-lg lg:min-w-196">
+    <flux:modal wire:model="show_trip_request_modal" :closable="false" class="w-[calc(100%-2rem)] max-w-sm sm:max-w-md md:max-w-lg lg:min-w-196">
         @if ($this->selected_post)
             <livewire:pages::trip-request-modal
                 :selected_post="$selected_post"
@@ -697,7 +723,7 @@ new class extends Component
         @endif
     </flux:modal>
 
-    <flux:modal wire:model="show_delete_interested_modal" :closable="false" class="w-full max-w-xs sm:max-w-sm md:max-w-md lg:min-w-96">
+    <flux:modal wire:model="show_delete_interested_modal" :closable="false" class="w-[calc(100%-2rem)] max-w-xs sm:max-w-sm md:max-w-md lg:min-w-96">
         @if ($this->selected_post)
             <livewire:pages::post-delete-interest-modal
                 :selected_post="$selected_post"
@@ -709,7 +735,7 @@ new class extends Component
     <flux:modal
         wire:model="show_delete_post_modal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
     >
         <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
             <div class="flex items-start justify-between">
@@ -738,8 +764,7 @@ new class extends Component
                     wire:click="deletePost"
                     wire:loading.attr="disabled"
                     type="button"
-                    variant="primary"
-                    color="red"
+                    variant="danger"
                     class="w-full sm:w-auto justify-center !font-secondary"
                 >
                     Move to Trash

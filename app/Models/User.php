@@ -30,7 +30,6 @@ class User extends Authenticatable
         'phone_number',
         'age',
         'password',
-        'valid_id',
         'type',
         'last_feed_viewed_at',
     ];
@@ -67,6 +66,19 @@ class User extends Authenticatable
     public function isSuspended(): bool
     {
         return $this->userStatus?->status === 'suspended';
+    }
+
+    /**
+     * True once a commuter has permanently deleted their own account via
+     * UserService::deleteOwnAccount(). Their PII has already been wiped;
+     * this flag exists purely to block login/session access, since the
+     * row is intentionally kept (not soft-deleted) so historical records
+     * belonging to other users can still resolve this user's relation
+     * and display it as "Deleted User".
+     */
+    public function isDeleted(): bool
+    {
+        return (bool) $this->userStatus?->is_deleted;
     }
 
     public function postInterests() {

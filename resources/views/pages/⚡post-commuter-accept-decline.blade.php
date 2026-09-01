@@ -60,7 +60,7 @@ new class extends Component
     </div>
 
 
-    <flux:modal wire:model="is_confirm_cancel" class="min-w-[22rem]">
+    <flux:modal wire:model="is_confirm_cancel" class="w-[calc(100%-2rem)] sm:min-w-[22rem] sm:max-w-none">
         @if ($this->is_confirm_cancel)
             <div class="space-y-6">
                 <div>
@@ -80,7 +80,7 @@ new class extends Component
         @endif
     </flux:modal>
 
-    <flux:modal wire:model="is_operator_accept" class="min-w-[22rem]">
+    <flux:modal wire:model="is_operator_accept" class="w-[calc(100%-2rem)] sm:min-w-[22rem] sm:max-w-none">
         @if ($this->is_operator_accept)
             <div class="space-y-6">
                 <div>

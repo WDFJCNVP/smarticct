@@ -56,24 +56,71 @@ function palette() {
         txtBody: cssVar(dark ? '--color-dark-txt-body' : '--color-light-txt-body'),
         txtMuted: cssVar(dark ? '--color-dark-txt-muted' : '--color-light-txt-muted'),
         border: cssVar(dark ? '--color-dark-bd-default' : '--color-light-bd-default'),
+        surface: cssVar(dark ? '--color-dark-surface' : '--color-light-secondary'),
     };
+}
+
+// Chart.js can't read CSS vars for font-family either, so it's resolved the
+// same way as colors: fresh, from the theme, every time a chart (re)draws.
+function fontFamily() {
+    return cssVar('--font-secondary') || 'sans-serif';
 }
 
 // Chart.js default axis/legend font is small (~12px) and Chart.js can't read
 // rem-based CSS vars, so size and weight are set directly here — bumped up
-// for readability since the dashboard's audience skews older.
-const TICK_FONT = { size: 13, weight: 500 };
-const LEGEND_FONT = { size: 13, weight: 500 };
+// for readability since the dashboard's audience skews older. Family is
+// resolved live so chart text always matches the rest of the UI.
+function tickFont() {
+    return { size: 13, weight: 500, family: fontFamily() };
+}
+
+function legendFont() {
+    return { size: 13, weight: 500, family: fontFamily() };
+}
 
 function axisOptions(pal) {
     return {
-        ticks: { color: pal.txtBody, precision: 0, font: TICK_FONT },
-        grid: { color: pal.border },
+        ticks: { color: pal.txtBody, precision: 0, font: tickFont() },
+        // Modern dashboards read cleaner without gridlines cluttering the plot area.
+        grid: { display: false },
+        border: { color: pal.border },
     };
 }
 
+// Legend on the right, circular swatches instead of the default rectangles —
+// matches the rounded, modern look used across the rest of the dashboard.
 function legendOptions(pal) {
-    return { position: 'bottom', labels: { color: pal.txtBody, font: LEGEND_FONT } };
+    return {
+        position: 'right',
+        labels: {
+            color: pal.txtBody,
+            font: legendFont(),
+            usePointStyle: true,
+            pointStyle: 'circle',
+            boxWidth: 8,
+            boxHeight: 8,
+            padding: 16,
+        },
+    };
+}
+
+// Shared tooltip styling so tooltips look like part of the app (rounded,
+// theme-colored) instead of Chart.js's stark default white box, which is
+// especially jarring in dark mode.
+function tooltipOptions(pal) {
+    return {
+        backgroundColor: pal.surface,
+        titleColor: pal.txtBody,
+        bodyColor: pal.txtBody,
+        borderColor: pal.border,
+        borderWidth: 1,
+        padding: 10,
+        cornerRadius: 8,
+        titleFont: tickFont(),
+        bodyFont: tickFont(),
+        usePointStyle: true,
+        boxPadding: 4,
+    };
 }
 
 // A chart counts as "empty" if it has no data points, or every value is
@@ -127,8 +174,11 @@ window.lineChart = function (initial) {
                     datasets: [{
                         label: 'Registrations',
                         data: initial.data,
-                        borderColor: pal.primary,
-                        backgroundColor: hexToRgba(pal.primary, 0.12),
+                        borderColor: pal.info,
+                        backgroundColor: hexToRgba(pal.info, 0.12),
+                        pointBackgroundColor: pal.surface,
+                        pointBorderColor: pal.info,
+                        pointBorderWidth: 2,
                         tension: 0.35,
                         fill: true,
                         pointRadius: 3,
@@ -138,7 +188,7 @@ window.lineChart = function (initial) {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { legend: { display: false }, tooltip: tooltipOptions(pal) },
                     scales: {
                         y: { beginAtZero: true, ...axisOptions(pal) },
                         x: { ...axisOptions(pal) },
@@ -148,12 +198,15 @@ window.lineChart = function (initial) {
 
             recolor = () => {
                 const p = palette();
-                chart.data.datasets[0].borderColor = p.primary;
-                chart.data.datasets[0].backgroundColor = hexToRgba(p.primary, 0.12);
+                chart.data.datasets[0].borderColor = p.info;
+                chart.data.datasets[0].backgroundColor = hexToRgba(p.info, 0.12);
+                chart.data.datasets[0].pointBackgroundColor = p.surface;
+                chart.data.datasets[0].pointBorderColor = p.info;
+                chart.options.plugins.tooltip = tooltipOptions(p);
                 chart.options.scales.x.ticks.color = p.txtBody;
-                chart.options.scales.x.grid.color = p.border;
+                chart.options.scales.x.border.color = p.border;
                 chart.options.scales.y.ticks.color = p.txtBody;
-                chart.options.scales.y.grid.color = p.border;
+                chart.options.scales.y.border.color = p.border;
                 chart.update();
             };
             window.__dashboardCharts.push(recolor);
@@ -197,6 +250,7 @@ window.roleChart = function (initial) {
                     maintainAspectRatio: false,
                     plugins: {
                         legend: legendOptions(pal),
+                        tooltip: tooltipOptions(pal),
                     },
                 },
             });
@@ -205,6 +259,7 @@ window.roleChart = function (initial) {
                 const p = palette();
                 chart.data.datasets[0].backgroundColor = [p.info, p.warning];
                 chart.options.plugins.legend.labels.color = p.txtBody;
+                chart.options.plugins.tooltip = tooltipOptions(p);
                 chart.update();
             };
             window.__dashboardCharts.push(recolor);
@@ -252,7 +307,7 @@ window.barChart = function (initial, options = {}) {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { legend: { display: false }, tooltip: tooltipOptions(pal) },
                     scales: {
                         y: { beginAtZero: true, ...axisOptions(pal) },
                         x: { ...axisOptions(pal) },
@@ -263,10 +318,11 @@ window.barChart = function (initial, options = {}) {
             recolor = () => {
                 const p = palette();
                 chart.data.datasets[0].backgroundColor = p[key] ?? p.primary;
+                chart.options.plugins.tooltip = tooltipOptions(p);
                 chart.options.scales.x.ticks.color = p.txtBody;
-                chart.options.scales.x.grid.color = p.border;
+                chart.options.scales.x.border.color = p.border;
                 chart.options.scales.y.ticks.color = p.txtBody;
-                chart.options.scales.y.grid.color = p.border;
+                chart.options.scales.y.border.color = p.border;
                 chart.update();
             };
             window.__dashboardCharts.push(recolor);
@@ -312,8 +368,10 @@ window.donutChart = function (initial, options = {}) {
                     responsive: true,
                     maintainAspectRatio: false,
                     cutout: '65%',
+                    layout: { padding: 24 },
                     plugins: {
                         legend: legendOptions(pal),
+                        tooltip: tooltipOptions(pal),
                     },
                 },
             });
@@ -322,6 +380,7 @@ window.donutChart = function (initial, options = {}) {
                 const p = palette();
                 chart.data.datasets[0].backgroundColor = keys.map((k) => p[k] ?? p.primary);
                 chart.options.plugins.legend.labels.color = p.txtBody;
+                chart.options.plugins.tooltip = tooltipOptions(p);
                 chart.update();
             };
             window.__dashboardCharts.push(recolor);

@@ -36,6 +36,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
     public ?int $zone_number = null;
     public string $barangay = '';
     public string $municipality = '';
+    public string $province = '';      // NEW
 
     public function saveAddress(): void
     {
@@ -44,6 +45,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             'zone_number'  => 'required|integer|min:1|max:20',
             'barangay'     => 'required|string|max:255',
             'municipality' => 'required|string|max:255',
+            'province'     => 'required|string|max:255',    // NEW
         ]);
 
         $parts = array_filter([
@@ -51,7 +53,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             'Zone ' . $data['zone_number'],
             $data['barangay'],
             $data['municipality'],
-            'Camarines Sur',
+            $data['province'],                             // REPLACED hardcoded
         ]);
 
         $this->address = implode(', ', $parts);
@@ -68,7 +70,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             'age'           => 'required|integer|between:5,120',
             'phone_number'  => 'required|string|regex:/^09\d{9}$/',
             'address'       => 'required|string|max:500',
-            'agree'         => 'accepted', // <-- new rule
+            'agree'         => 'accepted',
         ]);
 
         $user = app(UserService::class)->update(auth()->user(), $data, byAdmin: false);
@@ -178,6 +180,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             <flux:error name="phone_number" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                         </flux:field>
 
+                        {{-- ADDRESS FIELD (updated) --}}
                         <flux:field>
                             <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                                 Address
@@ -230,18 +233,32 @@ new #[Layout('layouts.public-account-setup')] class extends Component
 
     </div>
 
-    {{-- ADDRESS MODAL --}}
-    <flux:modal name="address-modal" class="md:w-[26rem]" x-on:address-saved.window="Flux.modal('address-modal').close()">
-        <div class="space-y-4">
-            <div>
-                <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
-                    Set your address
-                </flux:heading>
-                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                    Please provide the complete address within Camarines Sur.
-                </flux:text>
+    {{-- ADDRESS MODAL – restyled, with Province field --}}
+    <flux:modal
+        name="address-modal"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto rounded-xl overflow-hidden"
+        x-on:address-saved.window="Flux.modal('address-modal').close()"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            {{-- Header --}}
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Set your address
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        Please provide your complete address.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
             </div>
 
+            {{-- Fields --}}
             <flux:field>
                 <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                     House No. / Subdivision
@@ -288,9 +305,21 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                 <flux:error name="municipality" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
-            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
-                <flux:modal.close>
-                    <flux:button type="button" variant="ghost" class="font-secondary w-full sm:w-auto">
+            {{-- NEW Province field --}}
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Province</flux:label>
+                <flux:input
+                    wire:model="province"
+                    placeholder="e.g. Camarines Sur"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="province" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
+            </flux:field>
+
+            {{-- Footer buttons --}}
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close class="w-full sm:w-auto">
+                    <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
                         Cancel
                     </flux:button>
                 </flux:modal.close>

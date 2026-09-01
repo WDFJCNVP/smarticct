@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignIdFor(\App\Models\User::class)->constrained()->onDelete('cascade');
             $table->foreignIdFor(\App\Models\Card::class)->constrained()->onDelete('cascade');
-            $table->string('checkout_session_id')->unique();
+            $table->string('checkout_session_id')->nullable()->unique();
             $table->decimal('amount_paid', 10, 2); 
             $table->decimal('points_credited', 10, 2); 
             $table->string('status', 30)->default('pending'); 

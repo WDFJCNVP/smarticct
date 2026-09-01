@@ -25,6 +25,7 @@ new #[Title('Profile settings')] class extends Component {
     public ?int $zone_number = null;
     public string $municipality = '';
     public string $barangay = '';
+    public string $province = '';      // <-- NEW
 
     /**
      * Mount the component.
@@ -42,32 +43,29 @@ new #[Title('Profile settings')] class extends Component {
 
     /**
      * Parse the current address string and fill the modal fields.
+     * Expected format: "House/Subd, Zone X, Barangay, Municipality, Province"
      */
     public function prepareAddressModal(): void
     {
-        // Expected format: "House/Subd, Zone X, Barangay, Municipality, Camarines Sur"
         $parts = array_map('trim', explode(',', $this->address ?? ''));
 
-        // Default empty values
         $this->house_subd   = '';
         $this->zone_number  = null;
         $this->barangay     = '';
         $this->municipality = '';
+        $this->province     = '';
 
         if (count($parts) >= 5) {
-            // The last part is always "Camarines Sur"
+            $this->province     = $parts[4] ?? '';
             $this->municipality = $parts[3] ?? '';
             $this->barangay     = $parts[2] ?? '';
-            // Zone part: e.g. "Zone 3" -> extract number
             $zonePart = $parts[1] ?? '';
             if (preg_match('/Zone\s+(\d+)/i', $zonePart, $matches)) {
                 $this->zone_number = (int) $matches[1];
             }
             $this->house_subd   = $parts[0] ?? '';
-        } else {
-            // Fallback: if address doesn't match expected format, leave fields empty
-            // so the user can re‑enter everything.
         }
+        // If address doesn't match the expected format, fields stay empty
     }
 
     /**
@@ -134,6 +132,7 @@ new #[Title('Profile settings')] class extends Component {
 
         Flux::toast(
             variant: 'success',
+            duration: 4000,
             heading: 'Changes saved.',
             text: 'Your profile has been updated.',
         );
@@ -149,6 +148,7 @@ new #[Title('Profile settings')] class extends Component {
             'zone_number'  => 'required|integer|min:1|max:20',
             'municipality' => 'required|string|max:255',
             'barangay'     => 'required|string|max:255',
+            'province'     => 'required|string|max:255',    // <-- NEW
         ]);
 
         $parts = array_filter([
@@ -156,7 +156,7 @@ new #[Title('Profile settings')] class extends Component {
             'Zone ' . $data['zone_number'],
             $data['barangay'],
             $data['municipality'],
-            'Camarines Sur',
+            $data['province'],                             // <-- REPLACED hardcoded
         ]);
 
         $this->address = implode(', ', $parts);
@@ -173,6 +173,7 @@ new #[Title('Profile settings')] class extends Component {
 
         Flux::toast(
             variant: 'success',
+            duration: 4000,
             heading: 'Address saved.',
             text: 'Your address has been updated.',
         );
@@ -205,6 +206,13 @@ new #[Title('Profile settings')] class extends Component {
     #[Computed]
     public function showDeleteUser(): bool
     {
+        // Only commuters may delete their own account. Admins can only
+        // suspend accounts (never delete), and cashiers/operators can
+        // never delete their own accounts.
+        if (Auth::user()->role !== 'commuter') {
+            return false;
+        }
+
         return ! Auth::user() instanceof MustVerifyEmail
             || (Auth::user() instanceof MustVerifyEmail && Auth::user()->hasVerifiedEmail());
     }
@@ -295,7 +303,7 @@ new #[Title('Profile settings')] class extends Component {
                         @endif
                     </button>
                 </flux:modal.trigger>
-                <flux:error name="address" />
+                <flux:error name="address" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
             <div class="flex items-center gap-4">
@@ -311,15 +319,28 @@ new #[Title('Profile settings')] class extends Component {
         
     </x-pages::settings.layout>
 
-    <flux:modal name="address-modal" class="md:w-[26rem]" x-on:address-saved.window="$flux.modal('address-modal').close()">
-        <div class="space-y-4">
-            <div>
-                <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
-                    Set address
-                </flux:heading>
-                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                    Please provide the complete address within Camarines Sur.
-                </flux:text>
+    {{-- Address modal – UPDATED with Province field and restyled --}}
+    <flux:modal
+        name="address-modal"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto rounded-xl overflow-hidden"
+        x-on:address-saved.window="$flux.modal('address-modal').close()"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Set your address
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        Please provide your complete address.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
             </div>
 
             <flux:field>
@@ -332,7 +353,7 @@ new #[Title('Profile settings')] class extends Component {
                     placeholder="e.g. Blk 3 Lot 5, Hillside Subd."
                     class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
-                <flux:error name="house_subd" />
+                <flux:error name="house_subd" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
             <flux:field>
@@ -345,17 +366,7 @@ new #[Title('Profile settings')] class extends Component {
                     placeholder="e.g. 3"
                     class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
-                <flux:error name="zone_number" />
-            </flux:field>
-
-            <flux:field>
-                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Municipality / City</flux:label>
-                <flux:input
-                    wire:model="municipality"
-                    placeholder="e.g. Iriga City"
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
-                />
-                <flux:error name="municipality" />
+                <flux:error name="zone_number" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
             <flux:field>
@@ -365,7 +376,28 @@ new #[Title('Profile settings')] class extends Component {
                     placeholder="e.g. San Roque"
                     class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
-                <flux:error name="barangay" />
+                <flux:error name="barangay" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Municipality / City</flux:label>
+                <flux:input
+                    wire:model="municipality"
+                    placeholder="e.g. Iriga City"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="municipality" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
+            </flux:field>
+
+            {{-- NEW Province field --}}
+            <flux:field>
+                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Province</flux:label>
+                <flux:input
+                    wire:model="province"
+                    placeholder="e.g. Camarines Sur"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="province" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
             <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">

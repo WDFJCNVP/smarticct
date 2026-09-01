@@ -19,6 +19,6 @@ new #[Layout('layouts.operator-layout')] class extends Component
     </div> --}}
 
     <div>
-        <livewire-pages::queue-page />
+        <livewire:pages::queue-page />
     </div>
 </div>

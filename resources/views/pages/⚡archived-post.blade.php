@@ -13,6 +13,8 @@ use Flux\Flux;
 new class extends Component
 {
     public $selectedPostId = null;
+    public $selected_post = null;
+    public bool $show_delete_interested_modal = false;
     public bool $show_delete_post_modal = false;
     public ?int $deletePostId = null;
 
@@ -28,7 +30,7 @@ new class extends Component
         // restorable back into the feed — there's nothing to "un-complete".
         if (! empty($post->metadata['transaction_completed'])) {
             Flux::toast(
-                duration: 0,
+                duration: 4000,
                 variant: 'danger',
                 heading: 'Cannot restore this post',
                 text: 'This post was archived because its transaction was completed and cannot be restored.',
@@ -39,7 +41,7 @@ new class extends Component
         $post->update(['status' => 'published']);
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Post restored',
             text: 'Your post is back in the feed.',
@@ -59,7 +61,7 @@ new class extends Component
 
         if ($hasActiveInterest) {
             Flux::toast(
-                duration: 0,
+                duration: 4000,
                 variant: 'danger',
                 heading: 'Cannot delete this post',
                 text: 'This post has pending or active requests. Resolve or cancel those first.',
@@ -112,7 +114,7 @@ new class extends Component
         unset($this->getArchivedPost);
 
         Flux::toast(
-            duration: 0,
+            duration: 4000,
             variant: 'success',
             heading: 'Post moved to Trash',
             text: 'You can restore it within 30 days, from the Trash page.',
@@ -151,7 +153,7 @@ new class extends Component
     public function uninterested($postId)
     {
         $this->selected_post = null;
-        $this->show_interested_modal = false;
+        $this->show_delete_interested_modal = false;
 
         if(auth()->user()->role === 'operator') {
             $this->selected_post = RentalOffer::where('user_id', auth()->id())
@@ -210,8 +212,8 @@ new class extends Component
 ?>
 
 <div>
-    {{-- Header — matches Feed exactly --}}
-    <div class="flex flex-wrap items-start justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
+    {{-- Header — matches Feed --}}
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4 sm:mb-6">
         <div>
             <x-heading
                 size="xl"
@@ -225,37 +227,46 @@ new class extends Component
             </x-text>
         </div>
 
-        {{-- Navigation buttons — exactly like Feed --}}
-        <div class="flex items-center gap-1 sm:gap-2 flex-wrap mt-1 sm:mt-0">
+        {{-- Navigation buttons — matches Feed --}}
+        <div class="flex items-center justify-center gap-2 w-full lg:w-auto">
             <x-button
                 href="{{ route('feed') }}"
                 wire:navigate
                 variant="ghost"
-                icon="home"
-                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2"
+                icon="squares-2x2"
+                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
+                    !border !border-light-bd-default dark:!border-dark-bd-default
+                    !text-light-txt-primary dark:!text-dark-txt-primary
+                    hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                    flex-1 lg:flex-none justify-center"
             >
-                <span class="hidden sm:inline">Feed</span>
-                <span class="sm:hidden">Feed</span>
+                <span>Feed</span>
             </x-button>
             <x-button
                 href="{{ route('post.my-posts') }}"
                 wire:navigate
                 variant="ghost"
                 icon="document-text"
-                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2"
+                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
+                    !border !border-light-bd-default dark:!border-dark-bd-default
+                    !text-light-txt-primary dark:!text-dark-txt-primary
+                    hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                    flex-1 lg:flex-none justify-center"
             >
-                <span class="hidden sm:inline">My Posts</span>
-                <span class="sm:hidden">My Posts</span>
+                <span>My posts</span>
             </x-button>
             <x-button
                 href="{{ route('post.trash') }}"
                 wire:navigate
                 variant="ghost"
                 icon="trash"
-                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2"
+                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
+                    !border !border-light-bd-default dark:!border-dark-bd-default
+                    !text-light-txt-primary dark:!text-dark-txt-primary
+                    hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                    flex-1 lg:flex-none justify-center"
             >
-                <span class="hidden sm:inline">Trash</span>
-                <span class="sm:hidden">Trash</span>
+                <span>Trash</span>
             </x-button>
         </div>
     </div>
@@ -291,10 +302,20 @@ new class extends Component
         @endforelse
     </div>
 
+    {{-- Uninterest confirmation modal — was missing before, referenced by uninterested() but never rendered --}}
+    <flux:modal wire:model="show_delete_interested_modal" :closable="false" class="w-[calc(100%-2rem)] max-w-xs sm:max-w-sm md:max-w-md lg:min-w-96">
+        @if ($this->selected_post)
+            <livewire:pages::post-delete-interest-modal
+                :selected_post="$selected_post"
+                :key="'delete-archived-post-' . $selected_post->id"
+            />
+        @endif
+    </flux:modal>
+
     <flux:modal
         wire:model="show_delete_post_modal"
         :closable="false"
-        class="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto max-h-[80vh] sm:max-h-[90vh] overflow-hidden rounded-xl"
     >
         <div class="flex flex-col max-h-[calc(80vh-2rem)] sm:max-h-[calc(90vh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
             <div class="flex items-start justify-between">
@@ -323,8 +344,7 @@ new class extends Component
                     wire:click="deletePost"
                     wire:loading.attr="disabled"
                     type="button"
-                    variant="primary"
-                    color="red"
+                    variant="danger"
                     class="w-full sm:w-auto justify-center !font-secondary"
                 >
                     Move to Trash

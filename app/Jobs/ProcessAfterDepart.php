@@ -153,7 +153,7 @@ class ProcessAfterDepart implements ShouldQueue
                 }
 
                 $departsAt = match ($next_queue->vehicle_type) {
-                    'Bus'       => Carbon::now()->addMinutes(1),
+                    'Bus'       => Carbon::now()->addMinutes(30),
                     'Multi-cab' => Carbon::now()->addMinutes(2),
                     'Jeep'      => !in_array($next_queue->destination, ['Buhi', 'Mountain-unit']) ? Carbon::now()->addMinutes(30) : null,
                     default     => null,

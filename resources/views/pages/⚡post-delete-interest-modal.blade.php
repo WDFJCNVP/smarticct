@@ -4,6 +4,7 @@ use Livewire\Component;
 
 use App\Models\TripRequest;
 use App\Models\RentalOffer;
+use Flux\Flux;
 
 new class extends Component
 {
@@ -11,8 +12,6 @@ new class extends Component
 
     public function destroy()
     {
-        // Guard against double-click: if this already ran once,
-        // $selected_post is null, so just bail out instead of crashing.
         if (! $this->selected_post) {
             return;
         }
@@ -28,6 +27,14 @@ new class extends Component
         }
 
         $this->selected_post = null;
+
+        Flux::toast(
+            duration: 4000,
+            variant: 'success',
+            heading: 'Removed',
+            text: 'This post has been removed from your interest list.',
+        );
+
         $this->dispatch('interested-list-updated');
     }
 };

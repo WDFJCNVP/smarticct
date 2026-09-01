@@ -50,7 +50,7 @@
 @endphp
 
 <flux:card
-    class="!rounded-xl !border !border-light-bd-default dark:!border-dark-bd-default !bg-light-secondary dark:!bg-dark-secondary !shadow-sm"
+    class="!rounded-xl !border !border-light-bd-default dark:!border-dark-bd-default !bg-light-primary dark:!bg-dark-surface !shadow-sm"
 >
     <div class="flex items-start justify-between">
         <div class="flex items-center gap-3">
@@ -213,4 +213,3 @@
     </div>
 
 </flux:card>
-

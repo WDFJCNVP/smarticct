@@ -4,6 +4,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use App\Models\CardTransaction;
 use App\Models\TopUpTransaction;
 use App\Models\Card;
 class PaymongoController extends Controller
@@ -131,5 +132,59 @@ class PaymongoController extends Controller
         ]);
 
         return hash_equals($expected, $received);
+    }
+
+    public function handleDisbursementWebhook(Request $request)
+    {
+        $payload = $request->getContent();
+        $signatureHeader = $request->header('Paymongo-Signature');
+        $webhookSecret = config('services.paymongo.disbursement_webhook_secret');
+
+        if (!$this->isValidSignature($payload, $signatureHeader, $webhookSecret)) {
+            Log::warning('DISBURSEMENT WEBHOOK: Invalid signature, rejecting.');
+            abort(403, 'Invalid signature.');
+        }
+
+        try {
+            $event = json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
+            $type = $event['data']['attributes']['type'] ?? null;
+            $referenceNumber = $event['data']['attributes']['data']['attributes']['reference_number'] ?? null;
+
+            if (!$referenceNumber) {
+                Log::error('DISBURSEMENT WEBHOOK: missing reference_number.', ['event' => $event]);
+                return response()->json(['message' => 'ok']); // ack anyway, nothing to match
+            }
+
+            DB::transaction(function () use ($type, $referenceNumber, $event) {
+                $transaction = CardTransaction::where('reference_no', $referenceNumber)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$transaction || in_array($transaction->status, ['success', 'failed'])) {
+                    return; // already terminal, or unknown reference — idempotent no-op
+                }
+
+                if ($type === 'transfer.outward.successful') {
+                    $transaction->update(['status' => 'success']);
+                } elseif ($type === 'transfer.outward.failed') {
+                    $attrs = $event['data']['attributes']['data']['attributes'] ?? [];
+
+                    $transaction->update([
+                        'status' => 'failed',
+                        'message' => $transaction->message
+                            . " | Failed: {$attrs['provider_error']} ({$attrs['provider_error_code']})",
+                    ]);
+
+                    $card = $transaction->card()->lockForUpdate()->first();
+                    $card->increment('balance', $transaction->amount); // refund since it never left
+                }
+            });
+        } catch (\Throwable $e) {
+            Log::error('DISBURSEMENT WEBHOOK: Processing failed after signature passed.', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return response()->json(['message' => 'ok']);
     }
 }

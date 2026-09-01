@@ -75,7 +75,7 @@ new class extends Component
 
         if($service) {
             Flux::toast(
-                duration: 0,
+                duration: 4000,
                 variant: 'success',
                 heading: 'Your request has been submitted.',
                 text: 'You can see the updates in your notifications.',
@@ -115,6 +115,7 @@ new class extends Component
                     wire:model.live="selected_vehicle_type"
                     placeholder="Select vehicle type"
                     required
+                    size="sm"
                     class="mt-1"
                 >
                     @foreach ($this->getOperatorVehicles as $vehicle)
@@ -248,7 +249,7 @@ new class extends Component
                 placeholder="Enter your message to the client"
                 required
                 rows="3"
-                class="mt-1"
+                class="mt-1 text-sm p-2.5"
             />
             <flux:error name="message" />
         </flux:field>

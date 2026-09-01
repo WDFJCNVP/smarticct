@@ -3,6 +3,7 @@
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Validate;
+use Flux\Flux;
 
 use App\Services\PostService;
 
@@ -112,6 +113,14 @@ new class extends Component
                 'driver_contact_number' => $attributes['driver_contact_number'],
             ]
         ]);
+
+     Flux::toast(
+         duration: 4000,
+         variant: 'success',
+         heading: 'Trip request sent',
+         text: 'The operator has been notified of your request.',
+     );
+
      $this->dispatch('interest-deleted');
    }
 };
@@ -427,7 +436,7 @@ new class extends Component
                 wire:model="purpose"
                 placeholder="Enter your purpose"
                 rows="3"
-                class="mt-1"
+                class="mt-1 text-sm p-2.5"
             />
             <flux:error name="purpose" />
         </flux:field>

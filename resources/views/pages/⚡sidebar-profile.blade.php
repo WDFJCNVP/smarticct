@@ -27,7 +27,7 @@ new class extends Component
 ?>
 
 @if ($variant === 'mobile')
-    <flux:dropdown position="top" align="end">
+    <flux:dropdown position="top" align="end" class="-mr-2.5">
         <div class="relative inline-block">
             <flux:profile
                 :initials="auth()->user()->initials()"

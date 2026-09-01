@@ -49,13 +49,41 @@ new #[Layout('layouts.admin-layout')] class extends Component
         return Queue::whereIn('status', ['staging', 'loading'])->count();
     }
 
-    #[Computed]
-    public function todayRevenue()
-    {
-        return TopUpTransaction::where('status', 'paid')
-            ->whereDate('created_at', today())
-            ->sum('amount_paid');
-    }
+#[Computed]
+public function totalRevenue()
+{
+    // 1. Digital card fee earnings
+    $cardFees = CardTransaction::whereIn('transaction_type', ['queueing_fee', 'operator_payment'])
+        ->where('status', 'success')
+        ->sum('amount');
+
+    // 2. Over-the-counter cash fees
+    $cashFees = CashTransaction::where('status', 'success')
+        ->sum('amount');
+
+    // 3. Admin withdrawals (pending and completed)
+    $totalWithdrawn = CardTransaction::where('transaction_type', 'admin_withdrawal')
+        ->whereIn('status', ['pending', 'success'])
+        ->sum('amount');
+
+    // Net remaining balance/revenue
+    return max(0.0, ($cardFees + $cashFees) - $totalWithdrawn);
+}
+
+#[Computed]
+public function todayRevenue()
+{
+    $cardFees = CardTransaction::whereIn('transaction_type', ['queueing_fee', 'operator_payment'])
+        ->where('status', 'success')
+        ->whereDate('transaction_time', today())
+        ->sum('amount');
+
+    $cashFees = CashTransaction::where('status', 'success')
+        ->whereDate('created_at', today())
+        ->sum('amount');
+
+    return $cardFees + $cashFees;
+}
 
     #[Computed]
     public function queueFeeRevenueToday()
@@ -689,7 +717,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
                         <span class="hidden sm:inline">Filters</span>
                         @if ((int) $this->range !== 7)
-                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-dark-bg text-[10px] font-bold">1</span>
+                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">1</span>
                         @endif
                     </button>
                 </flux:modal.trigger>
@@ -761,6 +789,18 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     </div>
                 </div>
                 <x-dashboard.trend-pill :value="$this->revenueTodayTrend" class="!bg-white/15 !text-white" suffix="vs yday" />
+            </div>
+            <div class="flex items-center justify-between gap-3 px-5 py-4 flex-1">
+                <div class="flex items-center gap-3">
+                    <flux:icon.banknotes class="w-5 h-5 text-white/70 shrink-0" />
+                    <div>
+                        <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Total Revenue</div>
+                        <div class="font-primary text-3xl font-extrabold tabular-nums">
+                            ₱{{ number_format($this->totalRevenue, 2) }}
+                        </div>
+                    </div>
+                </div>
+                <x-button href=" {{ route('withdraw') }} " variant="primary" color="yellow">Withdraw</x-button>
             </div>
         </div>
     </div>
@@ -897,7 +937,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
         {{-- Peak queueing time by vehicle type --}}
         <flux:card class="p-4 lg:col-span-2">
-            <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <div class="flex items-start justify-between gap-2 mb-2 flex-wrap">
                 <div>
                     <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
                         Peak queueing time
@@ -909,7 +949,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         </x-text>
                     @endif
                 </div>
-                <flux:select wire:model.live="peakVehicleType" size="sm" class="w-36 shrink-0">
+                <flux:select wire:model.live="peakVehicleType" size="sm" class="w-full sm:w-36 shrink-0">
                     <flux:select.option value="all">All types</flux:select.option>
                     @foreach ($this->vehicleTypeOptions as $type)
                         <flux:select.option value="{{ $type }}">{{ ucfirst($type) }}</flux:select.option>
@@ -921,7 +961,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 x-data="barChart(@js($this->peakTimeByVehicleType), { label: 'Vehicles queued', colorKey: 'warning' })"
                 @peak-time-chart-updated.window="update($event.detail.chart)"
             >
-                <div class="relative h-44 sm:h-56">
+                <div class="relative h-64 sm:h-80">
                     <canvas x-ref="canvas" x-show="!empty"></canvas>
                     <div x-show="empty" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center px-4">
                         <flux:icon.chart-bar class="w-6 h-6 text-light-txt-muted dark:text-dark-txt-muted" />
@@ -939,7 +979,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 </x-text>
                 <span class="font-secondary text-xs font-medium text-light-txt-muted dark:text-dark-txt-muted">Next 30 days</span>
             </div>
-            <div class="mt-2 max-h-72 overflow-y-auto divide-y divide-light-bd-default/60 dark:divide-dark-bd-default/60">
+            <div class="mt-2 max-h-[22rem] overflow-y-auto divide-y divide-light-bd-default/60 dark:divide-dark-bd-default/60">
                 @forelse ($this->expiringOperatorDocs as $vehicle)
                     @php
                         $docs = collect([
@@ -1255,7 +1295,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 </x-text>
             </div>
             <div class="overflow-x-auto mt-2">
-                <table class="w-full font-secondary text-table-row">
+                <table class="w-full min-w-[640px] font-secondary text-table-row">
                     <thead>
                         <tr class="text-left text-light-txt-body dark:text-dark-txt-body border-b border-light-bd-default dark:border-dark-bd-default">
                             <th class="py-2 px-4 font-semibold">User</th>

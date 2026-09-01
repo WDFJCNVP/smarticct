@@ -183,15 +183,15 @@ new #[Layout('layouts.public-layout')] class extends Component
                                         <span>Fill in your email address and password. This will be used for verification and forgot password feature.</span>
                                     </li>
                                     <li class="flex gap-3">
-                                        <span class="shrink-0 size-5 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">2</span>
+                                        <span class="shrink-0 size-5 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">3</span>
                                         <span>Check your email address for OTP and submit in the form.</span>
                                     </li>
                                     <li class="flex gap-3">
-                                        <span class="shrink-0 size-5 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">3</span>
+                                        <span class="shrink-0 size-5 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">4</span>
                                         <span>Fill in your personal details.</span>
                                     </li>
                                     <li class="flex gap-3">
-                                        <span class="shrink-0 size-5 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">4</span>
+                                        <span class="shrink-0 size-5 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">5</span>
                                         <span>Submit your registration — your account is now active and ready to use!</span>
                                     </li>
                                 </ol>
@@ -315,7 +315,7 @@ new #[Layout('layouts.public-layout')] class extends Component
 
                                 <div class="flex items-start gap-2 bg-info/5 dark:bg-dark-info/10 border border-info/20 dark:border-dark-info/30 rounded-lg p-3">
                                     <flux:icon name="information-circle" class="size-4 text-info dark:text-dark-info shrink-0 mt-0.5" />
-                                    <p class="text-info dark:text-info">
+                                    <p class="text-info dark:text-dark-info">
                                         Important: Your login credentials are issued only once by the ICCT admin. Do not lose or forget them — store them in a secure location. If you need to register an additional vehicle, you must go through the admin again.
                                     </p>
                                 </div>
