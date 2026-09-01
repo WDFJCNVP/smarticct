@@ -2,40 +2,43 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class OperatorDisbursementService
 {
-    protected string $baseUrl = 'https://api.paymongo.com/v2';
+    public function __construct(
+        protected PaymongoDisbursementService $paymongo
+    ) {}
 
     public function createWithdrawal(array $data): array
     {
         $referenceNumber = 'WD-' . now()->format('YmdHis') . '-' . Str::random(4);
 
-        $response = Http::withBasicAuth(config('services.paymongo.secret_key'), '')
-            ->post("{$this->baseUrl}/batch_transfers", [
-                'transfers' => [[
-                    'provider'    => $data['provider'], // 'instapay' or 'pesonet'
-                    'amount'      => (int) round($data['amount'] * 100), // centavos
-                    'currency'    => 'PHP',
-                    'purpose'     => 'Disbursement',
-                    'description' => 'Operator card withdrawal',
-                    'reference_number' => $referenceNumber,
-                    'destination_account' => [
-                        'number' => $data['account_number'],
-                        'name'   => $data['account_name'],
-                        'bic'    => 'PAEYPHM2XXX',
-                    ],
-                    'callback_url' => route('webhooks.paymongo.disbursement'),
-                    'metadata' => ['operator_id' => $data['operator_id']],
-                ]],
+        try {
+            $response = $this->paymongo->createTransfer([
+                'provider'                   => $data['provider'],
+                'amount'                     => (int) round($data['amount'] * 100), // pesos → centavos
+                'purpose'                    => 'Disbursement',
+                'description'                => 'Operator card withdrawal',
+                'reference_number'           => $referenceNumber,
+                'destination_account_number' => $data['account_number'],
+                'destination_account_name'   => $data['account_name'],
+                'destination_bic'            => $data['bic'], // the operator's dropdown selection, used correctly now
+                'metadata'                   => ['operator_id' => $data['operator_id']],
             ]);
 
-        return [
-            'response' => $response->json(),
-            'reference_number' => $referenceNumber,
-            'successful' => $response->successful(),
-        ];
+            return [
+                'response'          => $response,
+                'reference_number'  => $referenceNumber,
+                'successful'        => true,
+            ];
+        } catch (RuntimeException $e) {
+            return [
+                'response'          => ['error' => $e->getMessage()],
+                'reference_number'  => $referenceNumber,
+                'successful'        => false,
+            ];
+        }
     }
 }

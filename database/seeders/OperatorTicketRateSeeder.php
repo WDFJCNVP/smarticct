@@ -15,20 +15,20 @@ class OperatorTicketRateSeeder extends Seeder
      * matching the exact values used in the vehicle-type dropdown
      * (resources/views/pages/settings/⚡vehicle-type-page.blade.php).
      */
-    public function run(): void
-    {
-        $rates = [
-            ['vehicle_type' => 'Bus',        'queueing_fee' => 50.00],
-            ['vehicle_type' => 'UV-express', 'queueing_fee' => 30.00],
-            ['vehicle_type' => 'Multi-cab',  'queueing_fee' => 15.00],
-            ['vehicle_type' => 'Jeep',       'queueing_fee' => 10.00],
-        ];
+    // public function run(): void
+    // {
+    //     $rates = [
+    //         ['vehicle_type' => 'Bus',        'queueing_fee' => 50.00],
+    //         ['vehicle_type' => 'UV-express', 'queueing_fee' => 30.00],
+    //         ['vehicle_type' => 'Multi-cab',  'queueing_fee' => 15.00],
+    //         ['vehicle_type' => 'Jeep',       'queueing_fee' => 10.00],
+    //     ];
 
-        foreach ($rates as $rate) {
-            OperatorTicketRate::updateOrCreate(
-                ['vehicle_type' => $rate['vehicle_type']],
-                ['queueing_fee' => $rate['queueing_fee']]
-            );
-        }
-    }
+    //     foreach ($rates as $rate) {
+    //         OperatorTicketRate::updateOrCreate(
+    //             ['vehicle_type' => $rate['vehicle_type']],
+    //             ['queueing_fee' => $rate['queueing_fee']]
+    //         );
+    //     }
+    // }
 }

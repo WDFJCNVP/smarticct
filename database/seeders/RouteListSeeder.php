@@ -28,52 +28,52 @@ class RouteListSeeder extends Seeder
      * column for it on route_lists, it's just headcount info from the
      * source document.
      */
-    public function run(): void
-    {
-        $routes = [
-            'Bus'        => [
-                'Naga' => 70,
-            ],
-            'UV-express' => [
-                'Naga'    => 100,
-                'Legazpi' => 170,
-            ],
-            'Jeep'       => [
-                'Baao'    => 20,
-                'Buhi'    => 34,
-                'Bato'    => 35,
-                'Pili'    => 50,
-                'Mountain Unit' => 70, // "Mountain Unit" route in the source document
-            ],
-            'Multi-cab'  => [
-                'Nabua' => 15,
-                'Baao'  => 20,
-            ],
-        ];
+    // public function run(): void
+    // {
+    //     $routes = [
+    //         'Bus'        => [
+    //             'Naga' => 70,
+    //         ],
+    //         'UV-express' => [
+    //             'Naga'    => 100,
+    //             'Legazpi' => 170,
+    //         ],
+    //         'Jeep'       => [
+    //             'Baao'    => 20,
+    //             'Buhi'    => 34,
+    //             'Bato'    => 35,
+    //             'Pili'    => 50,
+    //             'Mountain Unit' => 70, // "Mountain Unit" route in the source document
+    //         ],
+    //         'Multi-cab'  => [
+    //             'Nabua' => 15,
+    //             'Baao'  => 20,
+    //         ],
+    //     ];
 
-        foreach ($routes as $vehicleType => $destinations) {
-            $rate = OperatorTicketRate::where('vehicle_type', $vehicleType)->first();
+    //     foreach ($routes as $vehicleType => $destinations) {
+    //         $rate = OperatorTicketRate::where('vehicle_type', $vehicleType)->first();
 
-            if (! $rate) {
-                $this->command?->warn("Skipping {$vehicleType} routes: no matching OperatorTicketRate row. Run OperatorTicketRateSeeder first.");
-                continue;
-            }
+    //         if (! $rate) {
+    //             $this->command?->warn("Skipping {$vehicleType} routes: no matching OperatorTicketRate row. Run OperatorTicketRateSeeder first.");
+    //             continue;
+    //         }
 
-            foreach ($destinations as $terminal => $fare) {
-                RouteList::updateOrCreate(
-                    [
-                        'operator_ticket_rate_id' => $rate->id,
-                        'terminal'                => $terminal,
-                    ],
-                    [
-                        'fare'     => $fare,
-                        'metadata' => [
-                            'first_trip' => '05:00',
-                            'last_trip'  => '21:00',
-                        ],
-                    ]
-                );
-            }
-        }
-    }
+    //         foreach ($destinations as $terminal => $fare) {
+    //             RouteList::updateOrCreate(
+    //                 [
+    //                     'operator_ticket_rate_id' => $rate->id,
+    //                     'terminal'                => $terminal,
+    //                 ],
+    //                 [
+    //                     'fare'     => $fare,
+    //                     'metadata' => [
+    //                         'first_trip' => '05:00',
+    //                         'last_trip'  => '21:00',
+    //                     ],
+    //                 ]
+    //             );
+    //         }
+    //     }
+    // }
 }

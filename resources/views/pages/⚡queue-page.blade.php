@@ -60,7 +60,8 @@ new class extends Component {
         }
 
         $queue->update([
-            'departs_at' => now()
+            'time_departed' => now(),
+            'status' =>'departed'
         ]);
 
         ProcessAfterDepart::dispatch($queue->id);

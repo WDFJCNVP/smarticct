@@ -13,6 +13,8 @@ use App\Models\OperatorTicketRate;
 use Illuminate\Support\Facades\Auth;
 
 use App\Services\OperatorDisbursementService;
+use App\Services\PaymongoDisbursementService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 new #[Layout('layouts.operator-layout')] class extends Component
@@ -29,6 +31,40 @@ new #[Layout('layouts.operator-layout')] class extends Component
     public string $accountName = '';
     public string $bic = '';
 
+    public string $selectedBic = '';
+
+    public string $institutionCategory = 'ewallet'; // 'ewallet' | 'bank'
+
+    public function setInstitutionCategory(string $category)
+    {
+        $this->institutionCategory = $category;
+        $this->selectedBic = ''; // clear previous pick, avoid stale selection across tabs
+    }
+
+    #[Computed]
+    public function categorizedInstitutions()
+    {
+        $ewalletNames = collect(config('paymongo.ewallets'))->map(fn ($n) => strtolower($n));
+
+        return collect($this->receivingInstitutions)->filter(function ($institution) use ($ewalletNames) {
+            $name = strtolower($institution['attributes']['name'] ?? '');
+            $isEwallet = $ewalletNames->contains($name);
+
+            return $this->institutionCategory === 'ewallet' ? $isEwallet : ! $isEwallet;
+        })->values();
+    }
+
+    #[Computed]
+    public function receivingInstitutions()
+    {
+        return Cache::remember(
+            "paymongo:receiving_institutions:{$this->provider}",
+            now()->addHours(6),
+            fn () => app(PaymongoDisbursementService::class)->listReceivingInstitutions($this->provider)
+        );
+        
+    }
+
     public function submitWithdrawal()
     {
         $validated = $this->validate([
@@ -36,7 +72,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
             'provider'       => 'required|in:instapay,pesonet',
             'accountNumber'  => 'required|string',
             'accountName'    => 'required|string',
-            'bic'            => 'required|string',
+            'selectedBic'    => 'required|string',
         ]);
 
         $card = $this->userCard;
@@ -65,7 +101,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                 'amount'         => $validated['withdrawAmount'],
                 'account_number' => $validated['accountNumber'],
                 'account_name'   => $validated['accountName'],
-                'bic'            => $validated['bic'],
+                'bic'            => $validated['selectedBic'],
                 'operator_id'    => auth()->id(),
             ]);
 
@@ -643,7 +679,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                         </div>
                     </div>
                 </div>
-               <x-button variant="primary" color="yellow" x-on:click="$flux.modal('withdraw-modal').show()">Withdraw</x-button>
+               <x-button variant="primary" color="yellow" href="{{ route('withdraw') }}">Withdraw</x-button>
             </div>
         </div>
     </div>
@@ -972,14 +1008,44 @@ new #[Layout('layouts.operator-layout')] class extends Component
 
             <flux:input wire:model="withdrawAmount" label="Amount (₱)" type="number" step="0.01" />
 
-            <flux:select wire:model="provider" label="Send via">
+            <flux:select wire:model.live="provider" label="Send via">
                 <flux:select.option value="instapay">InstaPay (instant, ₱10 fee)</flux:select.option>
                 <flux:select.option value="pesonet">PESONet (free, next banking day)</flux:select.option>
             </flux:select>
 
             <flux:input wire:model="accountName" label="Account name" />
             <flux:input wire:model="accountNumber" label="Account number" />
-            <flux:input wire:model="bic" label="Bank/e-wallet BIC code" />
+
+            <div>
+                <flux:text size="sm" class="mb-1.5">Send to</flux:text>
+                <div class="grid grid-cols-2 gap-2">
+                    <flux:button
+                        type="button"
+                        wire:click="setInstitutionCategory('ewallet')"
+                        variant="{{ $institutionCategory === 'ewallet' ? 'primary' : 'outline' }}"
+                        class="w-full"
+                    >
+                        📱 E-Wallet
+                    </flux:button>
+                    <flux:button
+                        type="button"
+                        wire:click="setInstitutionCategory('bank')"
+                        variant="{{ $institutionCategory === 'bank' ? 'primary' : 'outline' }}"
+                        class="w-full"
+                    >
+                        🏦 Bank
+                    </flux:button>
+                </div>
+            </div>
+
+            <flux:select wire:model="selectedBic" label="{{ $institutionCategory === 'ewallet' ? 'Choose your e-wallet' : 'Choose your bank' }}">
+                <flux:select.option value="">Select one</flux:select.option>
+                @foreach ($this->categorizedInstitutions as $institution)
+                    <flux:select.option value="{{ $institution['attributes']['provider_code'] }}">
+                        {{ $institution['attributes']['name'] }}
+                    </flux:select.option>
+                @endforeach
+            </flux:select>
 
             <flux:button type="submit" variant="primary" class="w-full">Confirm Withdrawal</flux:button>
         </form>

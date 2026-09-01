@@ -46,6 +46,8 @@ Route::livewire('/user/queue', 'pages::queue-page')
 //Pannels
 Route::middleware(['auth', 'active'])->group(function () {
 
+    Route::livewire('/withdraw', 'pages::money-transfer')->name('withdraw');
+
     Route::livewire('/user/card', 'pages::card')
         ->name('user.card');
 
@@ -84,7 +86,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->name('admin.topups')
         ->middleware('role:admin');
 
-    Route::livewire('/admin/travel/record', 'pages::content-by-role.admin.travel-record')
+    Route::livewire('/travel/record', 'pages::content-by-role.admin.travel-record')
         ->name('admin.travel.record')
         ->middleware('role:admin,cashier');
 

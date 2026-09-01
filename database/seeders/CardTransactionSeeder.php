@@ -11,8 +11,8 @@ class CardTransactionSeeder extends Seeder
     /**
      * Run the database seeds.
      */
-    public function run(): void
-    {
-        CardTransaction::factory()->create();
-    }
+    // public function run(): void
+    // {
+    //     CardTransaction::factory()->create();
+    // }
 }

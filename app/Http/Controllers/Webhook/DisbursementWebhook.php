@@ -18,17 +18,27 @@ class DisbursementWebhook extends Controller
         $type = $event['data']['attributes']['type'] ?? null;
         $referenceNumber = $event['data']['attributes']['data']['attributes']['reference_number'] ?? null;
 
-        $transaction = CardTransaction::where('reference_no', $referenceNumber)->first();
+        DB::transaction(function () use ($referenceNumber, $type) {
+            // 1. Lock the row to prevent race conditions
+            $transaction = CardTransaction::where('reference_no', $referenceNumber)
+                ->lockForUpdate()
+                ->first();
 
-        if (!$transaction) {
-            return response()->json(['message' => 'Transaction not found'], 404);
-        }
+            if (!$transaction) {
+                return; // Exit transaction silently or log it
+            }
 
-        if ($type === 'transfer.outward.successful') {
-            $transaction->update(['status' => 'success']);
-        } elseif ($type === 'transfer.outward.failed') {
-            $transaction->update(['status' => 'failed']);
-            $transaction->card->increment('balance', $transaction->amount); // refund since it never actually left
+            // 2. Idempotency Guard: Only process if it is strictly 'pending'
+            if ($transaction->status !== 'pending') {
+                return;
+            }
+
+            // 3. Process the state change securely
+            if ($type === 'transfer.outward.successful') {
+                $transaction->update(['status' => 'success']);
+            } elseif ($type === 'transfer.outward.failed') {
+                $transaction->update(['status' => 'failed']);
+                $transaction->card->increment('balance', $transaction->amount); 
         }
 
         return response()->json(['message' => 'Handled']);

@@ -16,21 +16,21 @@ class TerminalSeeder extends Seeder
      * fare table separately labels "Mountain Unit" — it's the same Jeep
      * vehicle type, just a different destination.
      */
-    public function run(): void
-    {
-        $municipalities = [
-            'Naga',
-            'Legazpi',
-            'Baao',
-            'Buhi',
-            'Bato',
-            'Pili',
-            'Nabua',
-            'Mountain Unit',
-        ];
+    // public function run(): void
+    // {
+    //     $municipalities = [
+    //         'Naga',
+    //         'Legazpi',
+    //         'Baao',
+    //         'Buhi',
+    //         'Bato',
+    //         'Pili',
+    //         'Nabua',
+    //         'Mountain Unit',
+    //     ];
 
-        foreach ($municipalities as $municipality) {
-            Terminal::firstOrCreate(['municipality' => $municipality]);
-        }
-    }
+    //     foreach ($municipalities as $municipality) {
+    //         Terminal::firstOrCreate(['municipality' => $municipality]);
+    //     }
+    // }
 }

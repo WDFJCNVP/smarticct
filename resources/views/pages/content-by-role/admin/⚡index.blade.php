@@ -49,32 +49,41 @@ new #[Layout('layouts.admin-layout')] class extends Component
         return Queue::whereIn('status', ['staging', 'loading'])->count();
     }
 
-    #[Computed]
-    public function todayRevenue()
-    {
-        $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
-            ->where('status', 'success')
-            ->whereDate('transaction_time', today())
-            ->sum('amount');
+#[Computed]
+public function totalRevenue()
+{
+    // 1. Digital card fee earnings
+    $cardFees = CardTransaction::whereIn('transaction_type', ['queueing_fee', 'operator_payment'])
+        ->where('status', 'success')
+        ->sum('amount');
 
-        $cashFees = CashTransaction::where('status', 'success')
-            ->whereDate('created_at', today())
-            ->sum('amount');
+    // 2. Over-the-counter cash fees
+    $cashFees = CashTransaction::where('status', 'success')
+        ->sum('amount');
 
-        return $cardFees + $cashFees;
-    }
+    // 3. Admin withdrawals (pending and completed)
+    $totalWithdrawn = CardTransaction::where('transaction_type', 'admin_withdrawal')
+        ->whereIn('status', ['pending', 'success'])
+        ->sum('amount');
 
-    #[Computed]
-    public function totalRevenue()
-    {
-        $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
-            ->where('status', 'success')
-            ->sum('amount');
+    // Net remaining balance/revenue
+    return max(0.0, ($cardFees + $cashFees) - $totalWithdrawn);
+}
 
-        $cashFees = CashTransaction::where('status', 'success')->sum('amount');
+#[Computed]
+public function todayRevenue()
+{
+    $cardFees = CardTransaction::whereIn('transaction_type', ['queueing_fee', 'operator_payment'])
+        ->where('status', 'success')
+        ->whereDate('transaction_time', today())
+        ->sum('amount');
 
-        return $cardFees + $cashFees;
-    }
+    $cashFees = CashTransaction::where('status', 'success')
+        ->whereDate('created_at', today())
+        ->sum('amount');
+
+    return $cardFees + $cashFees;
+}
 
     #[Computed]
     public function queueFeeRevenueToday()
@@ -791,7 +800,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         </div>
                     </div>
                 </div>
-                <x-button variant="primary" color="yellow">Withdraw</x-button>
+                <x-button href=" {{ route('withdraw') }} " variant="primary" color="yellow">Withdraw</x-button>
             </div>
         </div>
     </div>

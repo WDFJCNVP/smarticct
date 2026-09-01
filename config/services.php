@@ -39,7 +39,12 @@ return [
         'secret_key' => env('PAYMONGO_SECRET_KEY'),
         'public_key' => env('PAYMONGO_PUBLIC_KEY'),
         'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
+
+        'source_account_number' => env('PAYMONGO_WALLET_SOURCE_NUMBER'),
+        'source_account_name' => env('PAYMONGO_WALLET_SOURCE_NAME'),
+        'source_account_bic' => env('PAYMONGO_SOURCE_ACCOUNT_BIC'),
         'disbursement_webhook_secret' => env('PAYMONGO_DISBURSEMENT_WEBHOOK_SECRET'),
+        'callback_url' => env('PAYMONGO_TRANSFER_CALLBACK_URL'),
     ]
 
 ];

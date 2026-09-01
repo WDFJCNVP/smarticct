@@ -19,15 +19,15 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // --- Reference / lookup data -----------------------------------
-        $this->call([
-            OperatorTicketRateSeeder::class, // vehicle types + queueing fees
-            TerminalSeeder::class,           // terminals/municipalities
-            RouteListSeeder::class,          // "Routes" admin page entries
-        ]);
+        // $this->call([
+        //     OperatorTicketRateSeeder::class,
+        //     TerminalSeeder::class,           
+        //     RouteListSeeder::class,          
+        // ]);
 
         // --- Fixed admin/cashier test accounts --------------------------
         User::updateOrCreate(
-            ['email_address' => 'admin@example.test'],
+            ['email_address' => 'admin@123'],
             [
                 'name'              => 'Admin',
                 'role'              => 'admin',
@@ -38,7 +38,7 @@ class DatabaseSeeder extends Seeder
         );
 
         User::updateOrCreate(
-            ['email_address' => 'cashier@example.test'],
+            ['email_address' => 'cashier@123'],
             [
                 'name'              => 'Cashier',
                 'role'              => 'cashier',
@@ -49,13 +49,13 @@ class DatabaseSeeder extends Seeder
         );
 
         // --- 5 operator + 5 commuter test accounts ----------------------
-        $this->call([
-            UserSeeder::class,
-        ]);
+        // $this->call([
+        //     UserSeeder::class,
+        // ]);
 
         // --- Vehicles for the seeded operators ---------------------------
-        $this->call([
-            VehicleSeeder::class,
-        ]);
+        // $this->call([
+        //     VehicleSeeder::class,
+        // ]);
     }
 }

@@ -157,7 +157,7 @@ class CardController extends Controller
 
         
         $departs_in = match ($vehicle->vehicle_type) {
-            'Bus'        => Carbon::now()->addMinutes(1),
+            'Bus'        => Carbon::now()->addMinutes(30),
             'UV-express' => null,
             default      => null,
         };
@@ -228,7 +228,7 @@ class CardController extends Controller
         Log::info('Queuing vehicle type: [' . $vehicle->vehicle_type . ']');
 
         $departs_in = match ($vehicle->vehicle_type) {
-            'Bus'       => Carbon::now()->addMinutes(15),
+            'Bus'       => Carbon::now()->addMinutes(30),
             'Multi-cab' => Carbon::now()->addMinutes(2),
             'Jeep'      => !in_array($validated['destination'], ['Buhi', 'Mountain-unit']) ? Carbon::now()->addMinutes(30) : null,
             default     => null,
@@ -428,11 +428,18 @@ class CardController extends Controller
                             'message'          => "Fare paid: {$queue->destination} trip, plate {$queue->plate_number}",
                         ]);
 
-                        if (
-                            $queue->seat_count >= $queue->seat_capacity ||
-                            ($queue->vehicle_type === 'UV-express' && $queue->seat_count >= 9 && $queue->departs_at === null)
-                        ) {
-                            broadcast(new TriggerDepartingEvent($queue->id));
+                        // 1. UV-Express reaches 9+ seats for the first time -> Start 30-min countdown
+                        if ($queue->vehicle_type === 'UV-express' && $queue->seat_count >= 9 && $queue->departs_at === null) {
+                            $departsAt = Carbon::now()->addMinutes(30);
+                            $queue->update(['departs_at' => $departsAt]);
+
+                            ProcessAfterDepart::dispatch($queue->id)->delay($departsAt);
+                        }
+                        // 2. Any vehicle reaches full capacity -> Depart immediately
+                        elseif ($queue->seat_count >= $queue->seat_capacity) {
+                            $queue->update(['departs_at' => Carbon::now()]);
+
+                            ProcessAfterDepart::dispatch($queue->id);
                         }
                     }
 

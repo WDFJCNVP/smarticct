@@ -13,14 +13,14 @@ class QueueSeeder extends Seeder
     /**
      * Run the database seeds.
      */
-    public function run(): void
-    {
-        Vehicle::query()
-            ->with(['user', 'route.terminal'])
-            ->chunkById(100, function ($vehicles): void {
-                foreach ($vehicles as $vehicle) {
-                    Queue::factory()->fromVehicle($vehicle)->create();
-                }
-            });
-    }
+    // public function run(): void
+    // {
+    //     Vehicle::query()
+    //         ->with(['user', 'route.terminal'])
+    //         ->chunkById(100, function ($vehicles): void {
+    //             foreach ($vehicles as $vehicle) {
+    //                 Queue::factory()->fromVehicle($vehicle)->create();
+    //             }
+    //         });
+    // }
 }

@@ -17,5 +17,6 @@ Route::post('/queue/skip', [SkipVehicleController::class, 'skip'])
     ->middleware(['auth', 'role:admin, cashier']);
 
 Route::post('/webhooks/paymongo', [PaymongoController::class, 'handleWebhook']);
+
 Route::post('/webhooks/paymongo/disbursement', [PaymongoController::class, 'handleDisbursementWebhook'])
     ->name('webhooks.paymongo.disbursement');
