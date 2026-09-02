@@ -1,6 +1,6 @@
 <div class="flex items-start max-md:flex-col">
     <div class="me-10 w-full pb-4 md:w-[220px]">
-        <flux:navlist aria-label="{{ __('Settings') }}">
+        <flux:navlist aria-label="{{ __('Settings') }}" class="font-secondary">
             <flux:navlist.item 
                 :href="route('profile.edit')" 
                 wire:navigate
@@ -33,10 +33,10 @@
     <flux:separator class="md:hidden" />
 
     <div class="flex-1 self-stretch max-md:pt-6">
-        <flux:heading>{{ $heading ?? '' }}</flux:heading>
-        <flux:subheading>{{ $subheading ?? '' }}</flux:subheading>
+        <flux:heading class="font-primary font-bold text-light-txt-primary dark:text-dark-txt-primary">{{ $heading ?? '' }}</flux:heading>
+        <flux:subheading class="font-secondary">{{ $subheading ?? '' }}</flux:subheading>
 
-        <div class="mt-5 w-full max-w-3xl">
+        <div class="mt-5 w-full max-w-3xl font-secondary">
             {{ $slot }}
         </div>
     </div>

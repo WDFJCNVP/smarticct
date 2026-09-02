@@ -57,29 +57,18 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 };
 ?>
 <div>
-    {{-- Breadcrumbs & heading in a row --}}
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2 mb-4 sm:my-4">
-        <div class="order-2 sm:order-1">
-            <x-text 
-                class="font-medium text-light-txt-primary dark:text-dark-txt-primary"
-                style="font-size: clamp(1.25rem, 4vw, var(--text-xl));"
-            >
-                Travel records
-            </x-text>
-            <x-text 
-                class="text-sm text-light-txt-muted dark:text-dark-txt-muted mt-0.5"
-                style="font-size: clamp(0.75rem, 2vw, var(--text-sm));"
-            >
-                View all queuing and departure history for this vehicle.
-            </x-text>
-        </div>
-
-        <flux:breadcrumbs class="order-1 sm:order-2 text-xs sm:text-sm">
+    <div class="mb-4">
+        <flux:breadcrumbs class="mb-2 text-xs sm:text-sm">
             <flux:breadcrumbs.item href="{{ route('operator.vehicles') }}" wire:navigate>
                 My vehicles
             </flux:breadcrumbs.item>
             <flux:breadcrumbs.item>Travel records</flux:breadcrumbs.item>
         </flux:breadcrumbs>
+
+        <x-pages-heading
+            heading="Travel records"
+            description="View all queuing and departure history for this vehicle."
+        />
     </div>
 
     {{-- Vehicle summary card --}}
@@ -111,23 +100,14 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                     </span>
                 </div>
                 <div>
-                    <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Driver</span>
+                    <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Engine no.</span>
                     <span class="text-sm font-medium text-light-txt-body dark:text-dark-txt-body">
-                        {{ $this->vehicle->driver_name ?? '—' }}
+                        {{ $this->vehicle->engine_number ?? '—' }}
                     </span>
                 </div>
                 <div>
                     <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Compliance</span>
                     <div class="flex items-center gap-2">
-                        @if($this->vehicle->has_or_cr && $this->vehicle->or_cr_expiry_date)
-                            <flux:tooltip content="OR/CR verified (expires {{ $this->vehicle->or_cr_expiry_date->format('M d, Y') }})">
-                                <flux:icon.check-circle class="w-4 h-4 text-success dark:text-dark-success" />
-                            </flux:tooltip>
-                        @else
-                            <flux:tooltip content="OR/CR not verified">
-                                <flux:icon.x-circle class="w-4 h-4 text-danger dark:text-dark-danger" />
-                            </flux:tooltip>
-                        @endif
                         @if($this->vehicle->has_franchise && $this->vehicle->franchise_expiry_date)
                             <flux:tooltip content="Franchise verified (expires {{ $this->vehicle->franchise_expiry_date->format('M d, Y') }})">
                                 <flux:icon.check-circle class="w-4 h-4 text-success dark:text-dark-success" />
@@ -144,11 +124,6 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 
         {{-- Expiry dates footer --}}
         <div class="border-t border-light-bd-default dark:border-dark-bd-default mt-3 sm:mt-4 pt-2 sm:pt-3 text-xs text-light-txt-muted dark:text-dark-txt-muted flex flex-wrap gap-3 sm:gap-4">
-            @if($this->vehicle->has_or_cr && $this->vehicle->or_cr_expiry_date)
-                <span>OR/CR expires: <strong>{{ $this->vehicle->or_cr_expiry_date->format('M d, Y') }}</strong></span>
-            @else
-                <span class="text-danger dark:text-dark-danger">OR/CR not verified</span>
-            @endif
             @if($this->vehicle->has_franchise && $this->vehicle->franchise_expiry_date)
                 <span>Franchise expires: <strong>{{ $this->vehicle->franchise_expiry_date->format('M d, Y') }}</strong></span>
             @else

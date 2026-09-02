@@ -92,7 +92,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
         $this->resetPage();
     }
 
-    // Worst-case OR/CR + franchise status across an operator's vehicles,
+    // Worst-case franchise status across an operator's vehicles,
     // for the "Docs Expiring" / "Docs Expired" badge in the users table.
     public function operatorDocumentStatus(User $user): ?string
     {

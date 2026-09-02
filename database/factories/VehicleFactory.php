@@ -22,9 +22,9 @@ class VehicleFactory extends Factory
             'vehicle_type' => fake()->randomElement(['Bus', 'Modern Jeepney', 'Van']),
             'plate_number' => strtoupper(fake()->bothify('???-####')),
             'total_seats' => fake()->numberBetween(10, 60),
-            'driver_name' => fake()->name(),
-            'has_or_cr' => true,
-            'or_cr_expiry_date' => fake()->dateTimeBetween('+1 month', '+2 years'),
+            'engine_number' => strtoupper(fake()->bothify('EN-#####')),
+            'body_number' => strtoupper(fake()->bothify('BD-#####')),
+            'chassis_number' => strtoupper(fake()->bothify('CH-#########')),
             'has_franchise' => true,
             'franchise_expiry_date' => fake()->dateTimeBetween('+1 month', '+2 years'),
         ];

@@ -8,6 +8,9 @@ use App\Services\UserService;
 use App\Mail\RegistrationOtpMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Illuminate\Database\QueryException;
 
 new #[Layout('layouts.public-account-setup')] class extends Component
 {
@@ -23,11 +26,27 @@ new #[Layout('layouts.public-account-setup')] class extends Component
     public string $otp = '';
     public bool $otpSent = false;
 
+    // Keyed by email + IP so one person spamming "resend" doesn't lock out
+    // an unrelated person who happens to be on the same network, and vice
+    // versa. Same pattern the login page already uses.
+    private function otpThrottleKey(): string
+    {
+        return 'registration_otp_throttle_' . Str::lower($this->email_address) . '|' . request()->ip();
+    }
+
     public function sendOtp(): void
     {
         $this->validate();
 
-        $generatedOtp = rand(100000, 999999);
+        if (RateLimiter::tooManyAttempts($this->otpThrottleKey(), 3)) {
+            $seconds = RateLimiter::availableIn($this->otpThrottleKey());
+            $this->addError('email_address', "Too many attempts. Please try again in {$seconds} seconds.");
+            return;
+        }
+
+        RateLimiter::hit($this->otpThrottleKey(), 60);
+
+        $generatedOtp = random_int(100000, 999999);
 
         Cache::put('registration_otp_' . $this->email_address, $generatedOtp, now()->addMinutes(10));
 
@@ -38,7 +57,20 @@ new #[Layout('layouts.public-account-setup')] class extends Component
 
     public function resendOtp(): void
     {
-        $generatedOtp = rand(100000, 999999);
+        if (RateLimiter::tooManyAttempts($this->otpThrottleKey(), 3)) {
+            $seconds = RateLimiter::availableIn($this->otpThrottleKey());
+            Flux::toast(
+                duration: 4000,
+                variant: 'danger',
+                heading: 'Please wait.',
+                text: "Too many attempts. Please try again in {$seconds} seconds.",
+            );
+            return;
+        }
+
+        RateLimiter::hit($this->otpThrottleKey(), 60);
+
+        $generatedOtp = random_int(100000, 999999);
 
         Cache::put('registration_otp_' . $this->email_address, $generatedOtp, now()->addMinutes(10));
 
@@ -72,11 +104,30 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             return;
         }
 
-        $user = app(UserService::class)->create([
-            'email_address' => $this->email_address,
-            'password'      => $this->password,
-            'role'          => 'commuter',
-        ]);
+        // Uniqueness was checked when the OTP was first sent, but the OTP
+        // stays valid for 10 minutes — long enough for someone else to
+        // register the same email in the meantime. Re-check here so that
+        // case fails with a normal validation message instead of an
+        // unhandled duplicate-entry database error.
+        if (\App\Models\User::where('email_address', $this->email_address)->exists()) {
+            $this->addError('email_address', 'An account with this email already exists.');
+            $this->otpSent = false;
+            return;
+        }
+
+        try {
+            $user = app(UserService::class)->create([
+                'email_address' => $this->email_address,
+                'password'      => $this->password,
+                'role'          => 'commuter',
+            ]);
+        } catch (QueryException $e) {
+            // Fallback in case both registrations slipped past the check
+            // above at nearly the same instant.
+            $this->addError('email_address', 'An account with this email already exists.');
+            $this->otpSent = false;
+            return;
+        }
 
         if ($user) {
 

@@ -36,17 +36,6 @@ new #[Layout('layouts.operator-layout')]class extends Component
             >
                 Renting Transaction History
             </button>
-
-            <button
-                type="button"
-                @click="tab = 'card-history'"
-                :class="tab === 'card-history'
-                    ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400 font-medium'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'"
-                class="pb-3 border-b-2 transition-colors cursor-pointer"
-            >
-                Card Transactions History
-            </button>
         </div>
 
         <div x-show="tab === 'active'" x-cloak class="space-y-3">
@@ -58,12 +47,6 @@ new #[Layout('layouts.operator-layout')]class extends Component
         <div x-show="tab === 'rent-transaction'" x-cloak class="space-y-4">
 
            <livewire:pages::content-by-role.operator.transaction-history />
-
-        </div>
-
-        <div x-show="tab === 'card-history'" x-cloak>
-
-            Card Transactions History
 
         </div>
 

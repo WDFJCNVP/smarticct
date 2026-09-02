@@ -20,6 +20,8 @@ new class extends Component
     public string $exportRoute = '';
     public string $exportDateFrom = '';
     public string $exportDateTo = '';
+    public string $exportPaper = 'legal';
+    public string $exportOrientation = 'portrait';
 
     public function mount()
     {
@@ -105,6 +107,24 @@ new class extends Component
             'to'           => $this->exportDateTo,
             'vehicle_type' => $this->exportVehicleType,
             'route'        => $this->exportRoute,
+            'paper'        => $this->exportPaper,
+            'orientation'  => $this->exportOrientation,
+        ]));
+    }
+
+    // Same params as exportUrl, plus preview=1 so the controller streams the
+    // PDF inline instead of forcing a download or logging it as an export.
+    #[Computed]
+    public function exportPreviewUrl(): string
+    {
+        return route('operator.travel.history.export', array_filter([
+            'from'         => $this->exportDateFrom,
+            'to'           => $this->exportDateTo,
+            'vehicle_type' => $this->exportVehicleType,
+            'route'        => $this->exportRoute,
+            'paper'        => $this->exportPaper,
+            'orientation'  => $this->exportOrientation,
+            'preview'      => 1,
         ]));
     }
 
@@ -480,6 +500,24 @@ new class extends Component
                 </flux:select>
             </flux:field>
 
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <flux:field>
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Paper size</flux:label>
+                    <flux:select wire:model.live="exportPaper" size="sm" class="font-secondary text-table-row">
+                        <flux:select.option value="letter">Letter</flux:select.option>
+                        <flux:select.option value="legal">Legal</flux:select.option>
+                        <flux:select.option value="a4">A4</flux:select.option>
+                    </flux:select>
+                </flux:field>
+                <flux:field>
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Orientation</flux:label>
+                    <flux:select wire:model.live="exportOrientation" size="sm" class="font-secondary text-table-row">
+                        <flux:select.option value="portrait">Portrait</flux:select.option>
+                        <flux:select.option value="landscape">Landscape</flux:select.option>
+                    </flux:select>
+                </flux:field>
+            </div>
+
             <!-- Footer -->
             <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
                 <flux:modal.close class="w-full sm:w-auto">
@@ -487,6 +525,53 @@ new class extends Component
                         Cancel
                     </flux:button>
                 </flux:modal.close>
+                <flux:button
+                    type="button"
+                    x-on:click="Flux.modal('export-travel-history').close(); Flux.modal('preview-travel-history').show()"
+                    icon="eye"
+                    variant="primary"
+                    class="font-secondary w-full sm:w-auto justify-center"
+                >
+                    Preview
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <flux:modal
+        name="preview-travel-history"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-3xl mx-auto rounded-xl overflow-hidden"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-4">
+            <div class="flex items-start justify-between">
+                <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                    Preview
+                </flux:heading>
+                <button
+                    type="button"
+                    x-on:click="Flux.modal('preview-travel-history').close()"
+                    class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1"
+                >
+                    <flux:icon name="x-mark" class="w-5 h-5" />
+                </button>
+            </div>
+
+            <iframe
+                wire:key="{{ $this->exportPreviewUrl }}"
+                src="{{ $this->exportPreviewUrl }}"
+                class="w-full h-[60vh] rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-white"
+            ></iframe>
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:button
+                    type="button"
+                    x-on:click="Flux.modal('preview-travel-history').close(); Flux.modal('export-travel-history').show()"
+                    variant="ghost"
+                    class="w-full sm:w-auto justify-center font-secondary"
+                >
+                    Back to filters
+                </flux:button>
                 <flux:button
                     href="{{ $this->exportUrl }}"
                     icon="arrow-down-tray"

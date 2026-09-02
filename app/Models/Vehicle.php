@@ -16,12 +16,11 @@ class Vehicle extends Model
         'vehicle_type',
         'plate_number',
         'total_seats',
-        'official_record',
-        'has_or_cr',
-        'or_cr_expiry_date',
+        'engine_number',
+        'body_number',
+        'chassis_number',
         'has_franchise',
         'franchise_expiry_date',
-        'driver_name',
     ];
 
     protected function casts(): array
@@ -30,8 +29,6 @@ class Vehicle extends Model
             'time_queued'           => 'datetime',
             'time_departed'         => 'datetime',
             'departs_at'            => 'datetime',
-            'has_or_cr'             => 'boolean',
-            'or_cr_expiry_date'     => 'date',
             'has_franchise'         => 'boolean',
             'franchise_expiry_date' => 'date',
         ];
@@ -66,39 +63,21 @@ class Vehicle extends Model
         return $this->hasMany(VehicleGroup::class);
     }
 
-    /**
-     * Worst-case OR/CR + franchise status for this vehicle: 'expired',
-     * 'expiring' (within $warningDays), 'valid', or null if neither
-     * document has a date on file. Mirrors the threshold used by
-     * OperatorsExport so "expiring soon" means the same thing everywhere
-     * in the admin UI.
-     */
     public function documentStatus(int $warningDays = 30): ?string
     {
-        $dates = array_filter([$this->or_cr_expiry_date, $this->franchise_expiry_date]);
+        $date = $this->franchise_expiry_date;
 
-        if (empty($dates)) {
+        if (empty($date)) {
             return null;
         }
 
         $today = today();
-        $statuses = [];
 
-        foreach ($dates as $date) {
-            if ($date->lt($today)) {
-                $statuses[] = 'expired';
-            } elseif ($date->lte($today->copy()->addDays($warningDays))) {
-                $statuses[] = 'expiring';
-            } else {
-                $statuses[] = 'valid';
-            }
-        }
-
-        if (in_array('expired', $statuses, true)) {
+        if ($date->lt($today)) {
             return 'expired';
         }
 
-        if (in_array('expiring', $statuses, true)) {
+        if ($date->lte($today->copy()->addDays($warningDays))) {
             return 'expiring';
         }
 

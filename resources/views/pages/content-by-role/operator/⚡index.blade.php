@@ -312,7 +312,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
         return Vehicle::where('user_id', Auth::id())
             ->when($this->vehicleTypeFilter, fn ($q, $v) => $q->where('vehicle_type', $v))
             ->orderBy('plate_number')
-            ->get(['id', 'plate_number', 'has_or_cr', 'or_cr_expiry_date', 'has_franchise', 'franchise_expiry_date']);
+            ->get(['id', 'plate_number', 'has_franchise', 'franchise_expiry_date']);
     }
 
     /**
@@ -513,7 +513,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
 
     {{-- ===================== HEADER ===================== --}}
     <div class="mb-6">
-        <div class="flex items-center justify-between gap-3 sm:gap-4">
+        <div class="flex items-start justify-between gap-3 sm:gap-4">
             <x-pages-heading
                 heading="Dashboard"
                 description="Your vehicle, queueing, and rental overview."
@@ -554,14 +554,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                 </div>
 
                 {{-- Notifications --}}
-                <button
-                    type="button"
-                    class="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:bg-light-subtle dark:hover:bg-dark-subtle transition shrink-0"
-                    aria-label="Notifications"
-                >
-                    <flux:icon.bell class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger dark:bg-dark-danger"></span>
-                </button>
+                <livewire:pages::notification-bell />
 
                 <flux:modal.trigger name="dashboard-filters">
                     <button
@@ -950,11 +943,11 @@ new #[Layout('layouts.operator-layout')] class extends Component
             </div>
         </flux:card>
 
-        {{-- ===================== OR/CR & FRANCHISE EXPIRY ===================== --}}
+        {{-- ===================== FRANCHISE EXPIRY ===================== --}}
         <flux:card class="p-0 overflow-hidden">
             <div class="px-4 pt-4">
                 <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
-                    OR/CR &amp; franchise expiry
+                    Franchise expiry
                 </x-text>
             </div>
             <div class="overflow-x-auto mt-2">
@@ -962,23 +955,16 @@ new #[Layout('layouts.operator-layout')] class extends Component
                     <thead>
                         <tr class="text-left text-light-txt-body dark:text-dark-txt-body border-b border-light-bd-default dark:border-dark-bd-default">
                             <th class="py-2 px-4 font-semibold">Plate</th>
-                            <th class="py-2 px-4 font-semibold text-right">OR/CR</th>
                             <th class="py-2 px-4 font-semibold text-right">Franchise</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($this->vehicleDocumentExpiry as $vehicle)
                             @php
-                                $orCr = $this->documentStatus((bool) $vehicle->has_or_cr, $vehicle->or_cr_expiry_date);
                                 $franchise = $this->documentStatus((bool) $vehicle->has_franchise, $vehicle->franchise_expiry_date);
                             @endphp
                             <tr class="border-b border-light-bd-default/50 dark:border-dark-bd-default/50 last:border-0">
                                 <td class="py-2.5 px-4 text-light-txt-body dark:text-dark-txt-body">{{ $vehicle->plate_number }}</td>
-                                <td class="py-2.5 px-4 text-right">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium whitespace-nowrap {{ $orCr['class'] }}">
-                                        {{ $orCr['label'] }}
-                                    </span>
-                                </td>
                                 <td class="py-2.5 px-4 text-right">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium whitespace-nowrap {{ $franchise['class'] }}">
                                         {{ $franchise['label'] }}
@@ -987,7 +973,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="3" class="py-8 text-center text-light-txt-muted dark:text-dark-txt-muted">
+                                <td colspan="2" class="py-8 text-center text-light-txt-muted dark:text-dark-txt-muted">
                                     No vehicles registered. Additional vehicles must go through admin.
                                 </td>
                             </tr>

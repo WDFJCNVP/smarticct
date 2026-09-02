@@ -30,6 +30,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $exportDateFrom = '';
     public string $exportDateTo = '';
     public string $exportType = ''; // '', queue_fees, topups
+    public string $exportPaper = 'legal';
+    public string $exportOrientation = 'portrait';
 
     // ===================== CASH TOP-UP (inline, no redirect) =====================
 
@@ -365,9 +367,26 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public function exportUrl(): string
     {
         return route('cashier.transactions.export', array_filter([
-            'from' => $this->exportDateFrom,
-            'to'   => $this->exportDateTo,
-            'type' => $this->exportType,
+            'from'        => $this->exportDateFrom,
+            'to'          => $this->exportDateTo,
+            'type'        => $this->exportType,
+            'paper'       => $this->exportPaper,
+            'orientation' => $this->exportOrientation,
+        ]));
+    }
+
+    // Same params as exportUrl, plus preview=1 so the controller streams the
+    // PDF inline instead of forcing a download or logging it as an export.
+    #[Computed]
+    public function exportPreviewUrl(): string
+    {
+        return route('cashier.transactions.export', array_filter([
+            'from'        => $this->exportDateFrom,
+            'to'          => $this->exportDateTo,
+            'type'        => $this->exportType,
+            'paper'       => $this->exportPaper,
+            'orientation' => $this->exportOrientation,
+            'preview'     => 1,
         ]));
     }
 
@@ -564,12 +583,78 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 </flux:select>
             </flux:field>
 
+            <div class="flex gap-2">
+                <flux:field class="flex-1">
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Paper size</flux:label>
+                    <flux:select wire:model.live="exportPaper" size="sm" class="font-secondary text-table-row">
+                        <flux:select.option value="letter">Letter</flux:select.option>
+                        <flux:select.option value="legal">Legal</flux:select.option>
+                        <flux:select.option value="a4">A4</flux:select.option>
+                    </flux:select>
+                </flux:field>
+                <flux:field class="flex-1">
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Orientation</flux:label>
+                    <flux:select wire:model.live="exportOrientation" size="sm" class="font-secondary text-table-row">
+                        <flux:select.option value="portrait">Portrait</flux:select.option>
+                        <flux:select.option value="landscape">Landscape</flux:select.option>
+                    </flux:select>
+                </flux:field>
+            </div>
+
             <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
                 <flux:modal.close class="w-full sm:w-auto">
                     <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
                         Cancel
                     </flux:button>
                 </flux:modal.close>
+                <flux:button
+                    type="button"
+                    x-on:click="Flux.modal('export-cashier-transactions').close(); Flux.modal('preview-cashier-transactions').show()"
+                    icon="eye"
+                    variant="primary"
+                    class="font-secondary w-full sm:w-auto justify-center"
+                >
+                    Preview
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- ===================== PREVIEW MODAL ===================== --}}
+    <flux:modal
+        name="preview-cashier-transactions"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-3xl mx-auto rounded-xl overflow-hidden"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-4">
+            <div class="flex items-start justify-between">
+                <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                    Preview
+                </flux:heading>
+                <button
+                    type="button"
+                    x-on:click="Flux.modal('preview-cashier-transactions').close()"
+                    class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1"
+                >
+                    <flux:icon name="x-mark" class="w-5 h-5" />
+                </button>
+            </div>
+
+            <iframe
+                wire:key="{{ $this->exportPreviewUrl }}"
+                src="{{ $this->exportPreviewUrl }}"
+                class="w-full h-[60vh] rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-white"
+            ></iframe>
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:button
+                    type="button"
+                    x-on:click="Flux.modal('preview-cashier-transactions').close(); Flux.modal('export-cashier-transactions').show()"
+                    variant="ghost"
+                    class="w-full sm:w-auto justify-center font-secondary"
+                >
+                    Back to filters
+                </flux:button>
                 <flux:button
                     href="{{ $this->exportUrl }}"
                     icon="arrow-down-tray"
@@ -581,8 +666,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </div>
         </div>
     </flux:modal>
-
-    {{-- Key stats --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 mb-6">
         <flux:card class="p-3 sm:p-4">
             <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">

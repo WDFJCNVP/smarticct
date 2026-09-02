@@ -11,9 +11,16 @@ class OperatorFleetExportController extends Controller
 {
     public function export(Request $request)
     {
-        // Scoped strictly to the logged-in operator's own vehicles — this is
-        // a "my fleet" printout, not a directory of every operator's fleet
-        // (that's OperatorsExport, admin-only).
+        $validated = $request->validate([
+            'paper'       => 'nullable|in:letter,legal,a4',
+            'orientation' => 'nullable|in:portrait,landscape',
+            'preview'     => 'nullable|boolean',
+        ]);
+
+        $paper       = $validated['paper'] ?? 'legal';
+        $orientation = $validated['orientation'] ?? 'portrait';
+        $isPreview   = $request->boolean('preview');
+
         $vehicles = Vehicle::with('route_list')
             ->where('user_id', auth()->id())
             ->orderBy('plate_number')
@@ -24,7 +31,15 @@ class OperatorFleetExportController extends Controller
             'vehicles'    => $vehicles,
             'generatedBy' => auth()->user()?->name ?? 'System',
             'generatedAt' => now(),
-        ])->setPaper('legal', 'portrait');
+            'paper'       => $paper,
+            'orientation' => $orientation,
+        ])->setPaper($paper, $orientation);
+
+        $filename = 'my-fleet-' . now()->format('Y-m-d') . '.pdf';
+
+        if ($isPreview) {
+            return $pdf->stream($filename);
+        }
 
         app(AuditLogsService::class)->create([
             'user_id'  => auth()->id(),
@@ -37,6 +52,6 @@ class OperatorFleetExportController extends Controller
             ],
         ]);
 
-        return $pdf->download('my-fleet-' . now()->format('Y-m-d') . '.pdf');
+        return $pdf->download($filename);
     }
 }

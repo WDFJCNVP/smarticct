@@ -4,40 +4,7 @@
     <meta charset="utf-8">
     <title>Dispatch Log</title>
     <style>
-        /*
-         * dompdf does NOT support background-image on @page (confirmed in
-         * dompdf's own source, vendor/dompdf/dompdf/src/Css/Stylesheet.php —
-         * background-color/-image on @page is explicitly listed as a
-         * "non-working property"). The supported way to get a repeating
-         * full-page letterhead is a `position: fixed` element: dompdf
-         * repaints anything position:fixed on every generated page, which
-         * is exactly the behavior we want here.
-         *
-         * @page still legitimately handles `size` and `margin` (those ARE
-         * on dompdf's working list), so the margin box below still exists
-         * to keep flowing content clear of the artwork.
-         *
-         * If you resize/replace the letterhead image later, re-check these
-         * margins — they were measured against the current file's header
-         * (~1.5in), footer (~1.6in) and left ribbon (~0.95in) safe zones.
-         */
-        @page {
-            size: legal portrait;
-            margin: 1.55in 0.9in 1.65in 1.3in;
-        }
-
-        .letterhead-bg {
-            position: fixed;
-            top: -1.55in;
-            left: -1.3in;
-            width: 8.5in;
-            height: 14in;
-            z-index: -1;
-        }
-        .letterhead-bg img {
-            width: 100%;
-            height: 100%;
-        }
+        @include('pdf.partials.letterhead-style')
 
         body {
             font-family: 'Helvetica', Arial, sans-serif;
@@ -81,6 +48,16 @@
             margin-bottom: 0;
         }
 
+        .status-label {
+            font-size: 10px;
+            font-weight: bold;
+            padding: 4px 2px;
+            margin-top: 8px;
+            margin-bottom: 0;
+        }
+        .status-label.departed { color: #0a7a3d; }
+        .status-label.queued { color: #a35b00; }
+
         table.log-table {
             width: 100%;
             border-collapse: collapse;
@@ -103,14 +80,6 @@
         }
         table.log-table tr:nth-child(even) td {
             background-color: #fafafa;
-        }
-        .status-departed {
-            color: #0a7a3d;
-            font-weight: bold;
-        }
-        .status-staging {
-            color: #a35b00;
-            font-weight: bold;
         }
         .empty-note {
             font-size: 10px;
@@ -147,9 +116,7 @@
 </head>
 <body>
 
-    <div class="letterhead-bg">
-        <img src="{{ public_path('images/pdf-bg.jpg') }}" alt="">
-    </div>
+    <div class="letterhead-bg"></div>
 
     <table class="header">
         <tr>
@@ -178,40 +145,56 @@
         </tr>
     </table>
 
-    @forelse ($grouped as $destination => $entries)
+    @forelse ($grouped as $destination => $groups)
         <div class="route-title">{{ $destination }}</div>
-        <table class="log-table">
-            <thead>
-                <tr>
-                    <th style="width: 14%;">Plate No.</th>
-                    <th style="width: 16%;">Driver</th>
-                    <th style="width: 12%;">Vehicle Type</th>
-                    <th style="width: 10%;">Occupancy</th>
-                    <th style="width: 16%;">Queued At</th>
-                    <th style="width: 16%;">Departed At</th>
-                    <th style="width: 16%;">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($entries as $entry)
+
+        @if ($groups['departed']->isNotEmpty())
+            <div class="status-label departed">Departed</div>
+            <table class="log-table">
+                <thead>
                     <tr>
-                        <td>{{ $entry->plate_number }}</td>
-                        <td>{{ $entry->driver_name }}</td>
-                        <td>{{ $entry->vehicle_type }}</td>
-                        <td>{{ $entry->seat_count }}/{{ $entry->seat_capacity }}</td>
-                        <td>{{ $entry->time_queued?->format('M d, g:i A') ?? '—' }}</td>
-                        <td>{{ $entry->time_departed?->format('M d, g:i A') ?? '—' }}</td>
-                        <td>
-                            @if ($entry->time_departed)
-                                <span class="status-departed">Departed</span>
-                            @else
-                                <span class="status-staging">{{ ucfirst($entry->status) }}</span>
-                            @endif
-                        </td>
+                        <th style="width: 28%;">Operator Name</th>
+                        <th style="width: 20%;">Plate #</th>
+                        <th style="width: 20%;">Body #</th>
+                        <th style="width: 32%;">Departure Time</th>
                     </tr>
-                @endforeach
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach ($groups['departed'] as $entry)
+                        <tr>
+                            <td>{{ $entry->user?->name ?? '—' }}</td>
+                            <td>{{ $entry->plate_number }}</td>
+                            <td>{{ $entry->vehicle?->body_number ?? '—' }}</td>
+                            <td>{{ $entry->time_departed?->format('M d, g:i A') ?? '—' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+
+        @if ($groups['queued']->isNotEmpty())
+            <div class="status-label queued">Currently Queued</div>
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th style="width: 28%;">Operator Name</th>
+                        <th style="width: 20%;">Plate #</th>
+                        <th style="width: 20%;">Body #</th>
+                        <th style="width: 32%;">Departure Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($groups['queued'] as $entry)
+                        <tr>
+                            <td>{{ $entry->user?->name ?? '—' }}</td>
+                            <td>{{ $entry->plate_number }}</td>
+                            <td>{{ $entry->vehicle?->body_number ?? '—' }}</td>
+                            <td>—</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
     @empty
         <p class="empty-note">No vehicles were logged for the selected period.</p>
     @endforelse

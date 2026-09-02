@@ -11,6 +11,16 @@ class RouteFareExportController extends Controller
 {
     public function export(Request $request)
     {
+        $validated = $request->validate([
+            'paper'       => 'nullable|in:letter,legal,a4',
+            'orientation' => 'nullable|in:portrait,landscape',
+            'preview'     => 'nullable|boolean',
+        ]);
+
+        $paper       = $validated['paper'] ?? 'legal';
+        $orientation = $validated['orientation'] ?? 'portrait';
+        $isPreview   = $request->boolean('preview');
+
         $vehicleTypes = OperatorTicketRate::query()
             ->with(['routeList' => function ($q) {
                 $q->withCount('vehicles')->orderBy('terminal');
@@ -22,7 +32,18 @@ class RouteFareExportController extends Controller
             'vehicleTypes' => $vehicleTypes,
             'generatedBy'  => auth()->user()?->name ?? 'System',
             'generatedAt'  => now(),
-        ])->setPaper('legal', 'portrait');
+            'paper'        => $paper,
+            'orientation'  => $orientation,
+        ])->setPaper($paper, $orientation);
+
+        $filename = 'routes-fares-' . now()->format('Y-m-d') . '.pdf';
+
+        // Previewing (the modal's live iframe) just renders the PDF inline —
+        // it isn't a real export yet, so it shouldn't show up in the audit
+        // trail or count as an actual download.
+        if ($isPreview) {
+            return $pdf->stream($filename);
+        }
 
         app(AuditLogsService::class)->create([
             'user_id'  => auth()->id(),
@@ -34,6 +55,6 @@ class RouteFareExportController extends Controller
             ],
         ]);
 
-        return $pdf->download('routes-fares-' . now()->format('Y-m-d') . '.pdf');
+        return $pdf->download($filename);
     }
 }

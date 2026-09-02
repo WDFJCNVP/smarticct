@@ -204,7 +204,6 @@ new class extends Component
             $metadata['vehicle_id']     = $validated_attributes['vehicle_id'] ?? null;
             $metadata['vehicle_type']   = $vehicle->vehicle_type ?? null;
             $metadata['plate_number']   = $vehicle->plate_number ?? null;
-            $metadata['driver_name']    = $vehicle->driver_name ?? null;
             $metadata['total_seats']    = $vehicle->total_seats ?? null;
             $metadata['seats_offered']  = $validated_attributes['seats_offered'] ?? null;
         } elseif ($this->type === 'rental' && auth()->user()->role === 'commuter') {
@@ -471,14 +470,9 @@ new class extends Component
                                     <flux:error name="vehicle_id" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                                     @if ($this->selectedVehicle)
                                         @php($vehicle = $this->selectedVehicle)
-                                        @if (!$vehicle->has_or_cr || ($vehicle->or_cr_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->or_cr_expiry_date)->isPast()) || !$vehicle->has_franchise || ($vehicle->franchise_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->franchise_expiry_date)->isPast()))
+                                        @if (!$vehicle->has_franchise || ($vehicle->franchise_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->franchise_expiry_date)->isPast()))
                                             <div class="mt-3 rounded-lg border border-light-bd-default dark:border-dark-bd-default p-3 space-y-2">
-                                                @if (!$vehicle->has_or_cr || ($vehicle->or_cr_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->or_cr_expiry_date)->isPast()))
-                                                    <flux:callout variant="warning" icon="exclamation-triangle" heading="This vehicle's OR/CR is missing or expired." />
-                                                @endif
-                                                @if (!$vehicle->has_franchise || ($vehicle->franchise_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->franchise_expiry_date)->isPast()))
-                                                    <flux:callout variant="warning" icon="exclamation-triangle" heading="This vehicle's franchise is missing or expired." />
-                                                @endif
+                                                <flux:callout variant="warning" icon="exclamation-triangle" heading="This vehicle's franchise is missing or expired." />
                                             </div>
                                         @endif
                                         <div class="mt-4">

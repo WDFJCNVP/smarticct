@@ -4,24 +4,7 @@
     <meta charset="utf-8">
     <title>Card Inventory</title>
     <style>
-        /* Same letterhead technique as pdf/dispatch-log.blade.php. */
-        @page {
-            size: legal portrait;
-            margin: 1.55in 0.9in 1.65in 1.3in;
-        }
-
-        .letterhead-bg {
-            position: fixed;
-            top: -1.55in;
-            left: -1.3in;
-            width: 8.5in;
-            height: 14in;
-            z-index: -1;
-        }
-        .letterhead-bg img {
-            width: 100%;
-            height: 100%;
-        }
+        @include('pdf.partials.letterhead-style')
 
         body {
             font-family: 'Helvetica', Arial, sans-serif;
@@ -133,9 +116,7 @@
 </head>
 <body>
 
-    <div class="letterhead-bg">
-        <img src="{{ public_path('images/pdf-bg.jpg') }}" alt="">
-    </div>
+    <div class="letterhead-bg"></div>
 
     <table class="header">
         <tr>

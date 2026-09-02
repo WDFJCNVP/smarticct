@@ -13,12 +13,13 @@ Schedule::call(function () {
     app(QueueManagementService::class)->generateSchedule(today());
 })->daily();
 
-// Operator-facing reminder: notify an operator once a vehicle's OR/CR or
-// franchise is within 7 days of expiring (see DocumentExpiryNotificationService
-// for why this is "within 7 days" + de-dupe rather than an exact day-7 check).
+// Operator-facing reminder: notify an operator when a vehicle's franchise
+// is within 30 days of expiring, repeating twice a week (Mon & Thu) so the
+// reminder keeps surfacing throughout the month leading up to expiry (see
+// DocumentExpiryNotificationService for the windowing + de-dupe logic).
 Schedule::call(function () {
-    app(DocumentExpiryNotificationService::class)->notifyExpiringDocuments(7);
-})->dailyAt('08:00');
+    app(DocumentExpiryNotificationService::class)->notifyExpiringDocuments(30);
+})->twiceWeekly(1, 4)->at('08:00');
 
 Schedule::call(function () {
     // Posts sit in Trash for 30 days after being deleted (see Post::SoftDeletes),
