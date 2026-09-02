@@ -293,9 +293,9 @@ new class extends Component
 
     public function updatedRouteListId()
     {
-        // Pre-fill from the vehicle's registered driver, but leave it editable —
-        // a different driver can show up for the same vehicle on a given day.
-        $this->driver_name = $this->selectedVehicle?->driver_name ?? '';
+        // Vehicles no longer carry a registered driver, so this always
+        // starts blank for the cashier to fill in for today's driver.
+        $this->driver_name = '';
     }
 
     public function selectOperator($id)
@@ -626,7 +626,7 @@ new class extends Component
                                 <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary mb-2">
                                     Driver name
                                     <span class="text-light-txt-muted dark:text-dark-txt-muted font-normal">
-                                        &middot; {{ ! $this->selectedVehicle ? 'select a vehicle first' : ($this->selectedVehicle->driver_name ? 'from vehicle record, editable' : 'no driver on file') }}
+                                        &middot; {{ ! $this->selectedVehicle ? 'select a vehicle first' : 'enter today\'s driver' }}
                                     </span>
                                 </flux:label>
                                 <x-input

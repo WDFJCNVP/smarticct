@@ -38,8 +38,16 @@
                     <dd>Iriga Terminal → {{ $vehicle->route_list->terminal }}</dd>
                 </div>
                 <div class="flex justify-between border-b border-light-bd-default dark:border-dark-bd-default py-1.5">
-                    <dt class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Dedicated driver</dt>
-                    <dd>{{ $vehicle->driver_name ?? '—' }}</dd>
+                    <dt class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Engine no.</dt>
+                    <dd>{{ $vehicle->engine_number ?? '—' }}</dd>
+                </div>
+                <div class="flex justify-between border-b border-light-bd-default dark:border-dark-bd-default py-1.5">
+                    <dt class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Body no.</dt>
+                    <dd>{{ $vehicle->body_number ?? '—' }}</dd>
+                </div>
+                <div class="flex justify-between border-b border-light-bd-default dark:border-dark-bd-default py-1.5">
+                    <dt class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Chassis no.</dt>
+                    <dd>{{ $vehicle->chassis_number ?? '—' }}</dd>
                 </div>
                 <div class="flex justify-between py-1.5">
                     <dt class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Registered on</dt>
@@ -54,18 +62,6 @@
                 Compliance Documents
             </flux:heading>
             <dl class="space-y-2">
-                <div class="flex justify-between border-b border-light-bd-default dark:border-dark-bd-default py-1.5">
-                    <dt class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">OR/CR verified</dt>
-                    <dd>
-                        @if($vehicle->has_or_cr)
-                            <flux:icon.check-circle class="w-4 h-4 text-success dark:text-dark-success inline" />
-                            <span class="ml-1 text-sm">{{ $vehicle->or_cr_expiry_date?->format('M d, Y') ?? 'No expiry' }}</span>
-                        @else
-                            <flux:icon.x-circle class="w-4 h-4 text-danger dark:text-dark-danger inline" />
-                            <span class="ml-1 text-sm text-danger dark:text-dark-danger">Not verified</span>
-                        @endif
-                    </dd>
-                </div>
                 <div class="flex justify-between py-1.5">
                     <dt class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Franchise verified</dt>
                     <dd>

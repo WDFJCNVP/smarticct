@@ -69,13 +69,13 @@ class OperatorsExport implements FromQuery, WithHeadings, WithMapping, WithEvent
             'Account Status',
             'Vehicle Type',
             'Plate Number',
-            'Driver Name',
+            'Engine Number',
+            'Body Number',
+            'Chassis Number',
             'Total Seats',
             'Assigned Route',
-            'Has OR/CR',
-            'OR/CR Expiry',
             'Has Franchise',
-            'Franchise Expiry',
+            'Validity Date of Franchise',
             'Document Status',
         ];
     }
@@ -91,11 +91,11 @@ class OperatorsExport implements FromQuery, WithHeadings, WithMapping, WithEvent
             $this->accountStatus($vehicle->user),
             $vehicle->vehicle_type,
             $vehicle->plate_number,
-            $vehicle->driver_name,
+            $vehicle->engine_number,
+            $vehicle->body_number,
+            $vehicle->chassis_number,
             $vehicle->total_seats,
             $vehicle->route_list?->terminal ?? '—',
-            $vehicle->has_or_cr ? 'Yes' : 'No',
-            $vehicle->or_cr_expiry_date?->format('Y-m-d') ?? '—',
             $vehicle->has_franchise ? 'Yes' : 'No',
             $vehicle->franchise_expiry_date?->format('Y-m-d') ?? '—',
             $this->documentStatus($vehicle),
@@ -120,31 +120,20 @@ class OperatorsExport implements FromQuery, WithHeadings, WithMapping, WithEvent
     }
 
     /**
-     * Worst-case status across both OR/CR and franchise expiry dates.
+     * Status of the vehicle's franchise validity date.
      */
     private function documentStatus(Vehicle $vehicle): string
     {
-        $dates = array_filter([$vehicle->or_cr_expiry_date, $vehicle->franchise_expiry_date]);
+        $date = $vehicle->franchise_expiry_date;
 
-        if (empty($dates)) {
+        if (empty($date)) {
             return 'No documents on file';
         }
 
         $today = Carbon::today();
-        $statuses = [];
 
-        foreach ($dates as $date) {
-            if ($date->lt($today)) {
-                $statuses[] = 'expired';
-            } elseif ($date->lte($today->copy()->addDays(self::EXPIRY_WARNING_DAYS))) {
-                $statuses[] = 'expiring';
-            } else {
-                $statuses[] = 'valid';
-            }
-        }
-
-        if (in_array('expired', $statuses)) return 'Expired';
-        if (in_array('expiring', $statuses)) return 'Expiring Soon';
+        if ($date->lt($today)) return 'Expired';
+        if ($date->lte($today->copy()->addDays(self::EXPIRY_WARNING_DAYS))) return 'Expiring Soon';
         return 'Valid';
     }
 

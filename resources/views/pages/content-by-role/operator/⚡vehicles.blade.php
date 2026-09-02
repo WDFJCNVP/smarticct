@@ -13,6 +13,30 @@ use App\Models\User;
 
 new #[Layout('layouts.operator-layout')]class extends Component
 {
+    // ===================== EXPORT MODAL =====================
+    public string $exportPaper = 'legal';
+    public string $exportOrientation = 'portrait';
+
+    #[Computed]
+    public function exportUrl(): string
+    {
+        return route('operator.vehicles.export', array_filter([
+            'paper'       => $this->exportPaper,
+            'orientation' => $this->exportOrientation,
+        ]));
+    }
+
+    // Same params as exportUrl, plus preview=1 so the controller streams the
+    // PDF inline instead of forcing a download or logging it as an export.
+    #[Computed]
+    public function exportPreviewUrl(): string
+    {
+        return route('operator.vehicles.export', array_filter([
+            'paper'       => $this->exportPaper,
+            'orientation' => $this->exportOrientation,
+            'preview'     => 1,
+        ]));
+    }
 
     #[Computed]
     public function vehicles() {
@@ -49,30 +73,23 @@ new #[Layout('layouts.operator-layout')]class extends Component
 ?>
 
 <div>
-    {{-- Header – consistent with other pages --}}
+    {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <div>
-            <x-heading
-                size="xl"
-                class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                style="font-size: var(--text-page-title)"
-            >
-                My vehicles
-            </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                Monitor your vehicles and their current queue status here.
-            </x-text>
-        </div>
+        <x-pages-heading
+            heading="My vehicles"
+            description="Monitor your vehicles and their current queue status here."
+        />
 
-        <flux:button
-            href="{{ route('operator.vehicles.export') }}"
-            variant="primary"
-            icon="arrow-down-tray"
-            size="sm"
-            class="font-secondary shrink-0 w-full sm:w-auto justify-center"
-        >
-            Export fleet PDF
-        </flux:button>
+        <flux:modal.trigger name="export-fleet">
+            <flux:button
+                variant="primary"
+                icon="arrow-down-tray"
+                size="sm"
+                class="font-secondary shrink-0 w-full sm:w-auto justify-center"
+            >
+                Export fleet PDF
+            </flux:button>
+        </flux:modal.trigger>
     </div>
 
     {{-- Stats cards – same pattern as other pages --}}
@@ -142,9 +159,11 @@ new #[Layout('layouts.operator-layout')]class extends Component
                     <flux:table.column align="center" class="px-2! md:px-4! py-2">#</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Plate no.</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Type</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Driver</flux:table.column>
+                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Engine no.</flux:table.column>
+                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Body no.</flux:table.column>
+                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Chassis no.</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Route</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Compliance</flux:table.column>
+                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Validity date of franchise</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Queue status</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Registered</flux:table.column>
                     <flux:table.column align="center" class="px-2! md:px-4! py-2">Actions</flux:table.column>
@@ -165,8 +184,16 @@ new #[Layout('layouts.operator-layout')]class extends Component
                                 {{ $vehicle->vehicle_type }}
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
-                                {{ $vehicle->driver_name ?? '—' }}
+                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-mono text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
+                                {{ $vehicle->engine_number ?? '—' }}
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-mono text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
+                                {{ $vehicle->body_number ?? '—' }}
+                            </flux:table.cell>
+
+                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-mono text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
+                                {{ $vehicle->chassis_number ?? '—' }}
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
@@ -174,27 +201,18 @@ new #[Layout('layouts.operator-layout')]class extends Component
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2">
-                                <div class="flex items-center justify-center gap-1">
-                                    @if($vehicle->has_or_cr && $vehicle->or_cr_expiry_date)
-                                        <flux:tooltip content="OR/CR verified (expires {{ $vehicle->or_cr_expiry_date->format('M d, Y') }})">
+                                @if($vehicle->has_franchise && $vehicle->franchise_expiry_date)
+                                    <flux:tooltip content="Franchise verified">
+                                        <span class="inline-flex items-center gap-1 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
                                             <flux:icon.check-circle class="w-4 h-4 text-success dark:text-dark-success" />
-                                        </flux:tooltip>
-                                    @else
-                                        <flux:tooltip content="OR/CR not verified">
-                                            <flux:icon.x-circle class="w-4 h-4 text-danger dark:text-dark-danger" />
-                                        </flux:tooltip>
-                                    @endif
-
-                                    @if($vehicle->has_franchise && $vehicle->franchise_expiry_date)
-                                        <flux:tooltip content="Franchise verified (expires {{ $vehicle->franchise_expiry_date->format('M d, Y') }})">
-                                            <flux:icon.check-circle class="w-4 h-4 text-success dark:text-dark-success" />
-                                        </flux:tooltip>
-                                    @else
-                                        <flux:tooltip content="Franchise not verified">
-                                            <flux:icon.x-circle class="w-4 h-4 text-danger dark:text-dark-danger" />
-                                        </flux:tooltip>
-                                    @endif
-                                </div>
+                                            {{ $vehicle->franchise_expiry_date->format('M d, Y') }}
+                                        </span>
+                                    </flux:tooltip>
+                                @else
+                                    <flux:tooltip content="Franchise not verified">
+                                        <flux:icon.x-circle class="w-4 h-4 text-danger dark:text-dark-danger inline" />
+                                    </flux:tooltip>
+                                @endif
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2">
@@ -237,4 +255,111 @@ new #[Layout('layouts.operator-layout')]class extends Component
             </flux:table>
         </div>
     </flux:card>
+
+    {{-- ===================== EXPORT MODAL ===================== --}}
+    <flux:modal
+        name="export-fleet"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-lg mx-auto rounded-xl overflow-hidden"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Export fleet PDF
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        A summary of all vehicles registered under your account.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
+            </div>
+
+            <div class="flex gap-2">
+                <flux:field class="flex-1">
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Paper size</flux:label>
+                    <flux:select wire:model.live="exportPaper" size="sm" class="font-secondary text-table-row">
+                        <flux:select.option value="letter">Letter</flux:select.option>
+                        <flux:select.option value="legal">Legal</flux:select.option>
+                        <flux:select.option value="a4">A4</flux:select.option>
+                    </flux:select>
+                </flux:field>
+                <flux:field class="flex-1">
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Orientation</flux:label>
+                    <flux:select wire:model.live="exportOrientation" size="sm" class="font-secondary text-table-row">
+                        <flux:select.option value="portrait">Portrait</flux:select.option>
+                        <flux:select.option value="landscape">Landscape</flux:select.option>
+                    </flux:select>
+                </flux:field>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close class="w-full sm:w-auto">
+                    <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+                <flux:button
+                    type="button"
+                    x-on:click="Flux.modal('export-fleet').close(); Flux.modal('preview-fleet').show()"
+                    icon="eye"
+                    variant="primary"
+                    class="font-secondary w-full sm:w-auto justify-center"
+                >
+                    Preview
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- ===================== PREVIEW MODAL ===================== --}}
+    <flux:modal
+        name="preview-fleet"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-3xl mx-auto rounded-xl overflow-hidden"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-4">
+            <div class="flex items-start justify-between">
+                <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                    Preview
+                </flux:heading>
+                <button
+                    type="button"
+                    x-on:click="Flux.modal('preview-fleet').close()"
+                    class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1"
+                >
+                    <flux:icon name="x-mark" class="w-5 h-5" />
+                </button>
+            </div>
+
+            <iframe
+                wire:key="{{ $this->exportPreviewUrl }}"
+                src="{{ $this->exportPreviewUrl }}"
+                class="w-full h-[60vh] rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-white"
+            ></iframe>
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:button
+                    type="button"
+                    x-on:click="Flux.modal('preview-fleet').close(); Flux.modal('export-fleet').show()"
+                    variant="ghost"
+                    class="w-full sm:w-auto justify-center font-secondary"
+                >
+                    Back to filters
+                </flux:button>
+                <flux:button
+                    href="{{ $this->exportUrl }}"
+                    icon="arrow-down-tray"
+                    variant="primary"
+                    class="font-secondary w-full sm:w-auto justify-center"
+                >
+                    Download PDF
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>
