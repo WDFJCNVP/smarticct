@@ -18,7 +18,14 @@ class OperatorTravelHistoryExportController extends Controller
             'vehicle_type' => 'nullable|string',
             'route'        => 'nullable|string',
             'status'       => 'nullable|in:departed,queued',
+            'paper'        => 'nullable|in:letter,legal,a4',
+            'orientation'  => 'nullable|in:portrait,landscape',
+            'preview'      => 'nullable|boolean',
         ]);
+
+        $paper       = $validated['paper'] ?? 'legal';
+        $orientation = $validated['orientation'] ?? 'portrait';
+        $isPreview   = $request->boolean('preview');
 
         $hasFrom = !empty($validated['from']);
         $hasTo = !empty($validated['to']);
@@ -39,8 +46,6 @@ class OperatorTravelHistoryExportController extends Controller
             ->orderBy('time_queued')
             ->get();
 
-        // Group by destination so the printed log reads like the old logbook —
-        // one section per route, in departure order.
         $grouped = $records->groupBy('destination');
 
         $scopeParts = array_filter([
@@ -58,7 +63,19 @@ class OperatorTravelHistoryExportController extends Controller
             'title'       => 'My Travel History',
             'subtitle'    => 'Vehicle queueing & departure record',
             'scopeNote'   => $scopeParts ? implode(' • ', $scopeParts) : 'All vehicle types • All routes',
-        ])->setPaper('legal', 'portrait');
+            'paper'       => $paper,
+            'orientation' => $orientation,
+        ])->setPaper($paper, $orientation);
+
+        $filename = $from && $to
+            ? ($from->isSameDay($to)
+                ? 'travel-history-' . $from->format('Y-m-d') . '.pdf'
+                : 'travel-history-' . $from->format('Y-m-d') . '-to-' . $to->format('Y-m-d') . '.pdf')
+            : 'travel-history-all-time.pdf';
+
+        if ($isPreview) {
+            return $pdf->stream($filename);
+        }
 
         app(AuditLogsService::class)->create([
             'user_id'  => auth()->id(),
@@ -74,12 +91,6 @@ class OperatorTravelHistoryExportController extends Controller
                 'records'      => $records->count(),
             ],
         ]);
-
-        $filename = $from && $to
-            ? ($from->isSameDay($to)
-                ? 'travel-history-' . $from->format('Y-m-d') . '.pdf'
-                : 'travel-history-' . $from->format('Y-m-d') . '-to-' . $to->format('Y-m-d') . '.pdf')
-            : 'travel-history-all-time.pdf';
 
         return $pdf->download($filename);
     }
