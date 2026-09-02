@@ -187,7 +187,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     <flux:modal name="edit" class="md:w-96">
         <form wire:submit="update" class="space-y-6">
             <div>
-                <flux:heading size="lg">Update Ticket Rate</flux:heading>
+                <flux:heading size="lg" class="font-primary font-bold text-light-txt-primary dark:text-dark-txt-primary">Update Ticket Rate</flux:heading>
                 <flux:text class="mt-2">Make changes to the vehicle configuration settings.</flux:text>
             </div>
 
