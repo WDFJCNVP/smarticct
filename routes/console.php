@@ -19,7 +19,7 @@ Schedule::call(function () {
 // DocumentExpiryNotificationService for the windowing + de-dupe logic).
 Schedule::call(function () {
     app(DocumentExpiryNotificationService::class)->notifyExpiringDocuments(30);
-})->twiceWeekly(1, 4)->at('08:00');
+})->cron('0 8 * * 1,4');
 
 Schedule::call(function () {
     // Posts sit in Trash for 30 days after being deleted (see Post::SoftDeletes),
