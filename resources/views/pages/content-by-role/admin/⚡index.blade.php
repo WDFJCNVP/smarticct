@@ -390,7 +390,7 @@ public function todayRevenue()
         $this->dispatch('peak-time-chart-updated', chart: $this->peakTimeByVehicleType);
     }
 
-    // ===================== OPERATOR OR/CR & FRANCHISE EXPIRY =====================
+    // ===================== OPERATOR FRANCHISE EXPIRY =====================
 
     #[Computed]
     public function expiringOperatorDocs()
@@ -398,16 +398,11 @@ public function todayRevenue()
         $soon = today()->addDays(30)->endOfDay();
 
         return Vehicle::with('user:id,name,phone_number')
-            ->where(function ($query) use ($soon) {
-                $query->where(function ($q) use ($soon) {
-                    $q->whereNotNull('or_cr_expiry_date')->where('or_cr_expiry_date', '<=', $soon);
-                })->orWhere(function ($q) use ($soon) {
-                    $q->whereNotNull('franchise_expiry_date')->where('franchise_expiry_date', '<=', $soon);
-                });
-            })
-            ->orderByRaw('LEAST(COALESCE(or_cr_expiry_date, "9999-12-31"), COALESCE(franchise_expiry_date, "9999-12-31")) ASC')
+            ->whereNotNull('franchise_expiry_date')
+            ->where('franchise_expiry_date', '<=', $soon)
+            ->orderBy('franchise_expiry_date', 'asc')
             ->limit(8)
-            ->get(['id', 'user_id', 'plate_number', 'vehicle_type', 'or_cr_expiry_date', 'franchise_expiry_date']);
+            ->get(['id', 'user_id', 'plate_number', 'vehicle_type', 'franchise_expiry_date']);
     }
 
     // ===================== TREND (REAL DATA — REPLACES "LIVE") =====================
@@ -665,7 +660,7 @@ public function todayRevenue()
 
     {{-- ===================== HEADER ===================== --}}
     <div class="mb-6">
-        <div class="flex items-center justify-between gap-3 sm:gap-4">
+        <div class="flex items-start justify-between gap-3 sm:gap-4">
             <x-pages-heading
                 heading="Admin Dashboard"
                 description="System overview and key metrics."
@@ -700,14 +695,7 @@ public function todayRevenue()
                     </div>
                 </div>
 
-                <button
-                    type="button"
-                    class="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:bg-light-subtle dark:hover:bg-dark-subtle transition shrink-0"
-                    aria-label="Notifications"
-                >
-                    <flux:icon.bell class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger dark:bg-dark-danger"></span>
-                </button>
+                <livewire:pages::notification-bell />
 
                 <flux:modal.trigger name="admin-filters">
                     <button
@@ -971,11 +959,11 @@ public function todayRevenue()
             </div>
         </flux:card>
 
-        {{-- Operators with expiring OR/CR & Franchise --}}
+        {{-- Operators with expiring franchise validity --}}
         <flux:card class="p-0 overflow-hidden">
             <div class="px-4 pt-4 flex items-center justify-between gap-2">
                 <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
-                    OR/CR &amp; Franchise expiry
+                    Franchise expiry
                 </x-text>
                 <span class="font-secondary text-xs font-medium text-light-txt-muted dark:text-dark-txt-muted">Next 30 days</span>
             </div>
@@ -983,7 +971,6 @@ public function todayRevenue()
                 @forelse ($this->expiringOperatorDocs as $vehicle)
                     @php
                         $docs = collect([
-                            $vehicle->or_cr_expiry_date ? ['label' => 'OR/CR', 'date' => $vehicle->or_cr_expiry_date] : null,
                             $vehicle->franchise_expiry_date ? ['label' => 'Franchise', 'date' => $vehicle->franchise_expiry_date] : null,
                         ])->filter()->filter(fn ($d) => today()->addDays(30)->gte($d['date']));
                     @endphp
@@ -1010,7 +997,7 @@ public function todayRevenue()
                     </div>
                 @empty
                     <div class="py-8 text-center text-light-txt-muted dark:text-dark-txt-muted font-secondary text-table-row">
-                        No OR/CR or franchise expiring soon.
+                        No franchise expiring soon.
                     </div>
                 @endforelse
             </div>

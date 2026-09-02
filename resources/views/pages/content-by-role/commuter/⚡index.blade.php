@@ -237,7 +237,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
 
     {{-- ===================== HEADER ===================== --}}
     <div class="mb-6">
-        <div class="flex items-center justify-between gap-3 sm:gap-4">
+        <div class="flex items-start justify-between gap-3 sm:gap-4">
             <x-pages-heading
                 heading="Commuter Dashboard"
                 description="Your travel and rental overview."
@@ -276,14 +276,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
                 </div>
 
                 {{-- Notifications --}}
-                <button
-                    type="button"
-                    class="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:bg-light-subtle dark:hover:bg-dark-subtle transition shrink-0"
-                    aria-label="Notifications"
-                >
-                    <flux:icon.bell class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger dark:bg-dark-danger"></span>
-                </button>
+                <livewire:pages::notification-bell />
 
                 {{-- Filter button --}}
                 <flux:modal.trigger name="commuter-filters">
