@@ -26,9 +26,6 @@ new #[Layout('layouts.public-account-setup')] class extends Component
     public string $otp = '';
     public bool $otpSent = false;
 
-    // Keyed by email + IP so one person spamming "resend" doesn't lock out
-    // an unrelated person who happens to be on the same network, and vice
-    // versa. Same pattern the login page already uses.
     private function otpThrottleKey(): string
     {
         return 'registration_otp_throttle_' . Str::lower($this->email_address) . '|' . request()->ip();
@@ -104,11 +101,6 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             return;
         }
 
-        // Uniqueness was checked when the OTP was first sent, but the OTP
-        // stays valid for 10 minutes — long enough for someone else to
-        // register the same email in the meantime. Re-check here so that
-        // case fails with a normal validation message instead of an
-        // unhandled duplicate-entry database error.
         if (\App\Models\User::where('email_address', $this->email_address)->exists()) {
             $this->addError('email_address', 'An account with this email already exists.');
             $this->otpSent = false;
@@ -122,79 +114,84 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                 'role'          => 'commuter',
             ]);
         } catch (QueryException $e) {
-            // Fallback in case both registrations slipped past the check
-            // above at nearly the same instant.
             $this->addError('email_address', 'An account with this email already exists.');
             $this->otpSent = false;
             return;
         }
 
         if ($user) {
-
             Cache::forget('registration_otp_' . $this->email_address);
-
             auth()->login($user);
             request()->session()->regenerate();
-
             return $this->redirect('/register/setup');
         }
     }
 };
 ?>
 
-{{--
-    Scrapped the arch/banner idea — dropped it back to the exact structure
-    the login page already uses (two-panel, h-full overflow-hidden, no page
-    scroll). Since this component uses the SAME layout as login
-    (layouts.public-account-setup), we know this fits the viewport without
-    scrolling. Only the right-hand panel's content swaps between the
-    email/password step and the OTP step; the hero panel stays static.
-
-    Validation errors now use the same token as login's rate-limit message
-    (font-secondary text-helper text-danger) instead of Flux's unstyled
-    default, so both auth pages read as one consistent design language.
---}}
-
 <div class="flex min-h-full md:h-full overflow-y-auto md:overflow-hidden p-4 sm:p-6 md:p-10!" x-data="{ loaded: false }" x-init="setTimeout(() => loaded = true, 100)">
 
-    {{-- ── HERO PANEL ── --}}
-    <div
-        x-show="loaded"
-        x-transition:enter.duration.700
-        x-transition:enter.start.opacity-0.-translate-x-5
-        x-transition:enter.end.opacity-100.translate-x-0
-        class="hidden md:flex w-5/12 h-full relative flex-col p-8 overflow-hidden"
-    >
-        <div class="absolute inset-0 overflow-hidden">
-            <a href="/">
-                <img
-                    src="{{ asset('images/iriga-terminal.jpg') }}"
-                    alt="SmartICCT"
-                    class="h-10 w-auto md:h-full scale-105 transition-transform duration-[20s] ease-in-out hover:scale-110"
-                >
-            </a>
-            <div class="absolute inset-0 bg-linear-to-r from-[#21284D]/90 from-[20%] to-[#272C48]/75 to-[75%]"></div>
-        </div>
-
-        <div class="relative z-10 flex flex-col justify-start pt-2">
-            <h1 class="font-primary text-page-title font-extrabold text-dark-txt-primary leading-tight">
-                Welcome to SMART Iriga City Central Terminal.
-            </h1>
-            <p class="font-secondary text-body text-dark-txt-muted mt-3 leading-relaxed">
-                Rent vehicles, top up your card, and view live queues — all from one place.
-            </p>
-        </div>
+    {{-- HERO PANEL – same image, phrase: "Start your SMART journey." --}}
+    <div 
+    x-show="loaded" 
+    x-transition:enter.duration.700
+    x-transition:enter.start.opacity-0.-translate-x-5
+    x-transition:enter.end.opacity-100.translate-x-0
+    class="hidden md:flex w-5/12 h-full relative flex-col p-8 overflow-hidden"
+>
+    <div class="absolute inset-0 overflow-hidden">
+        <a href="/">
+            <img src="{{ asset('images/terminal-bg-2.jpeg') }}" alt="SmartICCT" 
+                 class="h-10 w-auto md:h-full scale-105 transition-transform duration-[20s] ease-in-out hover:scale-110">
+        </a>
+        <div class="absolute inset-0 bg-gradient-to-t from-[#0B0F2A]/90 via-[#1A1F3A]/60 to-transparent"></div>
     </div>
 
-    {{-- ── FORM PANEL ── --}}
+    <div class="relative z-10 flex flex-col justify-end h-full pb-12">
+        <h1 class="font-primary text-4xl md:text-5xl font-extrabold text-white leading-[1.1] max-w-sm">
+            Start your <br>SMART journey.
+        </h1>
+        <p class="font-secondary text-base md:text-lg text-white/80 mt-4 max-w-xs leading-relaxed">
+            Rent, pay, and queue – all in one place at SmartICCT.
+        </p>
+        <div class="mt-6 flex items-center gap-4">
+            <span class="w-10 h-0.5 bg-secondary"></span>
+            <span class="text-xs text-white/40 font-secondary">#MoveSmartIriga</span>
+        </div>
+    </div>
+</div>
+
+    {{-- FORM PANEL --}}
     <div
         x-show="loaded"
         x-transition:enter.duration.700.delay.200
         x-transition:enter.start.opacity-0.translate-x-5
         x-transition:enter.end.opacity-100.translate-x-0
-        class="flex flex-1 flex-col justify-center px-6 py-8 sm:px-10 md:px-12 bg-light-secondary dark:bg-dark-secondary overflow-y-auto md:overflow-hidden min-h-full md:h-full"
+        class="flex flex-1 flex-col justify-center px-6 py-8 sm:px-10 md:px-12 bg-white/80 dark:bg-dark-secondary/80 backdrop-blur-sm overflow-y-auto md:overflow-hidden min-h-full md:h-full"
     >
         <div class="w-full max-w-sm mx-auto">
+
+            {{-- Mobile Brand Header --}}
+            <div class="block md:hidden mb-5">
+                <div class="flex items-center justify-center gap-3">
+                    <a href="/" class="shrink-0">
+                        <img 
+                            src="{{ asset('images/logo.png') }}" 
+                            alt="SmartICCT" 
+                            class="h-10 w-auto"
+                        >
+                    </a>
+                    <div>
+                        <p class="font-primary text-base font-bold text-light-txt-primary dark:text-dark-txt-primary leading-tight">
+                            Iriga City
+                        </p>
+                        <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted leading-tight -mt-0.5">
+                            Central Terminal
+                        </p>
+                    </div>
+                </div>
+                <div class="w-full h-0.5 bg-secondary/60 dark:bg-secondary/80 mx-auto mt-3"></div>
+            </div>
 
             @if (session('status'))
                 <div class="mb-3 font-secondary text-sm font-medium text-success dark:text-dark-success">
@@ -227,7 +224,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             wire:key="input-email"
                             wire:model="email_address"
                             placeholder="e.g. juandelacruz@example.com"
-                            class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
+                            class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
                         <flux:error name="email_address" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
@@ -242,7 +239,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             wire:model="password"
                             placeholder="Min. 8 characters"
                             viewable
-                            class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
+                            class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
                         <flux:error name="password" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
@@ -257,7 +254,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             wire:model="password_confirmation"
                             placeholder="Re-enter your password"
                             viewable
-                            class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
+                            class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
                         <flux:error name="password_confirmation" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
@@ -296,7 +293,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             wire:model="otp"
                             placeholder="000000"
                             maxlength="6"
-                            class="font-mono text-center tracking-widest text-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
+                            class="font-mono text-center tracking-widest text-lg rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
                         <flux:error name="otp" class="mt-0! font-secondary text-helper text-danger dark:text-dark-danger" />
                     </flux:field>

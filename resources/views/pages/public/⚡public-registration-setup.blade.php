@@ -27,16 +27,14 @@ new #[Layout('layouts.public-account-setup')] class extends Component
     #[Validate('required|string|max:500')]
     public string $name = '';
 
-    // Agree to terms – added
     #[Validate('accepted')]
     public bool $agree = false;
 
-    // Address modal fields
     public string $house_subd = '';
     public ?int $zone_number = null;
     public string $barangay = '';
     public string $municipality = '';
-    public string $province = '';      // NEW
+    public string $province = '';
 
     public function saveAddress(): void
     {
@@ -45,7 +43,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             'zone_number'  => 'required|integer|min:1|max:20',
             'barangay'     => 'required|string|max:255',
             'municipality' => 'required|string|max:255',
-            'province'     => 'required|string|max:255',    // NEW
+            'province'     => 'required|string|max:255',
         ]);
 
         $parts = array_filter([
@@ -53,12 +51,11 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             'Zone ' . $data['zone_number'],
             $data['barangay'],
             $data['municipality'],
-            $data['province'],                             // REPLACED hardcoded
+            $data['province'],
         ]);
 
         $this->address = implode(', ', $parts);
         $this->resetValidation();
-
         $this->dispatch('address-saved');
     }
 
@@ -82,9 +79,31 @@ new #[Layout('layouts.public-account-setup')] class extends Component
 };
 ?>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-6 sm:px-6 lg:px-8 bg-light-primary dark:bg-dark-primary">
+<div class="min-h-screen flex items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
 
-    <div class="w-full max-w-md lg:max-w-4xl rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 bg-white dark:bg-dark-surface">
+    <div class="w-full max-w-md lg:max-w-4xl rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 bg-white/90 dark:bg-dark-surface/90 backdrop-blur-sm">
+
+        {{-- Mobile Brand Header (visible only on small screens) --}}
+        <div class="block md:hidden px-6 pt-6 pb-0">
+            <div class="flex items-center justify-center gap-3">
+                <a href="/" class="shrink-0">
+                    <img 
+                        src="{{ asset('images/logo.png') }}" 
+                        alt="SmartICCT" 
+                        class="h-10 w-auto"
+                    >
+                </a>
+                <div>
+                    <p class="font-primary text-base font-bold text-light-txt-primary dark:text-dark-txt-primary leading-tight">
+                        Iriga City
+                    </p>
+                    <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted leading-tight -mt-0.5">
+                        Central Terminal
+                    </p>
+                </div>
+            </div>
+            <div class="w-full h-0.5 bg-secondary/60 dark:bg-secondary/80 mx-auto mt-3"></div>
+        </div>
 
         {{-- GRADIENT BANNER --}}
         <div class="relative bg-linear-to-r from-primary to-secondary px-6 py-4 sm:px-8 sm:py-4 overflow-hidden">
@@ -128,7 +147,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             type="text"
                             wire:model="name"
                             placeholder="e.g. John Doe"
-                            class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
+                            class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
                         <flux:error name="name" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
@@ -138,7 +157,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                         <flux:select
                             wire:model="commuter_type"
                             placeholder="Select commuter type"
-                            class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
+                            class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         >
                             <flux:select.option value="regular">Regular</flux:select.option>
                             <flux:select.option value="student">Student</flux:select.option>
@@ -156,7 +175,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             placeholder="e.g. 22"
                             min="5"
                             max="120"
-                            class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
+                            class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                         />
                         <flux:error name="age" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                     </flux:field>
@@ -175,12 +194,11 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                                 type="tel"
                                 wire:model="phone_number"
                                 placeholder="e.g. 09171234567"
-                                class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
+                                class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted transition-shadow duration-200 focus:ring-2 focus:ring-secondary/50"
                             />
                             <flux:error name="phone_number" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                         </flux:field>
 
-                        {{-- ADDRESS FIELD (updated) --}}
                         <flux:field>
                             <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                                 Address
@@ -200,7 +218,6 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                             <flux:error name="address" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                         </flux:field>
 
-                        {{-- AGREEMENT CHECKBOX --}}
                         <flux:field class="mt-2">
                             <label class="flex items-start gap-3 cursor-pointer">
                                 <flux:checkbox
@@ -233,7 +250,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
 
     </div>
 
-    {{-- ADDRESS MODAL – restyled, with Province field --}}
+    {{-- ADDRESS MODAL --}}
     <flux:modal
         name="address-modal"
         :closable="false"
@@ -241,7 +258,6 @@ new #[Layout('layouts.public-account-setup')] class extends Component
         x-on:address-saved.window="Flux.modal('address-modal').close()"
     >
         <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
-            {{-- Header --}}
             <div class="flex items-start justify-between">
                 <div>
                     <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
@@ -258,7 +274,6 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                 </flux:modal.close>
             </div>
 
-            {{-- Fields --}}
             <flux:field>
                 <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
                     House No. / Subdivision
@@ -267,7 +282,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                 <flux:input
                     wire:model="house_subd"
                     placeholder="e.g. Blk 3 Lot 5, Hillside Subd."
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                    class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
                 <flux:error name="house_subd" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
@@ -280,7 +295,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                     min="1"
                     max="20"
                     placeholder="e.g. 3"
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                    class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
                 <flux:error name="zone_number" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
@@ -290,7 +305,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                 <flux:input
                     wire:model="barangay"
                     placeholder="e.g. San Roque"
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                    class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
                 <flux:error name="barangay" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
@@ -300,23 +315,21 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                 <flux:input
                     wire:model="municipality"
                     placeholder="e.g. Iriga City"
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                    class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
                 <flux:error name="municipality" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
-            {{-- NEW Province field --}}
             <flux:field>
                 <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Province</flux:label>
                 <flux:input
                     wire:model="province"
                     placeholder="e.g. Camarines Sur"
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                    class="font-secondary text-table-row rounded-lg bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
                 />
                 <flux:error name="province" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
             </flux:field>
 
-            {{-- Footer buttons --}}
             <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
                 <flux:modal.close class="w-full sm:w-auto">
                     <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
