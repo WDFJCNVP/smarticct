@@ -26,7 +26,7 @@ return new class extends Migration
 
             $table->decimal('amount', 10, 2)->nullable();
 
-            $table->timestamp('departed_at');
+            $table->timestamp('departed_at')->nullable();
 
             $table->timestamps();
 

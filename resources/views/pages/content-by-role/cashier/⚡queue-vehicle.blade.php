@@ -8,14 +8,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Queue;
 use App\Models\CashTransaction;
-
 use App\Models\Card;
 use App\Models\RouteList;
 use App\Models\Vehicle;
 use App\Models\User;
 use App\Models\Notification;
 use App\Models\UserNotification;
+
 use App\Http\Controllers\Api\CardController;
+use App\Http\Controllers\Api\CashQueueController;
 
 use App\Events\NotificationEvent;
 use App\Services\AuditLogsService;
@@ -45,6 +46,7 @@ new class extends Component
                 $this->showInsufficientAmountAlert = true;
                 return;
             }
+
             if (!$this->cash_operator_id) {
                 Flux::toast(
                     variant: 'warning',
@@ -56,87 +58,52 @@ new class extends Component
             }
 
             try {
-                DB::transaction(function () {
-                    $queue = Queue::create([
-                        'user_id'         => $this->selectedOperator->id,
-                        'vehicle_id'      => $this->selectedVehicle->id,
-                        'vehicle_type'    => $this->selectedVehicle->vehicle_type,
-                        'destination'     => $this->selectedVehicle->route_list->terminal,
-                        'plate_number'    => $this->selectedVehicle->plate_number,
-                        'driver_name'     => $this->driver_name,
-                        'status'          => 'staging',
-                        'time_queued'     => now(),
-                        'seat_capacity'   => $this->selectedVehicle->total_seats ?? 0,
-                        'seat_count'      => 0,
-                        'slot_position'   => Queue::where('destination', $this->selectedVehicle->route_list->terminal)
-                            ->whereIn('status', ['staging', 'loading'])
-                            ->max('slot_position') + 1,
-                    ]);
+                $request = new Request();
+                $request->merge([
+                    'operator_id'     => $this->selectedOperator->id,
+                    'vehicle_id'      => $this->selectedVehicle->id,
+                    'driver_name'     => $this->driver_name ?: $this->selectedVehicle->driver_name,
+                    'amount'          => $this->queueFee,
+                    'amount_received' => $this->amount_received,
+                    'change'          => $this->change,
+                    'destination'     => $this->selectedVehicle->route_list->terminal,
+                    'vehicle_type'    => $this->selectedVehicle->vehicle_type,
+                    'plate_number'    => $this->selectedVehicle->plate_number,
+                ]);
 
-                    CashTransaction::create([
-                        'processed_by'    => auth()->id(),
-                        'operator_id'     => $this->selectedOperator->id,
-                        'vehicle_id'      => $this->selectedVehicle->id,
-                        'queue_id'        => $queue->id,
-                        'amount'          => $this->queueFee,
-                        'amount_received' => $this->amount_received,
-                        'change'          => $this->change,
-                        'reference_no'    => 'CASH-' . now()->format('YmdHis') . '-' . $queue->id,
-                        'notes'           => 'Cash payment for queueing vehicle #' . $queue->id,
-                        'status'          => 'success',
-                    ]);
-
-                    app(AuditLogsService::class)->create([
-                        'user_id'  => auth()->id(),
-                        'action'   => 'Queued Vehicle',
-                        'subject'  => 'Vehicle Queued Successfully (Cash)',
-                        'channel'  => 'Web',
-                        'metadata' => [
-                            'ip_address'   => request()->ip(),
-                            'payment_mode' => 'cash',
-                            'queue_id'     => $queue->id,
-                            'message'      => "Vehicle queued (ID: {$queue->id}) for operator: {$this->selectedOperator->name}",
-                        ],
-                    ]);
-
-                    $notification = Notification::create([
-                        'type'    => 'Queued',
-                        'title'   => 'Vehicle Queued',
-                        'message' => "Your {$queue->vehicle_type} with plate number {$queue->plate_number} has joined the queue.",
-                        'metadata' => json_encode(['plate_number' => $queue->plate_number, 'vehicle_type' => $queue->vehicle_type]),
-                    ]);
-
-                    UserNotification::create([
-                        'notification_id' => $notification->id,
-                        'user_id'         => $this->selectedOperator->id,
-                    ]);
-
-                    broadcast(new NotificationEvent());
-
-                    Flux::toast(
-                        variant: 'success',
-                        duration: 4000,
-                        heading: 'Vehicle Queued Successfully',
-                        text: 'Cash payment recorded. Change: ₱' . number_format($this->change, 2)
-                    );
-
-                    $this->disableCashMode();
-                });
-
-                // Cash payment succeeded — go back to the live queue page.
-                $this->redirect(route('user.queue'), navigate: true);
-                return;
+                $response = (new CashQueueController())->queue($request);
+                $responseData = $response->getData(true);
 
             } catch (\Exception $e) {
-                Log::error('Cash-mode vehicle queueing failed', ['error' => $e->getMessage(), 'operator_id' => $this->selectedOperator->id ?? null]);
+                Log::error('Cash-mode vehicle queueing failed', ['error' => $e->getMessage()]);
                 Flux::toast(
                     variant: 'warning',
                     duration: 4000,
                     heading: 'Failed to Queue Vehicle',
                     text: 'Something went wrong while queuing this vehicle. Please try again.'
                 );
+                return;
             }
 
+            if (($responseData['success'] ?? false) === true) {
+                Flux::toast(
+                    variant: 'success',
+                    duration: 4000,
+                    heading: 'Vehicle Queued Successfully',
+                    text: 'Cash payment recorded. Change: ₱' . number_format($this->change, 2)
+                );
+
+                $this->disableCashMode();
+                $this->redirect(route('user.queue'), navigate: true);
+                return;
+            }
+
+            Flux::toast(
+                variant: 'warning',
+                duration: 4000,
+                heading: 'Failed to Queue Vehicle',
+                text: $responseData['message'] ?? 'An error occurred while queuing the vehicle.'
+            );
             return;
         }
 
