@@ -64,14 +64,8 @@ new  #[Layout('layouts.operator-layout')] class extends Component
         {{-- No extra controls – keep it minimal --}}
     </x-page-header>
 
-    <div class="mb-4">
-        <flux:breadcrumbs class="mb-2 text-xs sm:text-sm">
-            <flux:breadcrumbs.item href="{{ route('operator.vehicles') }}" wire:navigate>
-                My vehicles
-            </flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>Travel records</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
-
+    {{-- Heading with breadcrumbs on the right --}}
+    <div class="flex items-start justify-between gap-4 mb-6">
         <div>
             <x-heading
                 size="xl"
@@ -81,6 +75,13 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                 Travel records
             </x-heading>
         </div>
+
+        <flux:breadcrumbs class="shrink-0 pt-1">
+            <flux:breadcrumbs.item href="{{ route('operator.vehicles') }}" wire:navigate>
+                Back to my vehicles
+            </flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>Travel records</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
     </div>
 
     {{-- Vehicle summary card --}}
@@ -190,9 +191,9 @@ new  #[Layout('layouts.operator-layout')] class extends Component
     </div>
 
     {{-- Table card (no search bar) --}}
-    <flux:card class="mb-4">
+    <flux:card class="mb-4 p-0! overflow-hidden">
         <div class="overflow-x-auto">
-            <flux:table>
+            <flux:table container:class="md:max-h-160">
                 <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
                     <flux:table.column align="center" class="px-2! md:px-4! py-2">#</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Driver</flux:table.column>

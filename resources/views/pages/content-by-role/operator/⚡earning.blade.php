@@ -15,53 +15,101 @@ new #[Layout('layouts.operator-layout')] class extends Component
 {
     use WithPagination;
 
+    // Live-updated properties (search + the two quick filters shown inline)
+    public string $search = '';
+    public string $vehicleTypeFilter = '';
+    public string $paymentMethodFilter = '';
+
     public string $dateFrom = '';
     public string $dateTo = '';
-    public string $vehicleTypeFilter = '';
+
+    // Applied filter values for the less-common facets (only changed via the Filters modal)
     public string $routeFilter = '';
     public string $driverFilter = '';
-    public string $paymentMethodFilter = '';
+
+    // Temporary values for the modal
+    public string $tempRouteFilter = '';
+    public string $tempDriverFilter = '';
+    public string $tempDateFrom = '';
+    public string $tempDateTo = '';
 
     public function mount()
     {
         $this->dateFrom = today()->toDateString();
         $this->dateTo   = today()->toDateString();
+        $this->syncTempFromActual();
     }
 
-    public function updatedDateFrom() { $this->resetPage(); $this->pushChartUpdates(); }
-    public function updatedDateTo() { $this->resetPage(); $this->pushChartUpdates(); }
+    private function syncTempFromActual(): void
+    {
+        $this->tempRouteFilter = $this->routeFilter;
+        $this->tempDriverFilter = $this->driverFilter;
+        $this->tempDateFrom = $this->dateFrom;
+        $this->tempDateTo = $this->dateTo;
+    }
+
+    public function updatedSearch() { $this->resetPage(); $this->pushChartUpdates(); }
     public function updatedVehicleTypeFilter() { $this->resetPage(); $this->pushChartUpdates(); }
-    public function updatedRouteFilter() { $this->resetPage(); $this->pushChartUpdates(); }
-    public function updatedDriverFilter() { $this->resetPage(); $this->pushChartUpdates(); }
     public function updatedPaymentMethodFilter() { $this->resetPage(); $this->pushChartUpdates(); }
 
-    public function resetDateRange()
+    // Preset buttons inside the Filters modal — these only touch the temp
+    // values, so nothing is applied until "Apply Filters" is clicked.
+    public function setTempRangeToday()
     {
-        $this->dateFrom = today()->toDateString();
-        $this->dateTo   = today()->toDateString();
-        $this->resetPage();
-        $this->pushChartUpdates();
+        $this->tempDateFrom = today()->toDateString();
+        $this->tempDateTo   = today()->toDateString();
     }
 
-    public function setRangeThisWeek()
+    public function setTempRangeThisWeek()
     {
-        $this->dateFrom = now()->startOfWeek()->toDateString();
-        $this->dateTo   = now()->endOfWeek()->toDateString();
-        $this->resetPage();
-        $this->pushChartUpdates();
+        $this->tempDateFrom = now()->startOfWeek()->toDateString();
+        $this->tempDateTo   = now()->endOfWeek()->toDateString();
     }
 
-    public function setRangeThisMonth()
+    public function setTempRangeThisMonth()
     {
-        $this->dateFrom = now()->startOfMonth()->toDateString();
-        $this->dateTo   = now()->endOfMonth()->toDateString();
+        $this->tempDateFrom = now()->startOfMonth()->toDateString();
+        $this->tempDateTo   = now()->endOfMonth()->toDateString();
+    }
+
+    #[Computed]
+    public function dateRangePreset(): string
+    {
+        $today = today()->toDateString();
+
+        if ($this->tempDateFrom === $today && $this->tempDateTo === $today) {
+            return 'today';
+        }
+
+        if ($this->tempDateFrom === now()->startOfWeek()->toDateString() && $this->tempDateTo === now()->endOfWeek()->toDateString()) {
+            return 'week';
+        }
+
+        if ($this->tempDateFrom === now()->startOfMonth()->toDateString() && $this->tempDateTo === now()->endOfMonth()->toDateString()) {
+            return 'month';
+        }
+
+        return 'custom';
+    }
+
+    public function applyFilters(): void
+    {
+        $this->routeFilter = $this->tempRouteFilter;
+        $this->driverFilter = $this->tempDriverFilter;
+        $this->dateFrom = $this->tempDateFrom;
+        $this->dateTo = $this->tempDateTo;
         $this->resetPage();
         $this->pushChartUpdates();
+        $this->dispatch('close-earnings-filters-modal');
     }
 
     public function clearFilters()
     {
+        $this->search = '';
         $this->reset(['vehicleTypeFilter', 'routeFilter', 'driverFilter', 'paymentMethodFilter']);
+        $this->dateFrom = today()->toDateString();
+        $this->dateTo   = today()->toDateString();
+        $this->syncTempFromActual();
         $this->resetPage();
         $this->pushChartUpdates();
     }
@@ -78,12 +126,36 @@ new #[Layout('layouts.operator-layout')] class extends Component
         $this->dispatch('top-drivers-chart-updated', chart: $this->topDriversChart);
     }
 
+    // Count shown on the Filters (modal) trigger badge — the facets that
+    // live inside the modal itself, since Vehicle Type / Payment Method are
+    // already visible (and already show their own selected value) inline.
+    #[Computed]
+    public function modalFilterCount()
+    {
+        $today = today()->toDateString();
+
+        return collect([$this->routeFilter, $this->driverFilter])
+            ->filter(fn ($v) => filled($v))
+            ->count() + (($this->dateFrom !== $today || $this->dateTo !== $today) ? 1 : 0);
+    }
+
     #[Computed]
     public function activeFilterCount()
     {
         return collect([$this->vehicleTypeFilter, $this->routeFilter, $this->driverFilter, $this->paymentMethodFilter])
             ->filter(fn ($v) => filled($v))
             ->count();
+    }
+
+    #[Computed]
+    public function hasActiveFilters(): bool
+    {
+        $today = today()->toDateString();
+
+        return $this->search !== ''
+            || $this->activeFilterCount > 0
+            || $this->dateFrom !== $today
+            || $this->dateTo !== $today;
     }
 
     #[Computed]
@@ -130,6 +202,10 @@ new #[Layout('layouts.operator-layout')] class extends Component
             ->whereHas('queue', fn ($q) => $q->where('user_id', Auth::id()))
             ->whereDate('created_at', '>=', $this->dateFrom)
             ->whereDate('created_at', '<=', $this->dateTo)
+            ->when($this->search !== '', fn ($q) => $q->where(function ($qq) {
+                $qq->where('plate_number', 'like', '%' . $this->search . '%')
+                   ->orWhere('driver_name', 'like', '%' . $this->search . '%');
+            }))
             ->when($this->vehicleTypeFilter, fn ($q, $v) => $q->where('vehicle_type', $v))
             ->when($this->routeFilter, fn ($q, $v) => $q->where('destination', $v))
             ->when($this->driverFilter, fn ($q, $v) => $q->where('driver_name', $v));
@@ -267,110 +343,224 @@ new #[Layout('layouts.operator-layout')] class extends Component
 };
 ?>
 <div>
-    {{-- Header --}}
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-            <x-heading
-                size="xl"
-                class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                style="font-size: var(--text-page-title)"
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, filters + date range right) ====== --}}
+    <x-page-header
+        heading="Fare revenue from your vehicles — cash and card — with driver performance."
+        class="mb-6"
+    >
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <flux:modal.trigger name="earnings-filters">
+                <button
+                    type="button"
+                    class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg bg-primary text-white border-0 hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover transition font-secondary text-xs sm:text-table-row shrink-0"
+                >
+                    <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-[var(--color-dark-primary)]" />
+                    <span class="hidden sm:inline">Filters</span>
+                    @if ($this->modalFilterCount > 0)
+                        <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">
+                            {{ $this->modalFilterCount }}
+                        </span>
+                    @endif
+                </button>
+            </flux:modal.trigger>
+        </div>
+    </x-page-header>
+
+    {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+    <div class="sm:hidden mb-4 pb-4 border-b border-light-bd-default dark:border-dark-bd-default">
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            Earnings
+        </x-heading>
+
+        <div class="flex items-center gap-2 w-full mt-3">
+            <flux:modal.trigger name="earnings-filters">
+                <button
+                    type="button"
+                    class="relative flex items-center justify-center gap-1.5 px-3 h-8 rounded-lg bg-primary text-white border-0 hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover transition font-secondary text-xs shrink-0"
+                >
+                    <flux:icon.funnel class="w-3 h-3" />
+                    <span>Filters</span>
+                    @if ($this->modalFilterCount > 0)
+                        <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">
+                            {{ $this->modalFilterCount }}
+                        </span>
+                    @endif
+                </button>
+            </flux:modal.trigger>
+        </div>
+    </div>
+
+    {{-- ====== SEARCH + QUICK FILTERS (inline) ====== --}}
+    <div class="flex flex-col sm:flex-row sm:items-center gap-2 w-full mb-3">
+        {{-- Search --}}
+        <div class="flex-1">
+            <flux:input
+                wire:model.live.debounce.300ms="search"
+                placeholder="Search plate number or driver..."
+                class="w-full font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+                icon="magnifying-glass"
+            />
+        </div>
+
+        {{-- The two filters checked most often sit right next to search; Route / Driver / Date live in the Filters modal above --}}
+        <div class="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <flux:select
+                wire:model.live="vehicleTypeFilter"
+                size="sm"
+                placeholder="All vehicle types"
+                class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
             >
-                Earnings
-            </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                Fare revenue from your vehicles — cash and card — with driver performance.
-            </x-text>
-        </div>
+                <flux:select.option value="">All vehicle types</flux:select.option>
+                @foreach ($this->vehicleTypes as $type)
+                    <flux:select.option value="{{ $type }}">{{ $type }}</flux:select.option>
+                @endforeach
+            </flux:select>
 
-        <div class="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
-            <div class="flex items-center gap-2 w-full sm:w-auto">
-                <flux:input
-                    type="date"
-                    wire:model.live="dateFrom"
-                    size="sm"
-                    class="w-full sm:w-36 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-                />
-                <span class="text-light-txt-muted dark:text-dark-txt-muted text-sm shrink-0">to</span>
-                <flux:input
-                    type="date"
-                    wire:model.live="dateTo"
-                    size="sm"
-                    class="w-full sm:w-36 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-                />
-            </div>
+            <flux:select
+                wire:model.live="paymentMethodFilter"
+                size="sm"
+                placeholder="All payment methods"
+                class="w-full sm:w-44 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+            >
+                <flux:select.option value="">All payment methods</flux:select.option>
+                <flux:select.option value="card">Card</flux:select.option>
+                <flux:select.option value="cash">Cash</flux:select.option>
+            </flux:select>
 
-            <div class="flex items-center gap-2 w-full sm:w-auto">
-                <flux:button wire:click="resetDateRange" size="sm" variant="ghost" class="font-secondary flex-1 sm:flex-none justify-center">
-                    Today
+            @if ($this->hasActiveFilters)
+                <flux:button wire:click="clearFilters" size="sm" variant="ghost" icon="x-mark" class="font-secondary shrink-0">
+                    Clear
                 </flux:button>
-                <flux:button wire:click="setRangeThisWeek" size="sm" variant="ghost" class="font-secondary flex-1 sm:flex-none justify-center">
-                    This week
-                </flux:button>
-                <flux:button wire:click="setRangeThisMonth" size="sm" variant="ghost" class="font-secondary flex-1 sm:flex-none justify-center">
-                    This month
-                </flux:button>
-            </div>
+            @endif
         </div>
     </div>
 
-    {{-- Filters --}}
-    <div class="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 w-full sm:w-auto mt-3">
-        <flux:select
-            wire:model.live="vehicleTypeFilter"
-            size="sm"
-            placeholder="All vehicle types"
-            class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-        >
-            <flux:select.option value="">All vehicle types</flux:select.option>
-            @foreach ($this->vehicleTypes as $type)
-                <flux:select.option value="{{ $type }}">{{ $type }}</flux:select.option>
-            @endforeach
-        </flux:select>
+    {{-- ====== FILTERS MODAL (Date range, Route & Driver — the less-frequently-changed facets) ====== --}}
+    <flux:modal
+        name="earnings-filters"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-2xl mx-auto rounded-xl overflow-hidden"
+        x-on:close-earnings-filters-modal.window="$flux.modal('earnings-filters').close()"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            <!-- Header -->
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Filter Earnings
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        Narrow the fare payments shown below by date, route, or driver.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
+            </div>
 
-        <flux:select
-            wire:model.live="routeFilter"
-            size="sm"
-            placeholder="All routes"
-            class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-        >
-            <flux:select.option value="">All routes</flux:select.option>
-            @foreach ($this->routes as $route)
-                <flux:select.option value="{{ $route }}">{{ $route }}</flux:select.option>
-            @endforeach
-        </flux:select>
+            <!-- Fields (bound to temp properties) -->
+            <div class="space-y-4">
+                <flux:field>
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Date range</flux:label>
+                    <div class="flex gap-2 mt-1.5">
+                        <button
+                            type="button"
+                            wire:click="setTempRangeToday"
+                            class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
+                                {{ $this->dateRangePreset === 'today'
+                                    ? 'bg-primary text-white border-primary'
+                                    : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
+                        >
+                            Today
+                        </button>
+                        <button
+                            type="button"
+                            wire:click="setTempRangeThisWeek"
+                            class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
+                                {{ $this->dateRangePreset === 'week'
+                                    ? 'bg-primary text-white border-primary'
+                                    : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
+                        >
+                            This week
+                        </button>
+                        <button
+                            type="button"
+                            wire:click="setTempRangeThisMonth"
+                            class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
+                                {{ $this->dateRangePreset === 'month'
+                                    ? 'bg-primary text-white border-primary'
+                                    : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
+                        >
+                            This month
+                        </button>
+                    </div>
+                </flux:field>
 
-        <flux:select
-            wire:model.live="driverFilter"
-            size="sm"
-            placeholder="All drivers"
-            class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-        >
-            <flux:select.option value="">All drivers</flux:select.option>
-            @foreach ($this->drivers as $driver)
-                <flux:select.option value="{{ $driver }}">{{ $driver }}</flux:select.option>
-            @endforeach
-        </flux:select>
+                <div class="grid grid-cols-2 gap-3">
+                    <flux:input
+                        type="date"
+                        wire:model.live="tempDateFrom"
+                        label="From"
+                        class="font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+                    />
+                    <flux:input
+                        type="date"
+                        wire:model.live="tempDateTo"
+                        label="To"
+                        class="font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+                    />
+                </div>
 
-        <flux:select
-            wire:model.live="paymentMethodFilter"
-            size="sm"
-            placeholder="All payment methods"
-            class="w-full sm:w-44 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-        >
-            <flux:select.option value="">All payment methods</flux:select.option>
-            <flux:select.option value="card">Card</flux:select.option>
-            <flux:select.option value="cash">Cash</flux:select.option>
-        </flux:select>
+                <flux:select wire:model.live="tempRouteFilter" label="Route">
+                    <flux:select.option value="">All routes</flux:select.option>
+                    @foreach ($this->routes as $route)
+                        <flux:select.option value="{{ $route }}">{{ $route }}</flux:select.option>
+                    @endforeach
+                </flux:select>
 
-        @if ($this->activeFilterCount > 0)
-            <flux:button wire:click="clearFilters" size="sm" variant="ghost" icon="x-mark" class="font-secondary shrink-0">
-                Clear
-            </flux:button>
-        @endif
-    </div>
+                <flux:select wire:model.live="tempDriverFilter" label="Driver">
+                    <flux:select.option value="">All drivers</flux:select.option>
+                    @foreach ($this->drivers as $driver)
+                        <flux:select.option value="{{ $driver }}">{{ $driver }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <div class="flex-1 flex items-center">
+                    <button
+                        type="button"
+                        wire:click="clearFilters"
+                        class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-primary dark:hover:text-dark-txt-primary transition"
+                    >
+                        Reset all
+                    </button>
+                </div>
+                <flux:modal.close class="w-full sm:w-auto">
+                    <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+                <flux:button
+                    variant="primary"
+                    wire:click="applyFilters"
+                    class="font-secondary w-full sm:w-auto justify-center"
+                >
+                    Apply Filters
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 
     {{-- Stats cards --}}
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 mt-6 mb-5">
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 mb-5">
         <flux:card class="p-3 sm:p-4">
             <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">
                 <div class="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/10 dark:bg-primary/20 shrink-0">

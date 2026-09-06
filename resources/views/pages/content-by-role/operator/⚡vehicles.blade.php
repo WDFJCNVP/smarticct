@@ -17,22 +17,24 @@ new #[Layout('layouts.operator-layout')]class extends Component
     public string $exportPaper = 'legal';
     public string $exportOrientation = 'portrait';
 
+    public string $search = '';
     public string $vehicleTypeFilter = '';
     public string $statusFilter = '';
 
+    public function updatedSearch() { unset($this->vehicles); }
     public function updatedVehicleTypeFilter() { unset($this->vehicles); }
     public function updatedStatusFilter() { unset($this->vehicles); }
 
     public function clearFilters()
     {
-        $this->reset(['vehicleTypeFilter', 'statusFilter']);
+        $this->reset(['search', 'vehicleTypeFilter', 'statusFilter']);
         unset($this->vehicles);
     }
 
     #[Computed]
     public function activeFilterCount()
     {
-        return collect([$this->vehicleTypeFilter, $this->statusFilter])
+        return collect([$this->search, $this->vehicleTypeFilter, $this->statusFilter])
             ->filter(fn ($v) => filled($v))
             ->count();
     }
@@ -64,6 +66,13 @@ new #[Layout('layouts.operator-layout')]class extends Component
             $q->latest();
         }])
         ->where('user_id', auth()->id())
+        ->when($this->search, function ($q) {
+            $q->where(function ($q2) {
+                $q2->where('plate_number', 'like', '%' . $this->search . '%')
+                    ->orWhere('vehicle_type', 'like', '%' . $this->search . '%')
+                    ->orWhere('engine_number', 'like', '%' . $this->search . '%');
+            });
+        })
         ->when($this->vehicleTypeFilter, fn ($q, $v) => $q->where('vehicle_type', $v))
         ->get()
         ->when($this->statusFilter, function ($vehicles) {
@@ -109,68 +118,93 @@ new #[Layout('layouts.operator-layout')]class extends Component
 ?>
 
 <div>
-    {{-- Header – consistent with other pages --}}
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-            <x-heading
-                size="xl"
-                class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                style="font-size: var(--text-page-title)"
-            >
-                My Vehicles
-            </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                Monitor your vehicles and their current queue status here.
-            </x-text>
-        </div>
-
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+    <x-page-header
+        heading="Monitor your vehicles and their current queue status here."
+        class="mb-6"
+    >
         <flux:modal.trigger name="export-fleet">
             <button
                 type="button"
-                class="relative flex items-center gap-1.5 sm:gap-2 px-3.5 h-8 sm:h-9 rounded-lg bg-black text-white border-0 hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 transition font-secondary text-xs sm:text-table-row shrink-0 w-full lg:w-auto justify-center"
+                class="relative flex items-center gap-1.5 sm:gap-2 px-3.5 h-8 sm:h-9 rounded-lg bg-black text-white border-0 hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 transition font-secondary text-xs sm:text-table-row shrink-0 w-full sm:w-auto justify-center"
             >
                 <flux:icon.arrow-down-tray class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-black" />
                 <span>Export fleet PDF</span>
             </button>
         </flux:modal.trigger>
+    </x-page-header>
+
+    {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+    <div class="sm:hidden mb-4 pb-4 border-b border-light-bd-default dark:border-dark-bd-default">
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            My Vehicles
+        </x-heading>
+
+        <flux:modal.trigger name="export-fleet" class="block mt-3">
+            <flux:button
+                variant="primary"
+                icon="arrow-down-tray"
+                size="sm"
+                class="font-secondary w-full justify-center"
+            >
+                Export fleet PDF
+            </flux:button>
+        </flux:modal.trigger>
     </div>
 
-    {{-- Filters --}}
-    <div class="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 w-full sm:w-auto mt-3">
-        <flux:select
-            wire:model.live="vehicleTypeFilter"
-            size="sm"
-            placeholder="All vehicle types"
-            class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-        >
-            <flux:select.option value="">All vehicle types</flux:select.option>
-            @foreach ($this->vehicleTypes as $type)
-                <flux:select.option value="{{ $type }}">{{ $type }}</flux:select.option>
-            @endforeach
-        </flux:select>
+    {{-- ====== SEARCH & FILTERS (inline) ====== --}}
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        {{-- Search --}}
+        <div class="flex-1">
+            <flux:input
+                wire:model.live.debounce.300ms="search"
+                placeholder="Search plate number, type, or engine no..."
+                class="w-full font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+                icon="magnifying-glass"
+            />
+        </div>
 
-        <flux:select
-            wire:model.live="statusFilter"
-            size="sm"
-            placeholder="All statuses"
-            class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-        >
-            <flux:select.option value="">All statuses</flux:select.option>
-            <flux:select.option value="loading">Loading</flux:select.option>
-            <flux:select.option value="staging">Staging</flux:select.option>
-            <flux:select.option value="departed">Departed</flux:select.option>
-            <flux:select.option value="not_queue">Not in queue</flux:select.option>
-        </flux:select>
+        {{-- Filters + Clear --}}
+        <div class="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <flux:select
+                wire:model.live="vehicleTypeFilter"
+                size="sm"
+                placeholder="All vehicle types"
+                class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+            >
+                <flux:select.option value="">All vehicle types</flux:select.option>
+                @foreach ($this->vehicleTypes as $type)
+                    <flux:select.option value="{{ $type }}">{{ $type }}</flux:select.option>
+                @endforeach
+            </flux:select>
 
-        @if ($this->activeFilterCount > 0)
-            <flux:button wire:click="clearFilters" size="sm" variant="ghost" icon="x-mark" class="font-secondary shrink-0">
-                Clear
-            </flux:button>
-        @endif
+            <flux:select
+                wire:model.live="statusFilter"
+                size="sm"
+                placeholder="All statuses"
+                class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+            >
+                <flux:select.option value="">All statuses</flux:select.option>
+                <flux:select.option value="loading">Loading</flux:select.option>
+                <flux:select.option value="staging">Staging</flux:select.option>
+                <flux:select.option value="departed">Departed</flux:select.option>
+                <flux:select.option value="not_queue">Not in queue</flux:select.option>
+            </flux:select>
+
+            @if ($this->activeFilterCount > 0)
+                <flux:button wire:click="clearFilters" size="sm" variant="ghost" icon="x-mark" class="font-secondary shrink-0">
+                    Clear
+                </flux:button>
+            @endif
+        </div>
     </div>
 
     {{-- Stats cards – same pattern as other pages --}}
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 mb-5">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <flux:card class="p-3 sm:p-4">
             <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">
                 <div class="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/10 dark:bg-primary/20 shrink-0">
