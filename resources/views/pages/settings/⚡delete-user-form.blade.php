@@ -13,9 +13,13 @@ new class extends Component {}; ?>
         </div>
 
         <flux:modal.trigger name="confirm-user-deletion">
-            <flux:button variant="danger" data-test="delete-user-button">
+            <button
+                type="button"
+                data-test="delete-user-button"
+                class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-danger hover:bg-danger/90 dark:bg-dark-danger dark:hover:bg-dark-danger/90 text-white font-secondary text-sm font-semibold px-4 py-2.5 transition-colors cursor-pointer"
+            >
                 {{ __('Delete account') }}
-            </flux:button>
+            </button>
         </flux:modal.trigger>
 
         <livewire:pages::settings.delete-user-modal />

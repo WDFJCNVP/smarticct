@@ -41,11 +41,11 @@ new #[Layout('components.dashboard.operator-dashboard')]class extends Component
 
         // 3. Save to DB as pending
         $topUp = TopUpTransaction::create([
-            'user_id'        => $user->id,
-            'card_id'        => $card->id,
-            'points_to_load' => $points,
-            'amount_paid'    => $points,
-            'status'         => 'pending',
+            'user_id'         => $user->id,
+            'card_id'         => $card->id,
+            'points_credited' => $points,
+            'amount_paid'     => $points,
+            'status'          => 'pending',
         ]);
 
         // 4. Create PayMongo Checkout Session

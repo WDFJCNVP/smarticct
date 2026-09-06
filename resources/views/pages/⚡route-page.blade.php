@@ -19,6 +19,18 @@ new class extends Component
 {
     use WithPagination;
 
+    // ===================== DELETE CONFIRMATION =====================
+    public bool $show_delete_route_modal = false;
+    public ?int $pendingDeleteRouteId = null;
+    public string $pendingDeleteRouteTerminal = '';
+
+    public function confirmDeleteRoute(int $id, string $terminal): void
+    {
+        $this->pendingDeleteRouteId = $id;
+        $this->pendingDeleteRouteTerminal = $terminal;
+        $this->show_delete_route_modal = true;
+    }
+
     // ===================== EXPORT MODAL =====================
     public string $exportPaper = 'legal';
     public string $exportOrientation = 'portrait';
@@ -165,6 +177,8 @@ new class extends Component
 
     public function delete($id)
     {
+        $this->show_delete_route_modal = false;
+
         if (!auth()->user() || auth()->user()->role !== 'admin') {
             return;
         }
@@ -291,41 +305,42 @@ new class extends Component
     <div class="{{ auth()->guest() ? 'mx-auto max-w-5xl px-6 py-8 sm:px-10' : '' }}">
 
         @auth
-            {{-- Heading with feed style --}}
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                <div>
-                    <x-heading
-                        size="xl"
-                        class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                        style="font-size: var(--text-page-title)"
-                    >
-                        Travel Routes & Fare Information
-                    </x-heading>
-                    <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                        Browse local and provincial routes, first & last trip schedules, and fares.
-                    </x-text>
-                </div>
+            {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+            <x-page-header
+                heading="Travel Routes & Fare Information"
+                class="mb-4"
+            >
+                @if ($canExportFares)
+                    <flux:modal.trigger name="export-routes">
+                        <flux:button
+                            icon="arrow-down-tray"
+                            size="sm"
+                            class="font-secondary w-full sm:w-auto justify-center !bg-black !text-white !border-0 hover:!bg-neutral-800 dark:!bg-white dark:!text-black dark:hover:!bg-neutral-200"
+                        >
+                            Export
+                        </flux:button>
+                    </flux:modal.trigger>
+                @endif
+            </x-page-header>
 
-                <div class="w-full sm:w-auto sm:shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    @if ($canExportFares)
-                        <flux:modal.trigger name="export-routes">
-                            <flux:button
-                                variant="outline"
-                                icon="arrow-down-tray"
-                                size="sm"
-                                class="font-secondary w-full sm:w-auto justify-center"
-                            >
-                                Export
-                            </flux:button>
-                        </flux:modal.trigger>
-                    @endif
-
-                    @if ($isAdmin)
-                        <flux:modal.trigger name="route-form" class="block w-full sm:w-auto">
-                            <flux:button wire:click="resetForm" icon="plus" variant="primary" class="font-secondary w-full sm:w-auto justify-center">Add route</flux:button>
-                        </flux:modal.trigger>
-                    @endif
+            {{-- ====== PAGE ACTIONS (desktop only, mirrors the mini-navbar's own visibility) ====== --}}
+            @if ($isAdmin)
+                <div class="hidden sm:flex justify-end mb-6">
+                    <flux:modal.trigger name="route-form" class="block w-full sm:w-auto">
+                        <flux:button wire:click="resetForm" icon="plus" variant="primary" class="font-secondary w-full sm:w-auto justify-center">Add route</flux:button>
+                    </flux:modal.trigger>
                 </div>
+            @endif
+
+            {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+            <div class="sm:hidden mb-6">
+                <x-heading
+                    size="xl"
+                    class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+                    style="font-size: var(--text-page-title)"
+                >
+                    Travel Routes & Fare Information
+                </x-heading>
             </div>
         @endauth
 
@@ -593,8 +608,7 @@ new class extends Component
                                                         variant="ghost"
                                                         size="sm"
                                                         class="font-secondary text-xs md:text-table-row !px-2 md:!px-3 !text-danger dark:!text-dark-danger hover:!bg-danger/10 dark:hover:!bg-dark-danger/10"
-                                                        wire:click="delete({{ $route->id }})"
-                                                        wire:confirm="Delete the route for {{ $route->terminal }}? This can't be undone."
+                                                        wire:click="confirmDeleteRoute({{ $route->id }}, '{{ $route->terminal }}')"
                                                     >
                                                         Delete
                                                     </flux:button>
@@ -859,6 +873,27 @@ new class extends Component
                     class="font-secondary w-full sm:w-auto justify-center"
                 >
                     Download PDF
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- Delete route confirmation --}}
+    <flux:modal wire:model="show_delete_route_modal" :closable="false" class="w-[calc(100%-2rem)] max-w-xs sm:max-w-sm">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Delete this route?</flux:heading>
+                <flux:text class="mt-2">
+                    The route for <strong>{{ $pendingDeleteRouteTerminal }}</strong> will be permanently removed. This can't be undone.
+                </flux:text>
+            </div>
+            <div class="flex gap-2">
+                <flux:spacer />
+                <flux:modal.close>
+                    <flux:button variant="ghost">Cancel</flux:button>
+                </flux:modal.close>
+                <flux:button wire:click="delete({{ $pendingDeleteRouteId }})" wire:loading.attr="disabled" variant="danger">
+                    Delete
                 </flux:button>
             </div>
         </div>

@@ -57,6 +57,13 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 };
 ?>
 <div>
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+    <x-page-header
+        heading="All queuing and departure history for this vehicle."
+    >
+        {{-- No extra controls – keep it minimal --}}
+    </x-page-header>
+
     <div class="mb-4">
         <flux:breadcrumbs class="mb-2 text-xs sm:text-sm">
             <flux:breadcrumbs.item href="{{ route('operator.vehicles') }}" wire:navigate>
@@ -65,10 +72,15 @@ new  #[Layout('layouts.operator-layout')] class extends Component
             <flux:breadcrumbs.item>Travel records</flux:breadcrumbs.item>
         </flux:breadcrumbs>
 
-        <x-pages-heading
-            heading="Travel records"
-            description="View all queuing and departure history for this vehicle."
-        />
+        <div>
+            <x-heading
+                size="xl"
+                class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+                style="font-size: var(--text-page-title)"
+            >
+                Travel records
+            </x-heading>
+        </div>
     </div>
 
     {{-- Vehicle summary card --}}
@@ -189,9 +201,9 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Destination</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Plate no.</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Status</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Seats</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Time queued</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Time departed</flux:table.column>
+                    <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Seats</flux:table.column>
+                    <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Time queued</flux:table.column>
+                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Time departed</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
@@ -227,7 +239,7 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                                 @endif
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2">
+                            <flux:table.cell align="center" class="hidden sm:table-cell px-2 md:px-4 py-1.5 md:py-2">
                                 <div class="flex items-center justify-center gap-2">
                                     <span class="text-xs md:text-timestamp tabular-nums text-light-txt-body dark:text-dark-txt-body">
                                         {{ $queue->seat_count }} / {{ $queue->seat_capacity }}
@@ -241,12 +253,12 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                                 </div>
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                            <flux:table.cell align="center" class="hidden sm:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                 {{ $queue->time_queued->format('M d, Y') }}<br class="block md:hidden">
                                 <span class="text-xs">{{ $queue->time_queued->format('g:i A') }}</span>
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                 @if ($queue->time_departed)
                                     {{ $queue->time_departed->format('M d, Y') }}<br class="block md:hidden">
                                     <span class="text-xs">{{ $queue->time_departed->format('g:i A') }}</span>

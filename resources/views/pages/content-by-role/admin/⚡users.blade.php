@@ -162,8 +162,41 @@ new  #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
-    {{-- Header – updated to match standard format --}}
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+    <x-page-header
+        heading="Every commuter and operator registered in the system."
+        class="mb-4"
+    >
+        <flux:modal.trigger name="export-operators" wire:click="prepareExportModal">
+            <flux:button
+                icon="arrow-down-tray"
+                size="sm"
+                class="font-secondary w-full sm:w-auto justify-center !bg-black !text-white !border-0 hover:!bg-neutral-800 dark:!bg-white dark:!text-black dark:hover:!bg-neutral-200"
+            >
+                Export Operators
+            </flux:button>
+        </flux:modal.trigger>
+    </x-page-header>
+
+    {{-- ====== PAGE ACTIONS (desktop only — mobile keeps its own copy below, inline with the heading) ====== --}}
+    <div class="hidden sm:flex sm:items-center sm:justify-between gap-3 mb-6">
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            Registered Users
+        </x-heading>
+
+        <flux:link href="{{ route('admin.register.user') }}" wire:navigate class="w-full sm:w-auto">
+            <flux:button variant="primary" icon="plus" size="sm" class="font-secondary w-full sm:w-auto justify-center bg-primary text-white hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover">
+                Add user
+            </flux:button>
+        </flux:link>
+    </div>
+
+    {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+    <div class="sm:hidden flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
             <x-heading
                 size="xl"
@@ -172,24 +205,20 @@ new  #[Layout('layouts.admin-layout')] class extends Component
             >
                 Users
             </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                Every commuter and operator registered in the system.
-            </x-text>
         </div>
 
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto shrink-0">
             <flux:modal.trigger name="export-operators" wire:click="prepareExportModal">
                 <flux:button
-                    variant="outline"
                     icon="arrow-down-tray"
                     size="sm"
-                    class="font-secondary w-full sm:w-auto justify-center"
+                    class="font-secondary w-full sm:w-auto justify-center !bg-black !text-white !border-0 hover:!bg-neutral-800 dark:!bg-white dark:!text-black dark:hover:!bg-neutral-200"
                 >
                     Export Operators
                 </flux:button>
             </flux:modal.trigger>
             <flux:link href="{{ route('admin.register.user') }}" wire:navigate class="w-full sm:w-auto">
-                <flux:button variant="primary" icon="plus" size="sm" class="font-secondary w-full sm:w-auto justify-center">
+                <flux:button variant="primary" icon="plus" size="sm" class="font-secondary w-full sm:w-auto justify-center bg-primary text-white hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover">
                     Add user
                 </flux:button>
             </flux:link>

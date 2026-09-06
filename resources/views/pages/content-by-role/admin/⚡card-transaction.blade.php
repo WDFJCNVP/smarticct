@@ -60,6 +60,23 @@ new #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+    <x-page-header
+        heading="Transaction History"
+        :description="'View all transactions for ' . $this->user->name . ' (' . $this->user->user_code . ')'"
+        class="mb-3"
+    >
+        <flux:modal.trigger name="export-card-statement">
+            <flux:button
+                icon="arrow-down-tray"
+                size="sm"
+                class="font-secondary w-full sm:w-auto justify-center !bg-black !text-white !border-0 hover:!bg-neutral-800 dark:!bg-white dark:!text-black dark:hover:!bg-neutral-200"
+            >
+                Export statement
+            </flux:button>
+        </flux:modal.trigger>
+    </x-page-header>
+
     {{-- Heading with breadcrumbs on the right --}}
     <div class="flex items-start justify-between gap-4 mb-6">
         <div>
@@ -70,28 +87,23 @@ new #[Layout('layouts.admin-layout')] class extends Component
             >
                 Transaction History
             </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                View all transactions for {{ $this->user->name }} ({{ $this->user->user_code }})
-            </x-text>
-        </div>
 
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-            <flux:modal.trigger name="export-card-statement">
+            <flux:modal.trigger name="export-card-statement" class="block mt-3 sm:hidden">
                 <flux:button
                     variant="primary"
                     icon="arrow-down-tray"
                     size="sm"
-                    class="font-secondary w-full sm:w-auto justify-center"
+                    class="font-secondary w-full justify-center"
                 >
                     Export statement
                 </flux:button>
             </flux:modal.trigger>
-
-            <flux:breadcrumbs class="shrink-0 pt-1">
-                <flux:breadcrumbs.item href="{{ route('admin.cards') }}" wire:navigate>Back to Cards</flux:breadcrumbs.item>
-                <flux:breadcrumbs.item>Transaction</flux:breadcrumbs.item>
-            </flux:breadcrumbs>
         </div>
+
+        <flux:breadcrumbs class="shrink-0 pt-1">
+            <flux:breadcrumbs.item href="{{ route('admin.cards') }}" wire:navigate>Back to Cards</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>Transaction</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
     </div>
 
     {{-- User profile card --}}
@@ -187,17 +199,18 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     {{-- Table – wrapped in a card for borders --}}
     <flux:card class="overflow-hidden p-0">
+        <div class="overflow-x-auto">
         <flux:table>
-            <flux:table.columns sticky class="bg-white dark:bg-zinc-900">
+            <flux:table.columns sticky class="bg-light-subtle/50 dark:bg-dark-secondary/50">
                 <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">#</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Reference No.</flux:table.column>
+                <flux:table.column align="center" class="hidden sm:table-cell px-1 sm:px-2 md:px-4 py-2">Reference No.</flux:table.column>
                 <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Type</flux:table.column>
                 <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Amount</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Balance before</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Balance after</flux:table.column>
+                <flux:table.column align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-2">Balance before</flux:table.column>
+                <flux:table.column align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-2">Balance after</flux:table.column>
                 <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Status</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Message</flux:table.column>
-                <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Date</flux:table.column>
+                <flux:table.column align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-2">Message</flux:table.column>
+                <flux:table.column align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-2">Date</flux:table.column>
                 <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">Actions</flux:table.column>
             </flux:table.columns>
 
@@ -208,7 +221,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             {{ $index + 1 }}
                         </flux:table.cell>
 
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
+                        <flux:table.cell align="center" class="hidden sm:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
                             {{ $transaction->reference_no }}
                         </flux:table.cell>
 
@@ -222,11 +235,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             ₱{{ number_format($transaction->amount, 2) }}
                         </flux:table.cell>
 
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row tabular-nums text-light-txt-muted dark:text-dark-txt-muted">
+                        <flux:table.cell align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row tabular-nums text-light-txt-muted dark:text-dark-txt-muted">
                             ₱{{ number_format($transaction->balance_before, 2) }}
                         </flux:table.cell>
 
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row tabular-nums text-light-txt-muted dark:text-dark-txt-muted">
+                        <flux:table.cell align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row tabular-nums text-light-txt-muted dark:text-dark-txt-muted">
                             ₱{{ number_format($transaction->balance_after, 2) }}
                         </flux:table.cell>
 
@@ -240,11 +253,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             @endif
                         </flux:table.cell>
 
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted max-w-40 truncate">
+                        <flux:table.cell align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted max-w-40 truncate">
                             {{ $transaction->message }}
                         </flux:table.cell>
 
-                        <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted tabular-nums">
+                        <flux:table.cell align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted tabular-nums">
                             {{ $transaction->created_at->format('Y-m-d H:i') }}
                         </flux:table.cell>
 
@@ -262,7 +275,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     <flux:table.row>
                         <flux:table.cell colspan="10" class="text-center py-12">
                             <div class="flex flex-col items-center justify-center gap-2">
-                                <flux:icon.document-text class="w-8 h-8 text-zinc-300" />
+                                <flux:icon.document-text class="w-8 h-8 text-light-txt-muted dark:text-dark-txt-muted" />
                                 <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">No transactions found.</p>
                             </div>
                         </flux:table.cell>
@@ -270,6 +283,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 @endforelse
             </flux:table.rows>
         </flux:table>
+        </div>
     </flux:card>
 
     {{-- If you have pagination, add it here --}}

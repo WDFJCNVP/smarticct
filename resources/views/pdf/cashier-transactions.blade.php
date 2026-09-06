@@ -7,7 +7,7 @@
         @include('pdf.partials.letterhead-style')
 
         body {
-            font-family: 'Helvetica', Arial, sans-serif;
+            font-family: 'DejaVu Sans', sans-serif;
             color: #1a1a1a;
             font-size: 10.5px;
             margin: 0;

@@ -107,6 +107,7 @@ new class extends Component
                     'user_valid_id'     => $user_valid_id_path,
                     'driver_valid_id'   => $driver_valid_id_path,
                 ],
+                'email_address'         => $attributes['email_address'],
                 'driver_name'           => $attributes['driver_name'],
                 'driver_age'            => $attributes['driver_age'],
                 'driver_home_address'   => $attributes['driver_home_address'],

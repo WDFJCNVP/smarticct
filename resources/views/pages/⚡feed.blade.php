@@ -8,7 +8,6 @@ use Livewire\Attributes\On;
 use App\Models\Post;
 use App\Models\RentalOffer;
 use App\Models\TripRequest;
-use App\Models\PostInterest;
 use Flux\Flux;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\Storage;
@@ -21,8 +20,6 @@ new class extends Component
     public $selected_post;
     public bool $show_trip_request_modal = false;
     public bool $show_delete_interested_modal = false;
-    public $replies;
-    public bool $showRepliesModal = false;
     public bool $rental_offer_modal = false;
     public bool $show_delete_post_modal = false;
     public ?int $deletePostId = null;
@@ -59,11 +56,6 @@ new class extends Component
     public function refreshFeed() {
         unset($this->filteredPosts);
         unset($this->announcements);
-    }
-
-    public function showRepliesToYouModal($interest_id) {
-        $this->showRepliesModal = true;
-        $this->replies = PostInterest::where('id', $interest_id)->first();
     }
 
     public function mount() {
@@ -172,7 +164,12 @@ new class extends Component
         }
 
         $isOwner = $post->user_id === auth()->id();
-        $canModerate = auth()->user()->role === 'admin' && $post->type === 'rental' && ! $isOwner;
+        $canModerate = ! $isOwner
+            && auth()->user()->role === 'admin'
+            && (
+                $post->type === 'rental'
+                || ($post->type === 'announcement' && $post->user->role === 'cashier')
+            );
 
         if (! $isOwner && ! $canModerate) {
             return;
@@ -382,25 +379,6 @@ new class extends Component
         return [];
     }
 
-    #[Computed]
-    public function myInterests() {
-        if (auth()->guest()) return collect();
-        return PostInterest::with('post.user')
-            ->where('user_id', auth()->id())
-            ->latest()->get();
-    }
-
-    #[Computed]
-    public function activeInterests() {
-        if (auth()->guest() || !$this->selectedPostId) return collect();
-        $post = Post::find($this->selectedPostId);
-        if (!$post || $post->user_id !== auth()->id()) return collect();
-        return PostInterest::with('user', 'post')
-            ->where('post_id', $this->selectedPostId)
-            ->where(fn($q) => $q->where('status', '!=', 'decline')->orWhereNull('status'))
-            ->latest()->get();
-    }
-
     public function resetFilters()
     {
         $this->filterRole = 'all';
@@ -424,8 +402,17 @@ new class extends Component
 ?>
 
 <div class="{{ auth()->guest() ? 'mx-auto max-w-5xl px-4 py-8 sm:px-10' : '' }}">
-    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4 sm:mb-6">
-        <div>
+    @auth
+        {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+        <x-page-header
+            heading="Terminal & Renting Feed"
+            class="mb-4 sm:mb-6"
+        >
+            {{-- Mini-navbar keeps only notifications now — page actions sit next to the composer below --}}
+        </x-page-header>
+
+        {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+        <div class="sm:hidden mb-4">
             <x-heading
                 size="xl"
                 class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
@@ -433,55 +420,24 @@ new class extends Component
             >
                 Feed
             </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                Rental posts from commuters and operators, with admin announcements pinned alongside.
-            </x-text>
         </div>
 
-        @auth
-            <div class="flex items-center justify-center gap-2 w-full lg:w-auto">
-                <x-button
-                    href="{{ route('post.archived') }}"
-                    wire:navigate
-                    variant="ghost"
-                    icon="archive-box"
-                    class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
-                        !border !border-light-bd-default dark:!border-dark-bd-default
-                        !text-light-txt-primary dark:!text-dark-txt-primary
-                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle
-                        flex-1 lg:flex-none justify-center"
+    @else
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4 sm:mb-6">
+            <div>
+                <x-heading
+                    size="xl"
+                    class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+                    style="font-size: var(--text-page-title)"
                 >
-                    <span>Archived</span>
-                </x-button>
-                <x-button
-                    href="{{ route('post.my-posts') }}"
-                    wire:navigate
-                    variant="ghost"
-                    icon="document-text"
-                    class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
-                        !border !border-light-bd-default dark:!border-dark-bd-default
-                        !text-light-txt-primary dark:!text-dark-txt-primary
-                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle
-                        flex-1 lg:flex-none justify-center"
-                >
-                    <span>My posts</span>
-                </x-button>
-                <x-button
-                    href="{{ route('post.trash') }}"
-                    wire:navigate
-                    variant="ghost"
-                    icon="trash"
-                    class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
-                        !border !border-light-bd-default dark:!border-dark-bd-default
-                        !text-light-txt-primary dark:!text-dark-txt-primary
-                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle
-                        flex-1 lg:flex-none justify-center"
-                >
-                    <span>Trash</span>
-                </x-button>
+                    Feed
+                </x-heading>
+                <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
+                    Rental posts from commuters and operators, with admin announcements pinned alongside.
+                </x-text>
             </div>
-        @endauth
-    </div>
+        </div>
+    @endauth
 
     <div x-data="{ mobileTab: 'feed' }">
         {{-- Mobile tab switcher: Feed / Announcements --}}
@@ -511,6 +467,57 @@ new class extends Component
         <div class="flex flex-col lg:flex-row gap-4 h-full min-h-0">
             <div class="flex-1 min-w-0 flex-col gap-4 min-h-0" :class="mobileTab === 'feed' ? 'flex' : 'hidden lg:flex'">
                 @auth
+                    {{-- ====== PAGE ACTIONS (title left, actions right — fills the dead space, mirrors "Terminal Announcements" on the sidebar) ====== --}}
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <x-text variant="strong" class="hidden sm:block !font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary" style="font-size: var(--text-card-title)">
+                            Terminal Feed
+                        </x-text>
+
+                        <div class="flex items-center gap-2 w-full sm:w-auto sm:flex-wrap">
+                        <x-button
+                            href="{{ route('post.archived') }}"
+                            wire:navigate
+                            variant="ghost"
+                            icon="archive-box"
+                            class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-1.5
+                                !border !border-light-bd-default dark:!border-dark-bd-default
+                                !text-light-txt-primary dark:!text-dark-txt-primary
+                                hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                                flex-1 sm:flex-none justify-center"
+                        >
+                            <span>Archived</span>
+                        </x-button>
+                        <x-button
+                            href="{{ route('post.my-posts') }}"
+                            wire:navigate
+                            variant="ghost"
+                            icon="document-text"
+                            class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-1.5
+                                !border !border-light-bd-default dark:!border-dark-bd-default
+                                !text-light-txt-primary dark:!text-dark-txt-primary
+                                hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                                flex-1 sm:flex-none justify-center"
+                        >
+                            <span>My posts</span>
+                        </x-button>
+                        @if (in_array(auth()->user()->role, ['operator', 'commuter']))
+                            <x-button
+                                href="{{ route('post.trash') }}"
+                                wire:navigate
+                                variant="ghost"
+                                icon="trash"
+                                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-1.5
+                                    !border !border-light-bd-default dark:!border-dark-bd-default
+                                    !text-light-txt-primary dark:!text-dark-txt-primary
+                                    hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                                    flex-1 sm:flex-none justify-center"
+                            >
+                                <span>Trash</span>
+                            </x-button>
+                        @endif
+                        </div>
+                    </div>
+
                     <div class="shrink-0">
                         <livewire:pages::create-post />
                     </div>
@@ -520,9 +527,9 @@ new class extends Component
                 <flux:modal.trigger name="feed-filters">
                     <button
                         type="button"
-                        class="relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-8 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-body dark:text-dark-txt-body hover:bg-light-subtle dark:hover:bg-dark-subtle transition font-secondary text-xs sm:text-table-row shrink-0"
+                        class="relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-8 sm:h-9 rounded-lg bg-primary text-white border-0 hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover transition font-secondary text-xs sm:text-table-row shrink-0"
                     >
-                        <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
+                        <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-[var(--color-dark-primary)]" />
                         <span>Filters</span>
                         @php
                             $activeFilters = ($filterRole !== 'all') + ($filterVehicleType !== 'all') + ($filterType !== 'all') + ($dateRange !== 'all');

@@ -16,6 +16,7 @@ use App\Models\CardTransaction;
 use App\Models\Queue;
 use App\Models\Vehicle;
 use App\Models\DailyScheduleSlot;
+use App\Models\RouteList;
 use App\Models\TravelRecord;
 use App\Models\Notification;
 use App\Models\UserNotification;
@@ -261,6 +262,272 @@ class CardController extends Controller
         );
 
         return $queue;
+    }
+
+    // Cash fare payment (no card involved for the commuter side).
+    // Mirrors the fare_payment branch of tap(), minus the card deduction,
+    // and records a CashTransaction instead of a queue_deduction CardTransaction.
+
+    public function cashFarePayment(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'destination'     => 'required|string',
+                'vehicle_type'    => 'required|string',
+                'amount'          => 'required|numeric|min:0.01',
+                'amount_received' => 'required|numeric|min:0',
+                'user_id'         => 'nullable|integer|exists:users,id',
+            ]);
+
+            if ((float) $validated['amount_received'] < (float) $validated['amount']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Amount received is less than the fare.',
+                ], 422);
+            }
+
+            $result = DB::transaction(function () use ($validated) {
+                $queue = Queue::with('user.card')->where('status', 'loading')
+                    ->where('destination', $validated['destination'])
+                    ->where('vehicle_type', $validated['vehicle_type'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$queue) {
+                    return [
+                        'success' => false,
+                        'message' => 'No loading vehicle is currently available for the selected destination.',
+                    ];
+                }
+
+                if ($queue->seat_count >= $queue->seat_capacity) {
+                    return [
+                        'success' => false,
+                        'message' => 'This vehicle is already full.',
+                    ];
+                }
+
+                $amount = (float) $validated['amount'];
+
+                $queue->increment('seat_count');
+                $queue->refresh();
+
+                $operatorCard = $queue->user->card;
+                $operatorBalanceBefore = $operatorCard->balance;
+
+                $rider = !empty($validated['user_id']) ? \App\Models\User::find($validated['user_id']) : null;
+
+                $travelRecord = TravelRecord::create([
+                    'user_id'      => $rider?->id,
+                    'queue_id'     => $queue->id,
+                    'destination'  => $queue->destination,
+                    'vehicle_type' => $queue->vehicle_type,
+                    'plate_number' => $queue->plate_number,
+                    'driver_name'  => $queue->driver_name,
+                    'user_type'    => $rider?->commuter_type ?? 'walk-in',
+                    'amount'       => $amount,
+                    'departed_at'  => $queue->departs_at,
+                ]);
+
+                $operatorCard->increment('balance', $amount);
+                $operatorCard->refresh();
+
+                CardTransaction::create([
+                    'card_id'          => $operatorCard->id,
+                    'transaction_type' => 'fare_earning',
+                    'reference_no'     => 'FARECASH-' . $travelRecord->id,
+                    'reference_id'     => $travelRecord->id,
+                    'reference_type'   => TravelRecord::class,
+                    'amount'           => $amount,
+                    'balance_before'   => $operatorBalanceBefore,
+                    'balance_after'    => $operatorCard->balance,
+                    'status'           => 'success',
+                    'transaction_time' => now(),
+                    'source'           => 'cashier_cash',
+                    'message'          => "Fare earning (cash): {$queue->destination} trip, plate {$queue->plate_number}",
+                ]);
+
+                $vehicleId = $queue->vehicle_id
+                    ?? Vehicle::where('plate_number', $queue->plate_number)->value('id');
+
+                if ($vehicleId) {
+                    \App\Models\CashTransaction::create([
+                        'processed_by'     => auth()->id(),
+                        'operator_id'      => $queue->user_id,
+                        'vehicle_id'       => $vehicleId,
+                        'queue_id'         => $queue->id,
+                        'amount'           => $amount,
+                        'amount_received'  => $validated['amount_received'],
+                        'change'           => max(0, (float) $validated['amount_received'] - $amount),
+                        'reference_no'     => 'FARECASH-' . now()->format('YmdHis') . '-' . $queue->id,
+                        'notes'            => "Cash fare payment for {$queue->destination} trip, plate {$queue->plate_number}",
+                        'status'           => 'success',
+                    ]);
+                }
+
+                // Same auto-departure rules as the card fare_payment flow.
+                if ($queue->vehicle_type === 'UV-express' && $queue->seat_count >= 9 && $queue->departs_at === null) {
+                    $departsAt = Carbon::now()->addMinutes(30);
+                    $queue->update(['departs_at' => $departsAt]);
+
+                    ProcessAfterDepart::dispatch($queue->id)->delay($departsAt);
+                } elseif ($queue->seat_count >= $queue->seat_capacity) {
+                    $queue->update(['departs_at' => Carbon::now()]);
+
+                    ProcessAfterDepart::dispatch($queue->id);
+                }
+
+                return [
+                    'success'        => true,
+                    'message'        => 'Cash fare payment successful.',
+                    'change'         => max(0, (float) $validated['amount_received'] - $amount),
+                    'seat_count'     => $queue->seat_count,
+                    'seat_capacity'  => $queue->seat_capacity,
+                    'plate_number'   => $queue->plate_number,
+                    'destination'    => $queue->destination,
+                ];
+            });
+
+            if ($result['success']) {
+                broadcast(new QueuedVehicleEvent());
+            }
+
+            return response()->json($result);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Cash fare payment error: ' . $e->getMessage());
+            $statusCode = ($e->getCode() >= 400 && $e->getCode() <= 499) ? $e->getCode() : 500;
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], $statusCode);
+        }
+    }
+
+    // Operator self-reported cash fare (commuter pays the operator directly,
+    // no cashier and no card involved). Only increments seat_count and logs
+    // the trip/cash record — never touches the operator's card balance,
+    // since the operator is already physically holding that cash.
+
+    public function operatorCashFare(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'queue_id' => 'required|integer|exists:queues,id',
+            ]);
+
+            $result = DB::transaction(function () use ($validated) {
+                $queue = Queue::where('id', $validated['queue_id'])
+                    ->where('status', 'loading')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$queue) {
+                    return [
+                        'success' => false,
+                        'message' => 'This vehicle is not currently boarding.',
+                    ];
+                }
+
+                if ($queue->user_id !== auth()->id()) {
+                    return [
+                        'success' => false,
+                        'message' => 'You can only log passengers for your own vehicle.',
+                    ];
+                }
+
+                if ($queue->seat_count >= $queue->seat_capacity) {
+                    return [
+                        'success' => false,
+                        'message' => 'This vehicle is already full.',
+                    ];
+                }
+
+                $routeList = RouteList::where('terminal', $queue->destination)
+                    ->whereHas('operatorTicketRate', fn ($q) => $q->where('vehicle_type', $queue->vehicle_type))
+                    ->first();
+
+                $amount = (float) ($routeList->fare ?? 0);
+
+                $queue->increment('seat_count');
+                $queue->refresh();
+
+                $travelRecord = TravelRecord::create([
+                    'user_id'      => null,
+                    'queue_id'     => $queue->id,
+                    'destination'  => $queue->destination,
+                    'vehicle_type' => $queue->vehicle_type,
+                    'plate_number' => $queue->plate_number,
+                    'driver_name'  => $queue->driver_name,
+                    'user_type'    => 'walk-in',
+                    'amount'       => $amount,
+                    'departed_at'  => $queue->departs_at,
+                ]);
+
+                $vehicleId = $queue->vehicle_id
+                    ?? Vehicle::where('plate_number', $queue->plate_number)->value('id');
+
+                if ($vehicleId) {
+                    \App\Models\CashTransaction::create([
+                        'processed_by'     => auth()->id(),
+                        'operator_id'      => $queue->user_id,
+                        'vehicle_id'       => $vehicleId,
+                        'queue_id'         => $queue->id,
+                        'amount'           => $amount,
+                        'amount_received'  => $amount,
+                        'change'           => 0,
+                        'reference_no'     => 'OPFARE-' . now()->format('YmdHis') . '-' . $queue->id,
+                        'notes'            => "Cash fare paid directly to the operator (self-logged), {$queue->destination} trip, plate {$queue->plate_number}.",
+                        'status'           => 'success',
+                    ]);
+                }
+
+                // Same auto-departure rules as the other fare-payment flows.
+                if ($queue->vehicle_type === 'UV-express' && $queue->seat_count >= 9 && $queue->departs_at === null) {
+                    $departsAt = Carbon::now()->addMinutes(30);
+                    $queue->update(['departs_at' => $departsAt]);
+
+                    ProcessAfterDepart::dispatch($queue->id)->delay($departsAt);
+                } elseif ($queue->seat_count >= $queue->seat_capacity) {
+                    $queue->update(['departs_at' => Carbon::now()]);
+
+                    ProcessAfterDepart::dispatch($queue->id);
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => "Passenger logged. Seats: {$queue->seat_count}/{$queue->seat_capacity}.",
+                    'seat_count'    => $queue->seat_count,
+                    'seat_capacity' => $queue->seat_capacity,
+                ];
+            });
+
+            if ($result['success']) {
+                broadcast(new QueuedVehicleEvent());
+            }
+
+            return response()->json($result);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Operator self-reported cash fare error: ' . $e->getMessage());
+            $statusCode = ($e->getCode() >= 400 && $e->getCode() <= 499) ? $e->getCode() : 500;
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], $statusCode);
+        }
     }
 
     // Main tap endpoint

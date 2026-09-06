@@ -511,69 +511,35 @@ new #[Layout('layouts.operator-layout')] class extends Component
         }
     </style>
 
-    {{-- ===================== HEADER ===================== --}}
-    <div class="mb-6">
-        <div class="flex items-start justify-between gap-3 sm:gap-4">
-            <x-pages-heading
-                heading="Dashboard"
-                description="Your vehicle, queueing, and rental overview."
-                class="text-xl sm:text-2xl font-extrabold"
-            />
+    {{-- ===================== MINI-NAVBAR ===================== --}}
+    <x-page-header
+        heading="Your vehicle, queueing, and rental overview"
+    >
+        <flux:modal.trigger name="dashboard-filters">
+            <button
+                type="button"
+                class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg bg-primary text-white border-0 hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover transition font-secondary text-xs sm:text-table-row shrink-0"
+            >
+                <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-[var(--color-dark-primary)]" />
+                <span class="hidden sm:inline">Filters</span>
+                @if ($this->activeFilterCount > 0)
+                    <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">
+                        {{ $this->activeFilterCount }}
+                    </span>
+                @endif
+            </button>
+        </flux:modal.trigger>
+    </x-page-header>
 
-            {{-- Right side: date + clock (desktop), bell, filter --}}
-            <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-                {{-- Date + Clock container (hidden on mobile) --}}
-                <div class="hidden sm:flex flex-col items-end">
-                    {{-- Date --}}
-                    <span
-                        class="text-xs text-light-txt-muted dark:text-dark-txt-muted font-secondary leading-none mb-0.5"
-                        x-data="{ date: '' }"
-                        x-init="date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })"
-                        x-text="date"
-                    ></span>
-
-                    {{-- Clock with live dot --}}
-                    <div
-                        class="flex items-center gap-1.5 sm:gap-2 font-primary text-base sm:text-xl font-bold tabular-nums text-light-txt-primary dark:text-dark-txt-primary whitespace-nowrap"
-                        x-data="{
-                            now: '',
-                            tick() {
-                                this.now = new Date().toLocaleString('en-US', {
-                                    hour: '2-digit', minute: '2-digit', second: '2-digit',
-                                });
-                            },
-                        }"
-                        x-init="tick(); setInterval(() => tick(), 1000)"
-                    >
-                        <span class="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2 shrink-0">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success dark:bg-dark-success opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-success dark:bg-dark-success"></span>
-                        </span>
-                        <span x-text="now"></span>
-                    </div>
-                </div>
-
-                {{-- Notifications --}}
-                <livewire:pages::notification-bell />
-
-                <flux:modal.trigger name="dashboard-filters">
-                    <button
-                        type="button"
-                        class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-body dark:text-dark-txt-body hover:bg-light-subtle dark:hover:bg-dark-subtle transition font-secondary text-xs sm:text-table-row shrink-0"
-                    >
-                        <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
-                        <span class="hidden sm:inline">Filters</span>
-                        @if ($this->activeFilterCount > 0)
-                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">
-                                {{ $this->activeFilterCount }}
-                            </span>
-                        @endif
-                    </button>
-                </flux:modal.trigger>
-            </div>
-        </div>
-
-        <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default mt-4 mb-0">
+    {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+    <div class="sm:hidden mb-4 pb-4 border-b border-light-bd-default dark:border-dark-bd-default">
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            My Dashboard
+        </x-heading>
     </div>
 
     {{-- ===================== FILTERS MODAL ===================== --}}
@@ -643,7 +609,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
             if ($event.detail.balance !== balance) { balance = $event.detail.balance; flipB = true; setTimeout(() => flipB = false, 500); }
         "
     >
-        <div class="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-white/15">
+        <div class="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-white/15">
             <div class="flex items-center gap-3 px-5 py-4 flex-1">
                 <flux:icon.truck class="w-5 h-5 text-white/70 shrink-0" />
                 <div>
@@ -661,10 +627,10 @@ new #[Layout('layouts.operator-layout')] class extends Component
                     </div>
                 </div>
             </div>
-            <div class="flex items-center gap-3 px-5 py-4 flex-1 justify-between">
-                <div class="flex items-center gap-3">
+            <div class="flex items-center flex-wrap gap-3 px-5 py-4 flex-1 justify-between">
+                <div class="flex items-center gap-3 min-w-0">
                     <flux:icon.credit-card class="w-5 h-5 text-white/70 shrink-0" />
-                    <div>
+                    <div class="min-w-0">
                         <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Total Balance</div>
                         <div class="font-primary text-3xl font-extrabold tabular-nums" :class="{ 'flap-flip': flipB }">
                             <span x-show="balance !== null" x-text="'₱' + Number(balance).toFixed(0)"></span>
@@ -672,7 +638,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                         </div>
                     </div>
                 </div>
-               <x-button variant="primary" color="yellow" href="{{ route('withdraw') }}">Withdraw</x-button>
+               <x-button variant="primary" color="yellow" href="{{ route('withdraw') }}" class="shrink-0 whitespace-nowrap">Withdraw</x-button>
             </div>
         </div>
     </div>
@@ -848,22 +814,26 @@ new #[Layout('layouts.operator-layout')] class extends Component
             </x-text>
             <div class="mt-2 space-y-2">
                 @forelse ($this->recentRentalInquiries as $inquiry)
-                    <div class="flex justify-between items-center border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
-                        <div>
-                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body">
+                    <div class="flex justify-between items-center gap-2 border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
+                        <div class="min-w-0">
+                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body break-words">
                                 {{ $inquiry->user->name ?? 'Commuter' }}
                             </span>
                             <span class="block font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                 {{ $inquiry->created_at->diffForHumans() }}
                             </span>
                         </div>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium shrink-0
                             @if($inquiry->status === 'pending') bg-warning/10 text-warning dark:bg-dark-warning/20 dark:text-dark-warning
-                            @elseif($inquiry->status === 'accepted') bg-success/10 text-success dark:bg-dark-success/20 dark:text-dark-success
-                            @elseif($inquiry->status === 'declined') bg-danger/10 text-danger dark:bg-dark-danger/20 dark:text-dark-danger
+                            @elseif($inquiry->status === 'accept') bg-success/10 text-success dark:bg-dark-success/20 dark:text-dark-success
+                            @elseif($inquiry->status === 'decline') bg-danger/10 text-danger dark:bg-dark-danger/20 dark:text-dark-danger
                             @else bg-light-subtle text-light-txt-muted dark:bg-dark-subtle dark:text-dark-txt-muted
                             @endif">
-                            {{ ucfirst($inquiry->status) }}
+                            {{ match($inquiry->status) {
+                                'accept' => 'Accepted',
+                                'decline' => 'Declined',
+                                default => ucfirst($inquiry->status),
+                            } }}
                         </span>
                     </div>
                 @empty
@@ -924,16 +894,16 @@ new #[Layout('layouts.operator-layout')] class extends Component
             </x-text>
             <div class="mt-2 space-y-2">
                 @forelse ($this->recentQueueEntries as $entry)
-                    <div class="flex justify-between items-center border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
-                        <div>
-                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body">
+                    <div class="flex justify-between items-center gap-2 border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
+                        <div class="min-w-0">
+                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body break-words">
                                 {{ ucfirst($entry->vehicle_type) }} → {{ $entry->destination }}
                             </span>
                             <span class="block font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                 {{ $entry->time_queued?->diffForHumans() }}
                             </span>
                         </div>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium bg-light-subtle dark:bg-dark-subtle text-light-txt-primary dark:text-dark-txt-primary">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium bg-light-subtle dark:bg-dark-subtle text-light-txt-primary dark:text-dark-txt-primary shrink-0">
                             {{ ucfirst($entry->status) }}
                         </span>
                     </div>
