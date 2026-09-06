@@ -602,9 +602,18 @@ new #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+    <x-page-header class="mb-3" />
+
     {{-- Breadcrumbs moved to the right, aligned with the heading --}}
     <div class="flex items-center justify-between mb-4">
-        <x-pages-heading heading="Edit User Information"/>
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            Edit User Information
+        </x-heading>
         <flux:breadcrumbs>
             <flux:breadcrumbs.item href="{{ route('admin.users') }}" wire:navigate>Back to Users</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>{{ $this->user->name }}</flux:breadcrumbs.item>
@@ -652,26 +661,26 @@ new #[Layout('layouts.admin-layout')] class extends Component
             {{-- Scan state banner --}}
             <div @class([
                 'flex items-start gap-3 px-4 sm:px-5 py-3 border-b border-light-bd-default dark:border-dark-bd-default',
-                'bg-blue-50 dark:bg-blue-950/40'   => empty($cardUid),
-                'bg-green-50 dark:bg-green-950/40' => !empty($cardUid),
+                'bg-info/10 dark:bg-dark-info/10'       => empty($cardUid),
+                'bg-success/10 dark:bg-dark-success/10' => !empty($cardUid),
             ])>
                 <flux:icon
                     :name="empty($cardUid) ? 'credit-card' : 'check-circle'"
                     @class([
                         'w-5 h-5 shrink-0 mt-0.5',
-                        'text-blue-500 dark:text-blue-400'   => empty($cardUid),
-                        'text-green-600 dark:text-green-400' => !empty($cardUid),
+                        'text-info dark:text-dark-info'       => empty($cardUid),
+                        'text-success dark:text-dark-success' => !empty($cardUid),
                     ])
                 />
                 <div class="min-w-0 space-y-0.5">
                     @if (empty($cardUid))
-                        <p class="font-secondary font-semibold text-sm text-blue-700 dark:text-blue-300">Ready to scan</p>
-                        <p class="font-secondary text-helper leading-snug text-blue-600 dark:text-blue-400">
+                        <p class="font-secondary font-semibold text-sm text-info dark:text-dark-info">Ready to scan</p>
+                        <p class="font-secondary text-helper leading-snug text-info dark:text-dark-info">
                             Hold the new RFID card near the reader — the UID fills in automatically.
                         </p>
                     @else
-                        <p class="font-secondary font-semibold text-sm text-green-700 dark:text-green-300">Card detected</p>
-                        <p class="font-secondary text-helper leading-snug text-green-600 dark:text-green-400 break-all">
+                        <p class="font-secondary font-semibold text-sm text-success dark:text-dark-success">Card detected</p>
+                        <p class="font-secondary text-helper leading-snug text-success dark:text-dark-success break-all">
                             UID {{ $cardUid }} captured. Review the assignment below then click Assign card.
                         </p>
                     @endif
@@ -714,7 +723,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             </div>
                             <div class="sm:text-right shrink-0">
                                 <p class="font-secondary text-nav-label uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">UID</p>
-                                <p class="font-mono font-semibold text-sm text-blue-600 dark:text-blue-400 break-all">{{ $cardUid }}</p>
+                                <p class="font-mono font-semibold text-sm text-info dark:text-dark-info break-all">{{ $cardUid }}</p>
                             </div>
                         </div>
                     </div>
@@ -755,7 +764,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 <div class="flex items-center gap-2 flex-wrap">
                     <x-text class="font-primary text-base sm:text-lg font-bold text-light-txt-primary dark:text-dark-txt-primary truncate">{{ $user->name }}</x-text>
                     @unless ($user->card)
-                        <span class="inline-flex items-center shrink-0 text-[11px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-dark-danger">
+                        <span class="inline-flex items-center shrink-0 text-[11px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-danger/10 text-danger dark:bg-dark-danger/15 dark:text-dark-danger">
                             No card
                         </span>
                     @endunless
@@ -888,7 +897,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                class="text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-950 w-full sm:w-auto order-2 sm:order-1"
+                                class="text-success dark:text-dark-success border-success/30 dark:border-dark-success/30 hover:bg-success/10 dark:hover:bg-dark-success/10 w-full sm:w-auto order-2 sm:order-1"
                                 icon="check-circle"
                             >Reinstate user</flux:button>
                         </flux:modal.trigger>
@@ -898,7 +907,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                class="text-amber-600 border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950 w-full sm:w-auto order-2 sm:order-1"
+                                class="text-warning dark:text-dark-warning border-warning/30 dark:border-dark-warning/30 hover:bg-warning/10 dark:hover:bg-dark-warning/10 w-full sm:w-auto order-2 sm:order-1"
                                 icon="no-symbol"
                             >Suspend user</flux:button>
                         </flux:modal.trigger>
@@ -923,11 +932,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
     </form>
 
     @if ($user->isSuspended())
-        <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40 p-4">
-            <flux:heading size="sm" class="!font-primary !font-bold text-amber-700 dark:text-amber-400">
+        <div class="mt-4 rounded-lg border border-warning/20 dark:border-dark-warning/20 bg-warning/10 dark:bg-dark-warning/10 p-4">
+            <flux:heading size="sm" class="!font-primary !font-bold text-warning dark:text-dark-warning">
                 This account is currently suspended
             </flux:heading>
-            <flux:text class="mt-1 font-secondary text-sm text-amber-700 dark:text-amber-400">
+            <flux:text class="mt-1 font-secondary text-sm text-warning dark:text-dark-warning">
                 Reason: {{ $user->userStatus?->suspension_reason }}
                 @if ($user->userStatus?->suspended_at)
                     <br>Suspended on {{ $user->userStatus->suspended_at->format('F d, Y g:i A') }}
@@ -1198,7 +1207,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         </flux:modal.trigger>
                         <flux:modal.trigger name="delete-vehicle-{{ $vehicle->id }}">
                             <flux:button type="button" variant="ghost" size="sm" icon="trash"
-                                class="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"/>
+                                class="text-danger/70 dark:text-dark-danger/70 hover:text-danger dark:hover:text-dark-danger hover:bg-danger/10 dark:hover:bg-dark-danger/10"/>
                         </flux:modal.trigger>
                     </div>
                 </div>

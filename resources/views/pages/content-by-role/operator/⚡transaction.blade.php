@@ -10,8 +10,23 @@ new #[Layout('layouts.operator-layout')]class extends Component
 ?>
 
 <div>
+    <x-page-header
+        heading="View and manage your transactions."
+        class="mb-6"
+    >
+        {{-- No extra controls – keep it minimal --}}
+    </x-page-header>
 
-    <x-pages-heading heading="Transactions" description="View and manage your transactions." />
+    {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+    <div class="sm:hidden mb-4 pb-4 border-b border-light-bd-default dark:border-dark-bd-default">
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            Transactions
+        </x-heading>
+    </div>
 
     <div x-data="{ tab: 'active' }" class="space-y-6 mt-6">
         <div class="flex gap-6 border-b border-zinc-200 dark:border-zinc-700 text-sm justify-end">

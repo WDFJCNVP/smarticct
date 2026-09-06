@@ -137,6 +137,11 @@ new class extends Component
 ?>
 
 <div>
+    <x-page-header
+        heading="Trash"
+        class="mb-4 sm:mb-6"
+    ></x-page-header>
+
     {{-- Header --}}
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4 sm:mb-6">
         <div>

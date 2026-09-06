@@ -53,7 +53,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 public function totalRevenue()
 {
     // 1. Digital card fee earnings
-    $cardFees = CardTransaction::whereIn('transaction_type', ['queueing_fee', 'operator_payment'])
+    $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
         ->where('status', 'success')
         ->sum('amount');
 
@@ -73,7 +73,7 @@ public function totalRevenue()
 #[Computed]
 public function todayRevenue()
 {
-    $cardFees = CardTransaction::whereIn('transaction_type', ['queueing_fee', 'operator_payment'])
+    $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
         ->where('status', 'success')
         ->whereDate('transaction_time', today())
         ->sum('amount');
@@ -178,7 +178,7 @@ public function todayRevenue()
             ->pluck('total', 'payment_method');
 
         return [
-            'labels' => $counts->keys()->map(fn ($m) => ucfirst($m))->values()->toArray(),
+            'labels' => $counts->keys()->map(fn ($m) => $m ? ucfirst($m) : 'Unknown')->values()->toArray(),
             'data' => $counts->values()->toArray(),
         ];
     }
@@ -305,7 +305,8 @@ public function todayRevenue()
     public function queuePaymentModeSplit()
     {
         // Card payments for queue fees today
-        $cardFees = CardTransaction::where('transaction_type', 'operator_payment')
+        $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
+            ->where('status', 'success')
             ->whereDate('transaction_time', today())
             ->sum('amount');
 
@@ -658,60 +659,35 @@ public function todayRevenue()
         }
     </style>
 
-    {{-- ===================== HEADER ===================== --}}
-    <div class="mb-6">
-        <div class="flex items-start justify-between gap-3 sm:gap-4">
-            <x-pages-heading
-                heading="Admin Dashboard"
-                description="System overview and key metrics."
-                class="text-xl sm:text-2xl font-extrabold"
-            />
+    {{-- ===================== MINI-NAVBAR ===================== --}}
+    <x-page-header
+        heading="System overview and key metrics"
+    >
+        <flux:modal.trigger name="admin-filters">
+            <button
+                type="button"
+                class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg bg-primary text-white border-0 hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover transition font-secondary text-xs sm:text-table-row shrink-0"
+            >
+                <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-[var(--color-dark-primary)]" />
+                <span class="hidden sm:inline">Filters</span>
+                @if ((int) $this->range !== 7)
+                    <span class="flex items-center justify-center w-4 h-4 rounded-full bg-white/20 text-white dark:bg-black/20 dark:text-[var(--color-dark-primary)] text-[10px] font-bold">
+                        1
+                    </span>
+                @endif
+            </button>
+        </flux:modal.trigger>
+    </x-page-header>
 
-            <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-                <div class="hidden sm:flex flex-col items-end">
-                    <span
-                        class="text-xs text-light-txt-muted dark:text-dark-txt-muted font-secondary leading-none mb-0.5"
-                        x-data="{ date: '' }"
-                        x-init="date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })"
-                        x-text="date"
-                    ></span>
-                    <div
-                        class="flex items-center gap-1.5 sm:gap-2 font-primary text-base sm:text-xl font-bold tabular-nums text-light-txt-primary dark:text-dark-txt-primary whitespace-nowrap"
-                        x-data="{
-                            now: '',
-                            tick() {
-                                this.now = new Date().toLocaleString('en-US', {
-                                    hour: '2-digit', minute: '2-digit', second: '2-digit',
-                                });
-                            },
-                        }"
-                        x-init="tick(); setInterval(() => tick(), 1000)"
-                    >
-                        <span class="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2 shrink-0">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success dark:bg-dark-success opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-success dark:bg-dark-success"></span>
-                        </span>
-                        <span x-text="now"></span>
-                    </div>
-                </div>
-
-                <livewire:pages::notification-bell />
-
-                <flux:modal.trigger name="admin-filters">
-                    <button
-                        type="button"
-                        class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-body dark:text-dark-txt-body hover:bg-light-subtle dark:hover:bg-dark-subtle transition font-secondary text-xs sm:text-table-row shrink-0"
-                    >
-                        <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
-                        <span class="hidden sm:inline">Filters</span>
-                        @if ((int) $this->range !== 7)
-                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">1</span>
-                        @endif
-                    </button>
-                </flux:modal.trigger>
-            </div>
-        </div>
-        <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default mt-4 mb-0">
+    {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+    <div class="sm:hidden mb-4 pb-4 border-b border-light-bd-default dark:border-dark-bd-default">
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            My Dashboard
+        </x-heading>
     </div>
 
     {{-- ===================== FILTERS MODAL ===================== --}}
@@ -757,7 +733,7 @@ public function todayRevenue()
             if ($event.detail.revenue !== revenue) { revenue = $event.detail.revenue; flipR = true; setTimeout(() => flipR = false, 500); }
         "
     >
-        <div class="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-white/15">
+        <div class="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-white/15">
             <div class="flex items-center justify-between gap-3 px-5 py-4 flex-1">
                 <div class="flex items-center gap-3">
                     <flux:icon.truck class="w-5 h-5 text-white/70 shrink-0" />
@@ -778,17 +754,17 @@ public function todayRevenue()
                 </div>
                 <x-dashboard.trend-pill :value="$this->revenueTodayTrend" class="!bg-white/15 !text-white" suffix="vs yday" />
             </div>
-            <div class="flex items-center justify-between gap-3 px-5 py-4 flex-1">
-                <div class="flex items-center gap-3">
+            <div class="flex items-center flex-wrap gap-3 px-5 py-4 flex-1 justify-between">
+                <div class="flex items-center gap-3 min-w-0">
                     <flux:icon.banknotes class="w-5 h-5 text-white/70 shrink-0" />
-                    <div>
+                    <div class="min-w-0">
                         <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Total Revenue</div>
                         <div class="font-primary text-3xl font-extrabold tabular-nums">
                             ₱{{ number_format($this->totalRevenue, 2) }}
                         </div>
                     </div>
                 </div>
-                <x-button href=" {{ route('withdraw') }} " variant="primary" color="yellow">Withdraw</x-button>
+                <x-button href="{{ route('withdraw') }}" variant="primary" color="yellow" class="shrink-0 whitespace-nowrap">Withdraw</x-button>
             </div>
         </div>
     </div>
@@ -1282,13 +1258,13 @@ public function todayRevenue()
                 </x-text>
             </div>
             <div class="overflow-x-auto mt-2">
-                <table class="w-full min-w-[640px] font-secondary text-table-row">
+                <table class="w-full font-secondary text-table-row">
                     <thead>
                         <tr class="text-left text-light-txt-body dark:text-dark-txt-body border-b border-light-bd-default dark:border-dark-bd-default">
                             <th class="py-2 px-4 font-semibold">User</th>
                             <th class="py-2 px-4 font-semibold">Action</th>
-                            <th class="py-2 px-4 font-semibold">Subject</th>
-                            <th class="py-2 px-4 font-semibold">Channel</th>
+                            <th class="py-2 px-4 font-semibold hidden sm:table-cell">Subject</th>
+                            <th class="py-2 px-4 font-semibold hidden md:table-cell">Channel</th>
                             <th class="py-2 px-4 font-semibold text-right">When</th>
                         </tr>
                     </thead>
@@ -1301,8 +1277,8 @@ public function todayRevenue()
                                         {{ $entry->action }}
                                     </span>
                                 </td>
-                                <td class="py-2.5 px-4 text-light-txt-muted dark:text-dark-txt-muted">{{ $entry->subject }}</td>
-                                <td class="py-2.5 px-4 text-light-txt-muted dark:text-dark-txt-muted">{{ $entry->channel }}</td>
+                                <td class="py-2.5 px-4 text-light-txt-muted dark:text-dark-txt-muted hidden sm:table-cell">{{ $entry->subject }}</td>
+                                <td class="py-2.5 px-4 text-light-txt-muted dark:text-dark-txt-muted hidden md:table-cell">{{ $entry->channel }}</td>
                                 <td class="py-2.5 px-4 text-right font-secondary text-timestamp tabular-nums text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">
                                     {{ $entry->created_at->diffForHumans() }}
                                 </td>

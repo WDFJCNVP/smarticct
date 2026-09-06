@@ -28,13 +28,17 @@
         default => 'zinc',
     };
 
-    // Admins may archive (not delete) a rental post belonging to an operator/commuter as a
-    // moderation action.
+    // Admins may archive (never delete) a post belonging to someone else as a
+    // moderation action: a rental post from an operator/commuter, or an
+    // announcement posted by a cashier.
     $canModerate = !$isOwner
         && $authUser
         && $authUser->role === 'admin'
-        && $post->type === 'rental'
-        && $post->status !== 'archived';
+        && $post->status !== 'archived'
+        && (
+            $post->type === 'rental'
+            || ($post->type === 'announcement' && $post->user->role === 'cashier')
+        );
 
     // Operators/commuters may fully delete their own post, but only while nobody has an
     // active (pending or accepted/ongoing) request on it, and never on a post that's

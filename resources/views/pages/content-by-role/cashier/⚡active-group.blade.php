@@ -96,12 +96,21 @@ new class extends Component
 <div class="flex flex-col h-full">
     <div class="shrink-0">
 
+        {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+        <x-page-header
+            heading="Manage queue order and advance the next vehicle for today's schedule."
+            class="mb-3"
+        >
+            {{-- No extra controls – keep it minimal --}}
+        </x-page-header>
+
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-6">
             <flux:breadcrumbs class="order-1 sm:order-2 shrink-0 sm:pt-1">
                 <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Back to Live Queue</flux:breadcrumbs.item>
                 <flux:breadcrumbs.item>Active Groups</flux:breadcrumbs.item>
             </flux:breadcrumbs>
 
+            {{-- Mobile-visible heading, since the page header above is desktop-only --}}
             <div class="order-2 sm:order-1 w-full sm:w-auto">
                 <x-heading
                     size="xl"
@@ -110,9 +119,6 @@ new class extends Component
                 >
                     Current Active Group
                 </x-heading>
-                <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                    Manage queue order and advance the next vehicle for today's schedule.
-                </x-text>
             </div>
         </div>
 

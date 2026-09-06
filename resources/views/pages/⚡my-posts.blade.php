@@ -209,6 +209,11 @@ new class extends Component
 ?>
 
 <div>
+    <x-page-header
+        heading="My Posts"
+        class="mb-4 sm:mb-6"
+    ></x-page-header>
+
     {{-- Header — matches Feed --}}
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4 sm:mb-6">
         <div>
@@ -252,19 +257,21 @@ new class extends Component
             >
                 <span>Archived</span>
             </x-button>
-            <x-button
-                href="{{ route('post.trash') }}"
-                wire:navigate
-                variant="ghost"
-                icon="trash"
-                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
-                    !border !border-light-bd-default dark:!border-dark-bd-default
-                    !text-light-txt-primary dark:!text-dark-txt-primary
-                    hover:!bg-light-subtle dark:hover:!bg-dark-subtle
-                    flex-1 lg:flex-none justify-center"
-            >
-                <span>Trash</span>
-            </x-button>
+            @if (in_array(auth()->user()->role, ['operator', 'commuter']))
+                <x-button
+                    href="{{ route('post.trash') }}"
+                    wire:navigate
+                    variant="ghost"
+                    icon="trash"
+                    class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2
+                        !border !border-light-bd-default dark:!border-dark-bd-default
+                        !text-light-txt-primary dark:!text-dark-txt-primary
+                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                        flex-1 lg:flex-none justify-center"
+                >
+                    <span>Trash</span>
+                </x-button>
+            @endif
         </div>
     </div>
 

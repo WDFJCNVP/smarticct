@@ -391,6 +391,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
      x-on:open-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).show()"
      x-on:close-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).close()">
     
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+    <x-page-header
+        :heading="$this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User'"
+        class="mb-3"
+    >
+        {{-- No extra controls – keep it minimal --}}
+    </x-page-header>
+
     {{-- Breadcrumbs on top on mobile; heading + breadcrumbs side-by-side from sm up --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 my-8">
         <flux:breadcrumbs class="order-1 sm:order-2">
@@ -398,9 +406,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
             <flux:breadcrumbs.item>Registration</flux:breadcrumbs.item>
         </flux:breadcrumbs>
 
-        <flux:heading size="xl" class="order-2 sm:order-1 !font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+        <x-heading
+            size="xl"
+            class="order-2 sm:order-1 !font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
             {{ $this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User' }}
-        </flux:heading>
+        </x-heading>
     </div>
 
     <div class="flex items-center gap-1 mb-6 font-secondary text-timestamp">

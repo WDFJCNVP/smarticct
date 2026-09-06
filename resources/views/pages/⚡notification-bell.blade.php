@@ -41,12 +41,15 @@ new class extends Component
     <div class="relative inline-block">
         <button
             type="button"
-            class="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:bg-light-subtle dark:hover:bg-dark-subtle transition shrink-0"
+            class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-body dark:text-dark-txt-body hover:bg-light-subtle dark:hover:bg-dark-subtle transition font-secondary text-xs sm:text-table-row shrink-0"
             aria-label="Notifications"
         >
-            <flux:icon.bell class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <flux:icon.bell class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-light-txt-muted dark:text-dark-txt-muted" />
+            <span class="hidden sm:inline">Notifications</span>
             @if ($this->unreadCount > 0)
-                <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger dark:bg-dark-danger"></span>
+                <span class="flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-danger dark:bg-dark-danger text-white text-[10px] font-bold leading-none">
+                    {{ $this->unreadCount > 99 ? '99+' : $this->unreadCount }}
+                </span>
             @endif
         </button>
     </div>

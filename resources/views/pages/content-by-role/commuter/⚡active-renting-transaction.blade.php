@@ -114,6 +114,14 @@ new class extends Component
 ?>
 
 <div>
+    @if ((!$this->rentalOffers || !$this->rentalOffers->count()) && (!$this->tripRequests || !$this->tripRequests->count()))
+        <flux:card class="px-6 py-14 text-center dark:bg-dark-secondary dark:border-dark-bd-default">
+            <flux:icon name="chat-bubble-left-right" class="w-10 h-10 text-light-txt-muted dark:text-dark-txt-muted mx-auto mb-3" />
+            <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">No active renting transactions.</p>
+            <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Accepted rental offers and trip requests will show up here.</p>
+        </flux:card>
+    @endif
+
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @if ($this->rentalOffers && $this->rentalOffers->count())
             @foreach ($this->rentalOffers as $item)
@@ -123,17 +131,17 @@ new class extends Component
                         <flux:badge size="sm" color="green">Active</flux:badge>
                     </div>
                     <div class="mt-4 space-y-2">
-                        <div class="flex items-center justify-between">
-                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">Offered Vehicle</span>
-                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary">{{ $item->post->metadata['vehicle_type'] }}</span>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted shrink-0">Offered Vehicle</span>
+                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary truncate min-w-0 text-right">{{ $item->post->metadata['vehicle_type'] }}</span>
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">Operator Name</span>
-                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary">{{ $item->user->name ?? 'Unknown' }}</span>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted shrink-0">Operator Name</span>
+                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary truncate min-w-0 text-right">{{ $item->user->name ?? 'Unknown' }}</span>
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">Coverage</span>
-                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary truncate max-w-[150px]">{{ $item->destination_coverage }}</span>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted shrink-0">Coverage</span>
+                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary truncate min-w-0 text-right">{{ $item->destination_coverage }}</span>
                         </div>
                     </div>
                     <div class="mt-4 flex gap-2">
@@ -181,17 +189,17 @@ new class extends Component
                         <flux:badge size="sm" color="green">Active</flux:badge>
                     </div>
                     <div class="mt-4 space-y-2">
-                        <div class="flex items-center justify-between">
-                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">Offered Vehicle</span>
-                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary">{{ $item->post->metadata['vehicle_type'] }}</span>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted shrink-0">Offered Vehicle</span>
+                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary truncate min-w-0 text-right">{{ $item->post->metadata['vehicle_type'] }}</span>
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">Operator Name</span>
-                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary">{{ $item->post->user->name ?? 'Unknown' }}</span>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted shrink-0">Operator Name</span>
+                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary truncate min-w-0 text-right">{{ $item->post->user->name ?? 'Unknown' }}</span>
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">Coverage</span>
-                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary truncate max-w-[150px]">{{ $item->pick_up_location }} to {{ $item->drop_off_location }}</span>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted shrink-0">Coverage</span>
+                            <span class="font-secondary text-sm font-medium text-light-txt-primary dark:text-dark-txt-primary truncate min-w-0 text-right">{{ $item->pick_up_location }} to {{ $item->drop_off_location }}</span>
                         </div>
                     </div>
                     <div class="mt-4 flex gap-2">
