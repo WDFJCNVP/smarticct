@@ -4,14 +4,42 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use App\Jobs\ProcessAfterDepart;
 use App\Models\Queue;
+use App\Http\Controllers\Api\CardController;
 
 new class extends Component {
 
     public string $search = '';
     public string $vehicleType = '';
+
+    // ===================== ACTION CONFIRMATIONS =====================
+    public bool $show_depart_early_modal = false;
+    public bool $show_cash_fare_modal = false;
+    public bool $show_dispatch_modal = false;
+    public ?int $pendingQueueId = null;
+    public string $pendingQueuePlate = '';
+
+    public function confirmDepartEarly(int $queueId): void
+    {
+        $this->pendingQueueId = $queueId;
+        $this->show_depart_early_modal = true;
+    }
+
+    public function confirmCashFare(int $queueId): void
+    {
+        $this->pendingQueueId = $queueId;
+        $this->show_cash_fare_modal = true;
+    }
+
+    public function confirmDispatch(int $queueId, string $plate): void
+    {
+        $this->pendingQueueId = $queueId;
+        $this->pendingQueuePlate = $plate;
+        $this->show_dispatch_modal = true;
+    }
 
     protected function canManageQueue(): bool
     {
@@ -20,6 +48,8 @@ new class extends Component {
 
     public function departEarly($queueId)
     {
+        $this->show_depart_early_modal = false;
+
         $queue = Queue::where('id', $queueId)
             ->where('user_id', auth()->id())
             ->where('status', 'loading')
@@ -45,8 +75,53 @@ new class extends Component {
         );
     }
 
+    // Operator taps this when a commuter pays their fare in cash directly,
+    // at the vehicle, with no cashier involved. Only logs the trip and
+    // bumps the seat count — never touches the operator's card balance,
+    // since they're already physically holding that cash.
+    public function reportCashFare($queueId)
+    {
+        $this->show_cash_fare_modal = false;
+
+        $request = new Request();
+        $request->merge(['queue_id' => $queueId]);
+
+        try {
+            $response     = (new CardController())->operatorCashFare($request);
+            $responseData = $response->getData(true);
+        } catch (\Exception $e) {
+            Flux::toast(
+                duration: 4000,
+                variant: 'warning',
+                heading: 'Failed to log passenger',
+                text: 'Something went wrong. Please try again.',
+            );
+            return;
+        }
+
+        if ($responseData['success'] === true) {
+            $this->refreshQueuedVehicleList();
+
+            Flux::toast(
+                duration: 3000,
+                variant: 'success',
+                heading: 'Passenger logged',
+                text: $responseData['message'],
+            );
+        } else {
+            Flux::toast(
+                duration: 4000,
+                variant: 'warning',
+                heading: 'Could not log passenger',
+                text: $responseData['message'] ?? 'An error occurred.',
+            );
+        }
+    }
+
     public function dispatchVehicle($queueId)
     {
+        $this->show_dispatch_modal = false;
+
         if (!$this->canManageQueue()) {
             return;
         }
@@ -198,28 +273,37 @@ new class extends Component {
     <div class="{{ auth()->guest() ? 'mx-auto max-w-5xl px-4 sm:px-6 py-8' : '' }}">
 
         @auth
-            {{-- Heading with feed style --}}
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                <div>
-                    <x-heading
-                        size="xl"
-                        class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                        style="font-size: var(--text-page-title)"
-                    >
-                        Live Queue
-                    </x-heading>
-                    <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                        Vehicles lined up per route, in dispatch order.
-                    </x-text>
-                </div>
+            {{-- ====== PAGE HEADER (desktop only) ====== --}}
+            <x-page-header
+                heading="Live Queue"
+                class="mb-4"
+            >
+                {{-- Empty slot – no buttons inside the header --}}
+            </x-page-header>
 
-                <div class="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                    @if (in_array(auth()->user()->role, ['cashier', 'admin']))
-                        <flux:button size="sm" icon="plus" variant="primary" href="{{ route('cashier.queue.vehicle') }}" wire:navigate class="font-secondary flex-1 sm:flex-none justify-center">Queue Vehicle</flux:button>
-                        <flux:button size="sm" href="{{ route('cashier.active-group') }}" wire:navigate class="font-secondary flex-1 sm:flex-none justify-center">View Active Groups</flux:button>
-                    @endif
+            {{-- ====== ACTION BUTTONS (visible on all screens, pinned to the far right) ====== --}}
+            @if (in_array(auth()->user()->role, ['cashier', 'admin']))
+                <div class="flex items-center justify-end gap-2 mb-6 w-full sm:w-auto">
+                    <flux:button
+                        size="sm"
+                        icon="plus"
+                        variant="primary"
+                        href="{{ route('cashier.queue.vehicle') }}"
+                        wire:navigate
+                        class="font-secondary flex-1 sm:flex-none justify-center"
+                    >
+                        Queue Vehicle
+                    </flux:button>
+                    <flux:button
+                        size="sm"
+                        href="{{ route('cashier.active-group') }}"
+                        wire:navigate
+                        class="font-secondary flex-1 sm:flex-none justify-center"
+                    >
+                        View Active Groups
+                    </flux:button>
                 </div>
-            </div>
+            @endif
         @endauth
 
         {{-- Overview stats --}}
@@ -323,13 +407,23 @@ new class extends Component {
                                     <span class="text-sm text-light-txt-muted dark:text-dark-txt-muted">Seats: {{ $queue->seat_count }}/{{ $queue->seat_capacity }}</span>
                                 </div>
                                 @if ($queue->status === 'loading')
-                                    <div class="mt-3 pt-3 border-t border-light-bd-default dark:border-dark-bd-default">
+                                    <div class="mt-3 pt-3 border-t border-light-bd-default dark:border-dark-bd-default flex flex-col gap-2">
+                                        @if ($queue->seat_count < $queue->seat_capacity)
+                                            <flux:button
+                                                size="sm"
+                                                variant="primary"
+                                                icon="plus"
+                                                wire:click="confirmCashFare({{ $queue->id }})"
+                                                class="w-full font-secondary"
+                                            >
+                                                1 Passenger (Cash)
+                                            </flux:button>
+                                        @endif
                                         <flux:button
                                             size="sm"
                                             variant="danger"
                                             icon="paper-airplane"
-                                            wire:click="departEarly({{ $queue->id }})"
-                                            wire:confirm="Are you sure you want to depart early right now?"
+                                            wire:click="confirmDepartEarly({{ $queue->id }})"
                                             class="w-full font-secondary"
                                         >
                                             Depart Now
@@ -455,8 +549,7 @@ new class extends Component {
                                                                 <flux:button
                                                                     size="sm"
                                                                     variant="primary"
-                                                                    wire:click="dispatchVehicle({{ $queue->id }})"
-                                                                    wire:confirm="Dispatch {{ $queue->plate_number }} now?"
+                                                                    wire:click="confirmDispatch({{ $queue->id }}, '{{ $queue->plate_number }}')"
                                                                     class="font-secondary text-xs scale-90 md:scale-100"
                                                                 >
                                                                     Dispatch
@@ -495,4 +588,61 @@ new class extends Component {
             @endforelse
         </div>
     </div>
+
+    {{-- Log cash fare confirmation --}}
+    <flux:modal wire:model="show_cash_fare_modal" :closable="false" class="w-[calc(100%-2rem)] max-w-xs sm:max-w-sm">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Log cash fare?</flux:heading>
+                <flux:text class="mt-2">Log 1 passenger who paid their fare to you in cash.</flux:text>
+            </div>
+            <div class="flex gap-2">
+                <flux:spacer />
+                <flux:modal.close>
+                    <flux:button variant="ghost">Cancel</flux:button>
+                </flux:modal.close>
+                <flux:button wire:click="reportCashFare({{ $pendingQueueId }})" wire:loading.attr="disabled" variant="primary">
+                    Log Passenger
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- Depart early confirmation --}}
+    <flux:modal wire:model="show_depart_early_modal" :closable="false" class="w-[calc(100%-2rem)] max-w-xs sm:max-w-sm">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Depart early?</flux:heading>
+                <flux:text class="mt-2">Are you sure you want to depart early right now?</flux:text>
+            </div>
+            <div class="flex gap-2">
+                <flux:spacer />
+                <flux:modal.close>
+                    <flux:button variant="ghost">Cancel</flux:button>
+                </flux:modal.close>
+                <flux:button wire:click="departEarly({{ $pendingQueueId }})" wire:loading.attr="disabled" variant="danger">
+                    Depart Now
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- Dispatch vehicle confirmation --}}
+    <flux:modal wire:model="show_dispatch_modal" :closable="false" class="w-[calc(100%-2rem)] max-w-xs sm:max-w-sm">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Dispatch vehicle?</flux:heading>
+                <flux:text class="mt-2">Dispatch {{ $pendingQueuePlate }} now?</flux:text>
+            </div>
+            <div class="flex gap-2">
+                <flux:spacer />
+                <flux:modal.close>
+                    <flux:button variant="ghost">Cancel</flux:button>
+                </flux:modal.close>
+                <flux:button wire:click="dispatchVehicle({{ $pendingQueueId }})" wire:loading.attr="disabled" variant="primary">
+                    Dispatch
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>

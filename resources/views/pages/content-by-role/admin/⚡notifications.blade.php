@@ -24,7 +24,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
-    <div class="flex items-center mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div class="flex-1 flex items-center gap-2">
             <flux:heading size="xl">Notifications</flux:heading>
 
@@ -48,7 +48,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         </div>
 
         <div>
-            <x-button size="sm" wire:click="markAllAsRead">Mark all as read </x-button>
+            <x-button size="sm" wire:click="markAllAsRead" class="w-full sm:w-auto justify-center">Mark all as read </x-button>
         </div>
 
     </div>
@@ -56,12 +56,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
     @foreach ($this->getNotifications as $notification)
         <x-notification-container :notification_id="$notification->id" href="/admin/notification/{{ $notification->id }}">
             @if ($notification->is_read === 0)  
-                <div class="relative inline-block">
-                    <span class="absolute -top-0.2 -left-0.2 z-10 block h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-zinc-900"></span>
-                    <flux:icon.envelope class="h-5 w-5 text-blue-600" />
+                <div class="relative inline-block shrink-0">
+                    <span class="absolute -top-0.2 -left-0.2 z-10 block h-1.5 w-1.5 rounded-full bg-danger dark:bg-dark-danger ring-2 ring-light-primary dark:ring-dark-surface"></span>
+                    <flux:icon.envelope class="h-5 w-5 text-primary dark:text-dark-txt-primary" />
                 </div>
             @else
-                <flux:icon.envelope class="h-5 w-5 text-blue-600" />
+                <flux:icon.envelope class="h-5 w-5 text-primary dark:text-dark-txt-primary shrink-0" />
             @endif
 
             <div class="flex-1 min-w-0">
@@ -69,13 +69,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     {{ $notification->notification->title }}
                 </x-text>
 
-                <div class="flex items-center" >
-                    <x-text class="flex-1 text-xs text-gray-400 mt-0.5 leading-snug truncate">
+                <div class="flex items-center gap-2" >
+                    <x-text class="flex-1 min-w-0 text-xs text-light-txt-muted dark:text-dark-txt-muted mt-0.5 leading-snug truncate">
                         {{ $notification->notification->message }}
                     </x-text>
 
-                    <div class="flex items-center gap-2 mt-1.5">
-                        <span class="text-xs text-gray-500 flex items-center gap-1">
+                    <div class="flex items-center gap-2 mt-1.5 shrink-0">
+                        <span class="text-xs text-light-txt-muted dark:text-dark-txt-muted flex items-center gap-1 whitespace-nowrap">
                             {{ $notification->created_at->format('F d, Y') }}
                         </span>
                     </div>

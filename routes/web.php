@@ -51,6 +51,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::livewire('/user/card', 'pages::card')
         ->name('user.card');
 
+    Route::livewire('/user/card/report', 'pages::card-report')
+        ->name('user.card.report');
+
     Route::livewire('/admin/dashboard', 'pages::content-by-role.admin.index')
         ->middleware('role:admin')
         ->name('admin.dashboard');
@@ -78,12 +81,19 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::livewire('/admin/cards', 'pages::content-by-role.admin.cards')
         ->name('admin.cards')
         ->middleware('role:admin');
+    Route::livewire('/admin/cards/issue', 'pages::content-by-role.admin.issue-card')
+        ->name('admin.cards.issue')
+        ->middleware('role:admin');
     Route::livewire('/admin/card/transaction/{user}', 'pages::content-by-role.admin.card-transaction')
         ->name('admin.card.transaction')
         ->middleware('role:admin');
 
     Route::livewire('/admin/topups', 'pages::content-by-role.admin.card-topups')
         ->name('admin.topups')
+        ->middleware('role:admin');
+
+    Route::livewire('/admin/topups/new', 'pages::content-by-role.admin.cash-topup')
+        ->name('admin.topups.new')
         ->middleware('role:admin');
 
     Route::livewire('/travel/record', 'pages::content-by-role.admin.travel-record')
@@ -139,6 +149,14 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::livewire('/cashier/cards', 'pages::content-by-role.cashier.cards')
         ->middleware('role:cashier,admin')
         ->name('cashier.cards');
+
+    Route::livewire('/cashier/cards/issue', 'pages::content-by-role.cashier.issue-card')
+        ->middleware('role:cashier,admin')
+        ->name('cashier.cards.issue');
+
+    Route::livewire('/cashier/fare-payment', 'pages::content-by-role.cashier.fare_payment')
+        ->middleware('role:cashier,admin')
+        ->name('cashier.fare-payment');
 
     //Operator Section
     Route::livewire('/operator/dashboard', 'pages::content-by-role.operator.index')

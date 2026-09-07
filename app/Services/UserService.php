@@ -69,11 +69,11 @@ class UserService
                         'vehicle_type'           => $vehicle['vehicle_type'],
                         'plate_number'           => $vehicle['plate_number'],
                         'total_seats'            => $vehicle['seat_capacity'],
-                        'has_or_cr'              => $vehicle['has_or_cr'] ?? false,
-                        'or_cr_expiry_date'      => $vehicle['or_cr_expiry_date'] ?? null,
+                        'engine_number'          => $vehicle['engine_number'] ?? null,
+                        'body_number'            => $vehicle['body_number'] ?? null,
+                        'chassis_number'         => $vehicle['chassis_number'] ?? null,
                         'has_franchise'          => $vehicle['has_franchise'] ?? false,
                         'franchise_expiry_date'  => $vehicle['franchise_expiry_date'] ?? null,
-                        'driver_name'            => $vehicle['driver_name'] ?? null,
                     ]);
 
                     if ($vehicle['group_number'] !== null) {

@@ -12,6 +12,16 @@ class CardStatementExportController extends Controller
 {
     public function export(Request $request, User $user)
     {
+        $validated = $request->validate([
+            'paper'       => 'nullable|in:letter,legal,a4',
+            'orientation' => 'nullable|in:portrait,landscape',
+            'preview'     => 'nullable|boolean',
+        ]);
+
+        $paper       = $validated['paper'] ?? 'legal';
+        $orientation = $validated['orientation'] ?? 'portrait';
+        $isPreview   = $request->boolean('preview');
+
         $user->load('card');
 
         if (!$user->card) {
@@ -28,7 +38,18 @@ class CardStatementExportController extends Controller
             'closingBalance' => $transactions->last()?->balance_after ?? $user->card->balance,
             'generatedBy' => auth()->user()?->name ?? 'System',
             'generatedAt' => now(),
-        ])->setPaper('legal', 'portrait');
+            'paper'       => $paper,
+            'orientation' => $orientation,
+        ])->setPaper($paper, $orientation);
+
+        $filename = 'card-statement-' . str($user->user_code ?: $user->id)->slug() . '-' . now()->format('Y-m-d') . '.pdf';
+
+        // Previewing (the modal's live iframe) just renders the PDF inline —
+        // it isn't a real export yet, so it shouldn't show up in the audit
+        // trail or count as an actual download.
+        if ($isPreview) {
+            return $pdf->stream($filename);
+        }
 
         app(AuditLogsService::class)->create([
             'user_id'  => auth()->id(),
@@ -42,8 +63,6 @@ class CardStatementExportController extends Controller
                 'records'      => $transactions->count(),
             ],
         ]);
-
-        $filename = 'card-statement-' . str($user->user_code ?: $user->id)->slug() . '-' . now()->format('Y-m-d') . '.pdf';
 
         return $pdf->download($filename);
     }

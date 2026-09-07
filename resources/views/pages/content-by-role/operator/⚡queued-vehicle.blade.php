@@ -41,14 +41,22 @@ new #[Layout('layouts.operator-layout')] class extends Component
 
 <div class="flex flex-col h-full">
 
-    <flux:breadcrumbs class="mb-8">
-        <flux:breadcrumbs.item href="{{ route('operator.live.queue') }}" wire:navigate>
-        Live Queue
-        </flux:breadcrumbs.item>
-        <flux:breadcrumbs.item>Queued Vehicle</flux:breadcrumbs.item>
-    </flux:breadcrumbs>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-8">
+        <flux:breadcrumbs class="order-1 sm:order-2">
+            <flux:breadcrumbs.item href="{{ route('operator.live.queue') }}" wire:navigate>
+            Live Queue
+            </flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>Queued Vehicle</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
 
-    <x-pages-heading heading="Queued vehicle" />
+        <x-heading
+            size="xl"
+            class="order-2 sm:order-1 !font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            Queued vehicle
+        </x-heading>
+    </div>
 
     @if ($this->getOwnQueueEntry)
         @php
@@ -127,7 +135,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
 
                             <flux:separator />
 
-                            <div>
+                            <div class="overflow-x-auto">
                                 <flux:table >
                                     <flux:table.columns>
                                         <flux:table.column class="w-10">#</flux:table.column>

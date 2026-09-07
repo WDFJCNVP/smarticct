@@ -45,25 +45,24 @@ new class extends Component
 
     <div class="mt-2">
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Full Name</x-text>
-            <x-text variant="strong">{{ $tripRequest->post->user->name ?? 'Unknown' }}</x-text>
+            <x-text variant="subtle" class="shrink-0">Full Name</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $tripRequest->post->user->name ?? 'Unknown' }}</x-text>
         </div>
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Home Address</x-text>
-            
-            <x-text variant="strong">{{ $tripRequest->post->user->address ?? 'Unknown' }}</x-text>
+            <x-text variant="subtle" class="shrink-0">Home Address</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $tripRequest->post->user->address ?? 'Unknown' }}</x-text>
         </div>
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Contact No.</x-text>
+            <x-text variant="subtle" class="shrink-0">Contact No.</x-text>
             
-            <x-text variant="strong" class="truncate max-w-[150px]">{{ $tripRequest->post->user->phone_number ?? 'Unknown' }}</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $tripRequest->post->user->phone_number ?? 'Unknown' }}</x-text>
         </div>
 
         @if (!empty($tripRequest->post->user->email_address))
             <div class="flex items-center gap-2 justify-between mt-2">
-                <x-text variant="subtle">Email Address</x-text>
+                <x-text variant="subtle" class="shrink-0">Email Address</x-text>
                 
-                <x-text variant="strong" class="truncate max-w-[150px]">{{ $tripRequest->post->user->email_address ?? 'Unknown' }}</x-text>
+                <x-text variant="strong" class="truncate min-w-0 text-right">{{ $tripRequest->post->user->email_address ?? 'Unknown' }}</x-text>
             </div>
         @endif
     </div>
@@ -94,27 +93,27 @@ new class extends Component
             <x-text variant="strong">{{ $tripRequest->body_count }}</x-text>
         </div>
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Pick-up location</x-text>
+            <x-text variant="subtle" class="shrink-0">Pick-up location</x-text>
             
-            <x-text variant="strong" class="truncate max-w-[150px]">{{ $tripRequest->pick_up_location }}</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $tripRequest->pick_up_location }}</x-text>
         </div>
 
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Drop off location</x-text>
+            <x-text variant="subtle" class="shrink-0">Drop off location</x-text>
             
-            <x-text variant="strong" class="truncate max-w-[150px]">{{ $tripRequest->drop_off_location }}</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $tripRequest->drop_off_location }}</x-text>
         </div>
 
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Trip date</x-text>
+            <x-text variant="subtle" class="shrink-0">Trip date</x-text>
             
-            <x-text variant="strong" class="truncate max-w-[150px]">{{ $tripRequest->trip_date->format('M d, Y') }}</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $tripRequest->trip_date->format('M d, Y') }}</x-text>
         </div>
 
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Accepted at</x-text>
+            <x-text variant="subtle" class="shrink-0">Accepted at</x-text>
             
-            <x-text variant="strong" class="truncate max-w-[150px]">{{ $tripRequest->updated_at->format('M d, Y') }}</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $tripRequest->updated_at->format('M d, Y') }}</x-text>
         </div>
 
     </div>

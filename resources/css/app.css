@@ -58,7 +58,7 @@
     /* Muted text: darkened from #8B90A7 (~2.9:1 on white, fails WCAG AA) to
        #5C6284 (~4.7:1 on white, passes AA for normal text). Same visual "muted"
        role, but readable for older/low-vision users at small sizes. */
-    --color-light-txt-muted:   #5C6284;
+    --color-light-txt-muted:   #3D445C;
 
     /* ── Light Mode — Borders ── */
     --color-light-bd-default:  #E2E4EF;
@@ -150,6 +150,12 @@
         font-weight: var(--font-weight-regular);
         color: var(--color-light-txt-body);
         background-color: var(--color-light-primary);
+    }
+
+    /* Alpine's x-cloak only works if this rule exists — otherwise elements
+       flash visible for a moment before Alpine finishes initializing. */
+    [x-cloak] {
+        display: none !important;
     }
 
     html.dark {

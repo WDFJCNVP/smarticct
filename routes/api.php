@@ -13,7 +13,10 @@ use App\Http\Controllers\Api\UserController;
 // })->middleware('auth:sanctum');
 
 Route::post('/cards/tap', [CardController::class, 'tap']);
-
+Route::post('/cards/fare/cash', [CardController::class, 'cashFarePayment'])
+    ->middleware(['auth', 'role:cashier,admin']);
+Route::post('/cards/fare/operator-cash', [CardController::class, 'operatorCashFare'])
+    ->middleware(['auth', 'role:operator']);
 Route::post('/rfid/tap', [RfidCardRegistrationController::class, 'store']);
 Route::post('/queue/skip', [SkipVehicleController::class, 'skip'])
     ->middleware(['auth', 'role:admin, cashier']);

@@ -341,6 +341,44 @@ new class extends Component
                         </div>
                     </div>
 
+                    <!-- Offer details -->
+                    <div>
+                        <x-text variant="strong" class="block mb-2" style="font-size: var(--text-table-row)">Offer details</x-text>
+
+                        <div class="rounded-lg border border-light-bd-default dark:border-dark-bd-default divide-y divide-light-bd-default dark:divide-dark-bd-default">
+                            <div class="flex items-center justify-between gap-3 p-3">
+                                <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
+                                    <flux:icon.truck class="w-4 h-4" />
+                                    <x-text class="text-inherit" style="font-size: var(--text-table-row)">Vehicle</x-text>
+                                </div>
+                                <x-text variant="strong" class="text-right" style="font-size: var(--text-table-row)">{{ $this->post_interest_info->metadata['vehicle_name'] ?? '—' }}</x-text>
+                            </div>
+                            <div class="flex items-center justify-between gap-3 p-3">
+                                <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
+                                    <flux:icon.map-pin class="w-4 h-4" />
+                                    <x-text class="text-inherit" style="font-size: var(--text-table-row)">Destination coverage</x-text>
+                                </div>
+                                <x-text variant="strong" class="text-right" style="font-size: var(--text-table-row)">{{ $this->post_interest_info->destination_coverage }}</x-text>
+                            </div>
+                            <div class="flex items-center justify-between gap-3 p-3">
+                                <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
+                                    <flux:icon.calendar class="w-4 h-4" />
+                                    <x-text class="text-inherit" style="font-size: var(--text-table-row)">Available</x-text>
+                                </div>
+                                <x-text variant="strong" class="text-right" style="font-size: var(--text-table-row)">
+                                    {{ $this->post_interest_info->available_from->format('D, M j Y') }} - {{ $this->post_interest_info->available_until->format('D, M j Y') }}
+                                </x-text>
+                            </div>
+                        </div>
+
+                        @if (!empty($this->post_interest_info->message))
+                            <div class="mt-3">
+                                <x-text class="text-inherit" style="font-size: var(--text-table-row)">Message</x-text>
+                                <x-text variant="strong" class="block mt-1">{{ $this->post_interest_info->message }}</x-text>
+                            </div>
+                        @endif
+                    </div>
+
                     <div>
                         @if (!empty($post_interest_info->metadata['vehicle_images']))
 

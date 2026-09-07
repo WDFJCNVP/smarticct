@@ -44,25 +44,24 @@ new class extends Component
    <x-pages-heading>Operator's Personal Information</x-pages-heading>
     <div class="mt-2">
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Full Name</x-text>
-            <x-text variant="strong">{{ $this->rentalOffer->user->name ?? 'Unknown' }}</x-text>
+            <x-text variant="subtle" class="shrink-0">Full Name</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $this->rentalOffer->user->name ?? 'Unknown' }}</x-text>
         </div>
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Home Address</x-text>
-            
-            <x-text variant="strong">{{ $this->rentalOffer->user->address ?? 'Unknown' }}</x-text>
+            <x-text variant="subtle" class="shrink-0">Home Address</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $this->rentalOffer->user->address ?? 'Unknown' }}</x-text>
         </div>
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Contact No.</x-text>
+            <x-text variant="subtle" class="shrink-0">Contact No.</x-text>
             
-            <x-text variant="strong" class="truncate max-w-[150px]">{{ $this->rentalOffer->user->phone_number ?? 'Unknown' }}</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $this->rentalOffer->user->phone_number ?? 'Unknown' }}</x-text>
         </div>
 
         @if (!empty($this->rentalOffer->post->user->email_address))
             <div class="flex items-center gap-2 justify-between mt-2">
-                <x-text variant="subtle">Email Address</x-text>
+                <x-text variant="subtle" class="shrink-0">Email Address</x-text>
                 
-                <x-text variant="strong" class="truncate max-w-[150px]">{{ $this->rentalOffer->user->email_address ?? 'Unknown' }}</x-text>
+                <x-text variant="strong" class="truncate min-w-0 text-right">{{ $this->rentalOffer->user->email_address ?? 'Unknown' }}</x-text>
             </div>
         @endif
     </div>
@@ -83,7 +82,7 @@ new class extends Component
         </div>
 
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Vehicle Type</x-text>
+            <x-text variant="subtle" class="shrink-0">Vehicle Type</x-text>
             <x-text variant="strong">{{ $this->rentalOffer->vehicle->vehicle_type }}</x-text>
         </div>
         <div class="flex items-center gap-2 justify-between mt-2">
@@ -92,27 +91,27 @@ new class extends Component
             <x-text variant="strong">{{ $this->rentalOffer->metadata['vehicle_name'] }}</x-text>
         </div>
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Destination Coverage</x-text>
+            <x-text variant="subtle" class="shrink-0">Destination Coverage</x-text>
             
-            <x-text variant="strong" class="truncate max-w-[150px]">{{ $this->rentalOffer->destination_coverage }}</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $this->rentalOffer->destination_coverage }}</x-text>
         </div>
 
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Available From</x-text>
+            <x-text variant="subtle" class="shrink-0">Available From</x-text>
             
-            <x-text variant="strong" class="truncate max-w-[150px]">{{ $this->rentalOffer->available_from->format('M d, Y') }}</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $this->rentalOffer->available_from->format('M d, Y') }}</x-text>
         </div>
 
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Available Until</x-text>
+            <x-text variant="subtle" class="shrink-0">Available Until</x-text>
             
-            <x-text variant="strong" class="truncate max-w-[150px]">{{ $this->rentalOffer->available_until->format('M d, Y') }}</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $this->rentalOffer->available_until->format('M d, Y') }}</x-text>
         </div>
 
         <div class="flex items-center gap-2 justify-between mt-2">
-            <x-text variant="subtle">Accepted at</x-text>
+            <x-text variant="subtle" class="shrink-0">Accepted at</x-text>
             
-            <x-text variant="strong" class="truncate max-w-[150px]">{{ $this->rentalOffer->updated_at->format('M d, Y') }}</x-text>
+            <x-text variant="strong" class="truncate min-w-0 text-right">{{ $this->rentalOffer->updated_at->format('M d, Y') }}</x-text>
         </div>
 
     </div>

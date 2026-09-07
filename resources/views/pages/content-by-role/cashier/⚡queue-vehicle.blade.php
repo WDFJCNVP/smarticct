@@ -171,7 +171,7 @@ new class extends Component
                 'driver_name'      => $this->driver_name,
                 'vehicle_id'       => $this->selectedVehicle->id,
                 'transaction_type' => 'operator_payment',
-                'amount'           => $fee,
+                'amount'           => $this->selectedVehicle->route_list->operatorTicketRate->queueing_fee ?? $this->queueFee,
                 'destination'      => $this->selectedVehicle->route_list->terminal,
                 'vehicle_type'     => $this->selectedVehicle->vehicle_type,
                 'plate_number'     => $this->selectedVehicle->plate_number,
@@ -332,10 +332,10 @@ new class extends Component
         return 0;
     }
 
+    // Updated to match working version - pre-fill from vehicle record
     public function updatedRouteListId()
     {
-        // Pre-fill from the vehicle's registered driver, but leave it editable —
-        // a different driver can show up for the same vehicle on a given day.
+        // Pre-fill from the vehicle's registered driver, but leave it editable
         $this->driver_name = $this->selectedVehicle?->driver_name ?? '';
     }
 
@@ -463,12 +463,22 @@ new class extends Component
 
 <div>
 
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+    <x-page-header
+        heading="Queue Vehicle"
+        description="Tap an RFID card to queue an operator's vehicle, or pay with cash."
+        class="mb-3"
+    >
+        {{-- No extra controls – keep it minimal --}}
+    </x-page-header>
+
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-6">
         <flux:breadcrumbs class="order-1 sm:order-2 shrink-0 sm:pt-1">
             <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Back to Live Queue</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>Queue Vehicle</flux:breadcrumbs.item>
         </flux:breadcrumbs>
 
+        {{-- Mobile-visible heading, since the page header above is desktop-only --}}
         <div class="order-2 sm:order-1 w-full sm:w-auto">
             <x-heading
                 size="xl"
@@ -477,9 +487,6 @@ new class extends Component
             >
                 Queue Vehicle
             </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                Tap an RFID card to queue an operator's vehicle, or pay with cash.
-            </x-text>
         </div>
     </div>
 

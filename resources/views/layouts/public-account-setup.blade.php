@@ -9,10 +9,21 @@
     @livewireStyles
     @fluxAppearance
 </head>
-<body class="h-full bg-light-primary dark:bg-dark-primary">
+<body class="h-full">
 
-    {{$slot}}
-    
+    {{-- ── BLURRED BACKGROUND (fixed – covers full viewport) ── --}}
+    <div class="fixed inset-0 -z-10 overflow-hidden">
+        <div class="absolute inset-0 bg-cover bg-center filter blur-md scale-110"
+             style="background-image: url('{{ asset('images/terminal-bg-4.jpeg') }}')">
+        </div>
+        <div class="absolute inset-0 bg-black/10 dark:bg-black/60"></div>
+    </div>
+
+    {{-- ── PAGE CONTENT ── --}}
+    <div class="h-full">
+        {{ $slot }}
+    </div>
+
     @livewireScripts
     @fluxScripts
 </body>
