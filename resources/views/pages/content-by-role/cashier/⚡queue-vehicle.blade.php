@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Queue;
 use App\Models\CashTransaction;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\ThermalReceiptService;
 
 use App\Models\Card;
 use App\Models\RouteList;
@@ -41,10 +43,12 @@ new class extends Component
     public function queueVehicle() {
         
         if ($this->cashMode) {
+
             if (empty($this->amount_received) || $this->amount_received < $this->queueFee) {
                 $this->showInsufficientAmountAlert = true;
                 return;
             }
+
             if (!$this->cash_operator_id) {
                 Flux::toast(
                     variant: 'warning',
@@ -56,7 +60,7 @@ new class extends Component
             }
 
             try {
-                DB::transaction(function () {
+                $queue = DB::transaction(function () {
                     $queue = Queue::create([
                         'user_id'         => $this->selectedOperator->id,
                         'vehicle_id'      => $this->selectedVehicle->id,
@@ -100,9 +104,9 @@ new class extends Component
                     ]);
 
                     $notification = Notification::create([
-                        'type'    => 'Queued',
-                        'title'   => 'Vehicle Queued',
-                        'message' => "Your {$queue->vehicle_type} with plate number {$queue->plate_number} has joined the queue.",
+                        'type'     => 'Queued',
+                        'title'    => 'Vehicle Queued',
+                        'message'  => "Your {$queue->vehicle_type} with plate number {$queue->plate_number} has joined the queue.",
                         'metadata' => json_encode(['plate_number' => $queue->plate_number, 'vehicle_type' => $queue->vehicle_type]),
                     ]);
 
@@ -120,12 +124,29 @@ new class extends Component
                         text: 'Cash payment recorded. Change: ₱' . number_format($this->change, 2)
                     );
 
-                    $this->disableCashMode();
+                    return $queue;
                 });
 
-                // Cash payment succeeded — go back to the live queue page.
+                // Gather data before resetting state
+                $receiptData = [
+                    'reference_no'    => 'CASH-' . $queue->id,
+                    'date'            => now()->format('m/d/y h:i A'),
+                    'operator_name'   => $this->selectedOperator->name,
+                    'driver_name'     => $this->driver_name,
+                    'plate_number'    => $this->selectedVehicle->plate_number,
+                    'vehicle_type'    => $this->selectedVehicle->vehicle_type,
+                    'destination'     => $this->selectedVehicle->route_list->terminal ?? 'N/A',
+                    'fee'             => $this->queueFee,
+                    'amount_received' => $this->amount_received,
+                    'change'          => $this->change,
+                    'is_cash'         => true,
+                ];
+
+                ThermalReceiptService::printQueueSlip($receiptData);
+
+                $this->disableCashMode();
+
                 $this->redirect(route('user.queue'), navigate: true);
-                return;
 
             } catch (\Exception $e) {
                 Log::error('Cash-mode vehicle queueing failed', ['error' => $e->getMessage(), 'operator_id' => $this->selectedOperator->id ?? null]);
@@ -142,13 +163,15 @@ new class extends Component
 
         // --- Card mode ---
         try {
+            $fee = $this->selectedVehicle->route_list->operatorTicketRate->queueing_fee ?? $this->queueFee;
+
             $request = new Request();
             $request->merge([
                 'uid'              => $this->card_number,
                 'driver_name'      => $this->driver_name,
                 'vehicle_id'       => $this->selectedVehicle->id,
                 'transaction_type' => 'operator_payment',
-                'amount'           => $this->selectedVehicle->route_list->operatorTicketRate->queueing_fee,
+                'amount'           => $fee,
                 'destination'      => $this->selectedVehicle->route_list->terminal,
                 'vehicle_type'     => $this->selectedVehicle->vehicle_type,
                 'plate_number'     => $this->selectedVehicle->plate_number,
@@ -186,9 +209,28 @@ new class extends Component
                 ],
             ]);
 
+            // 1. Compile card receipt data before clearing card state
+            $cardReceiptData = [
+                'reference_no'    => $responseData['reference_no'] ?? ('CARD-' . now()->format('YmdHis') . '-' . $this->selectedVehicle->id),
+                'date'            => now()->format('m/d/y h:i A'),
+                'operator_name'   => $this->selectedOperator->name,
+                'driver_name'     => $this->driver_name,
+                'plate_number'    => $this->selectedVehicle->plate_number,
+                'vehicle_type'    => $this->selectedVehicle->vehicle_type,
+                'destination'     => $this->selectedVehicle->route_list->terminal ?? 'N/A',
+                'fee'             => $fee,
+                'amount_received' => 0,
+                'change'          => 0,
+                'is_cash'         => false,
+            ];
+
+            // 2. Trigger thermal printing
+            ThermalReceiptService::printQueueSlip($cardReceiptData);
+
+            // 3. Clear component state
             $this->clearCard();
 
-            // Card payment succeeded — go back to the live queue page.
+            // 4. Redirect to live queue
             $this->redirect(route('user.queue'), navigate: true);
             return;
         }
@@ -211,7 +253,6 @@ new class extends Component
             ]);
         }
     }
-
     #[Computed]
     public function selectedVehicle()
     {
