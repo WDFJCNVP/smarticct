@@ -20,11 +20,12 @@ use App\Http\Controllers\Web\User\{
 Route::livewire('/register', 'pages::public.public-registration')->name('public.register');
 Route::livewire('/register/setup', 'pages::public.public-registration-setup')->name('registration.setup');
 
-//Public Controller
+// Public Controller
 Route::controller(PublicController::class)->group(function () {
     Route::get('/', 'index')->name('explore');
 });
 
+// Route::livewire('/', 'pages::welcome')->name('explore');
 Route::livewire('/routes', 'pages::route-page')->name('route');
 Route::livewire('/feed', 'pages::feed')->name('feed');
 Route::livewire('/queue', 'pages::queue-page')->name('live.queue');
@@ -175,7 +176,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('role:operator')
         ->name('operator.travel.record');
 
-    Route::livewire('/operator/travel-history', 'pages::content-by-role.operator.travel-history')
+    Route::livewire('/operator/travel-history', 'pages::content-by-role.operator.travel_history')
         ->middleware('role:operator')
         ->name('operator.travel.history');
     Route::get('/operator/travel-history/export', [\App\Http\Controllers\OperatorTravelHistoryExportController::class, 'export'])
