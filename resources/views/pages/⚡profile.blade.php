@@ -6,6 +6,8 @@ use App\Models\UserNotification;
 use App\Events\NotificationEvent;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -39,6 +41,29 @@ new #[Title('Profile settings')] class extends Component {
         $this->email_address = $user->email_address ?? '';
         $this->phone_number  = $user->phone_number ?? '';
         $this->address       = $user->address ?? '';
+    }
+
+    /**
+     * Check the given password against the current user's password before
+     * letting the privacy-guard overlay reveal their personal information.
+     * Throttled to slow down repeated guesses.
+     */
+    public function verifyPrivacyGuardPassword(string $password): bool
+    {
+        $key = 'privacy-guard:' . Auth::id();
+
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            return false;
+        }
+
+        if (! Hash::check($password, Auth::user()->password)) {
+            RateLimiter::hit($key, 60);
+            return false;
+        }
+
+        RateLimiter::clear($key);
+
+        return true;
     }
 
     /**
@@ -233,6 +258,8 @@ new #[Title('Profile settings')] class extends Component {
 
     <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
 
+        <x-privacy-guard>
+
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
 
             <x-inputs-container>
@@ -313,10 +340,14 @@ new #[Title('Profile settings')] class extends Component {
             </div>
         </form>
 
-        @if ($this->showDeleteUser)
-            <livewire:pages::settings.delete-user-form />
-        @endif
-        
+        <div wire:ignore>
+            @if ($this->showDeleteUser)
+                <livewire:pages::settings.delete-user-form />
+            @endif
+        </div>
+
+        </x-privacy-guard>
+
     </x-pages::settings.layout>
 
     {{-- Address modal – UPDATED with Province field and restyled --}}

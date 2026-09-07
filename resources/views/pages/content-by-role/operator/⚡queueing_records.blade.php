@@ -57,29 +57,30 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 };
 ?>
 <div>
-    {{-- Breadcrumbs & heading in a row --}}
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2 mb-4 sm:my-4">
-        <div class="order-2 sm:order-1">
-            <x-text 
-                class="font-medium text-light-txt-primary dark:text-dark-txt-primary"
-                style="font-size: clamp(1.25rem, 4vw, var(--text-xl));"
-            >
-                Travel records
-            </x-text>
-            <x-text 
-                class="text-sm text-light-txt-muted dark:text-dark-txt-muted mt-0.5"
-                style="font-size: clamp(0.75rem, 2vw, var(--text-sm));"
-            >
-                View all queuing and departure history for this vehicle.
-            </x-text>
-        </div>
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+    <x-page-header
+        heading="All queuing and departure history for this vehicle."
+    >
+        {{-- No extra controls – keep it minimal --}}
+    </x-page-header>
 
-        <flux:breadcrumbs class="order-1 sm:order-2 text-xs sm:text-sm">
+    <div class="mb-4">
+        <flux:breadcrumbs class="mb-2 text-xs sm:text-sm">
             <flux:breadcrumbs.item href="{{ route('operator.vehicles') }}" wire:navigate>
                 My vehicles
             </flux:breadcrumbs.item>
             <flux:breadcrumbs.item>Travel records</flux:breadcrumbs.item>
         </flux:breadcrumbs>
+
+        <div>
+            <x-heading
+                size="xl"
+                class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+                style="font-size: var(--text-page-title)"
+            >
+                Travel records
+            </x-heading>
+        </div>
     </div>
 
     {{-- Vehicle summary card --}}
@@ -111,23 +112,14 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                     </span>
                 </div>
                 <div>
-                    <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Driver</span>
+                    <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Engine no.</span>
                     <span class="text-sm font-medium text-light-txt-body dark:text-dark-txt-body">
-                        {{ $this->vehicle->driver_name ?? '—' }}
+                        {{ $this->vehicle->engine_number ?? '—' }}
                     </span>
                 </div>
                 <div>
                     <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Compliance</span>
                     <div class="flex items-center gap-2">
-                        @if($this->vehicle->has_or_cr && $this->vehicle->or_cr_expiry_date)
-                            <flux:tooltip content="OR/CR verified (expires {{ $this->vehicle->or_cr_expiry_date->format('M d, Y') }})">
-                                <flux:icon.check-circle class="w-4 h-4 text-success dark:text-dark-success" />
-                            </flux:tooltip>
-                        @else
-                            <flux:tooltip content="OR/CR not verified">
-                                <flux:icon.x-circle class="w-4 h-4 text-danger dark:text-dark-danger" />
-                            </flux:tooltip>
-                        @endif
                         @if($this->vehicle->has_franchise && $this->vehicle->franchise_expiry_date)
                             <flux:tooltip content="Franchise verified (expires {{ $this->vehicle->franchise_expiry_date->format('M d, Y') }})">
                                 <flux:icon.check-circle class="w-4 h-4 text-success dark:text-dark-success" />
@@ -144,11 +136,6 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 
         {{-- Expiry dates footer --}}
         <div class="border-t border-light-bd-default dark:border-dark-bd-default mt-3 sm:mt-4 pt-2 sm:pt-3 text-xs text-light-txt-muted dark:text-dark-txt-muted flex flex-wrap gap-3 sm:gap-4">
-            @if($this->vehicle->has_or_cr && $this->vehicle->or_cr_expiry_date)
-                <span>OR/CR expires: <strong>{{ $this->vehicle->or_cr_expiry_date->format('M d, Y') }}</strong></span>
-            @else
-                <span class="text-danger dark:text-dark-danger">OR/CR not verified</span>
-            @endif
             @if($this->vehicle->has_franchise && $this->vehicle->franchise_expiry_date)
                 <span>Franchise expires: <strong>{{ $this->vehicle->franchise_expiry_date->format('M d, Y') }}</strong></span>
             @else
@@ -214,9 +201,9 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Destination</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Plate no.</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Status</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Seats</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Time queued</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Time departed</flux:table.column>
+                    <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Seats</flux:table.column>
+                    <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Time queued</flux:table.column>
+                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Time departed</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
@@ -252,7 +239,7 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                                 @endif
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2">
+                            <flux:table.cell align="center" class="hidden sm:table-cell px-2 md:px-4 py-1.5 md:py-2">
                                 <div class="flex items-center justify-center gap-2">
                                     <span class="text-xs md:text-timestamp tabular-nums text-light-txt-body dark:text-dark-txt-body">
                                         {{ $queue->seat_count }} / {{ $queue->seat_capacity }}
@@ -266,12 +253,12 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                                 </div>
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                            <flux:table.cell align="center" class="hidden sm:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                 {{ $queue->time_queued->format('M d, Y') }}<br class="block md:hidden">
                                 <span class="text-xs">{{ $queue->time_queued->format('g:i A') }}</span>
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                 @if ($queue->time_departed)
                                     {{ $queue->time_departed->format('M d, Y') }}<br class="block md:hidden">
                                     <span class="text-xs">{{ $queue->time_departed->format('g:i A') }}</span>

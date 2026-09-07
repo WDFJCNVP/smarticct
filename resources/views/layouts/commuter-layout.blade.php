@@ -19,18 +19,30 @@
         @fluxAppearance
 
         <style>
-            .sidebar-nav-large [data-flux-sidebar-item],
-            .sidebar-nav-large a {
-                padding-top: 0.875rem !important;
-                padding-bottom: 0.875rem !important;
-                font-size: 1.125rem !important;
+            .sidebar-nav-large [data-flux-sidebar-item] {
+                height: auto !important;
+                min-height: 2.75rem !important;
+                padding-top: 0.5rem !important;
+                padding-bottom: 0.5rem !important;
             }
-            .sidebar-nav-large span {
-                font-size: 1.125rem !important;
+            .sidebar-nav-large [data-flux-sidebar-item] [data-content] {
+                font-size: 1.05rem !important;
+                font-weight: 500 !important;
+                color: var(--color-light-txt-muted) !important;
+            }
+            .sidebar-nav-large [data-flux-sidebar-item][data-current] [data-content] {
+                font-weight: 600 !important;
+                color: var(--color-light-txt-primary) !important;
+            }
+            .dark .sidebar-nav-large [data-flux-sidebar-item] [data-content] {
+                color: rgba(255, 255, 255, 0.65) !important;
+            }
+            .dark .sidebar-nav-large [data-flux-sidebar-item][data-current] [data-content] {
+                color: var(--color-dark-txt-primary) !important;
             }
             .sidebar-nav-large svg {
-                width: 1.5rem !important;
-                height: 1.5rem !important;
+                width: 1.25rem !important;
+                height: 1.25rem !important;
             }
         </style>
     </head>
@@ -49,7 +61,7 @@
 
             <div class="border-b border-light-bd-default dark:border-dark-bd-default mx-2 mb-1"></div>
 
-            <flux:sidebar.nav class="sidebar-nav-large gap-4 mt-1">
+            <flux:sidebar.nav class="sidebar-nav-large gap-1 mt-1">
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('commuter.dashboard') }}" icon="home" wire:navigate>
                     Dashboard
                 </x-dashboard.sidebar-menu.sidebar-item>
@@ -62,17 +74,14 @@
                     Routes
                 </x-dashboard.sidebar-menu.sidebar-item>
 
-                {{-- Queue – keep the truck icon, it's fitting --}}
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.queue') }}" icon="truck" wire:navigate>
                     Queue
                 </x-dashboard.sidebar-menu.sidebar-item>
 
-                {{-- Travel Record – use a clipboard or receipt icon --}}
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('commuter.travel.record') }}" icon="clipboard-document-list" wire:navigate>
                     Travel Record
                 </x-dashboard.sidebar-menu.sidebar-item>
 
-                {{-- Transactions – use a money/banknotes icon --}}
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('commuter.transaction') }}" icon="banknotes" wire:navigate>
                     Transactions
                 </x-dashboard.sidebar-menu.sidebar-item>
@@ -102,7 +111,7 @@
             <livewire:pages::sidebar-profile variant="mobile" />
         </flux:header>
 
-        <flux:main>
+        <flux:main class="px-4! lg:px-8!">
             {{ $slot }}
         </flux:main>
 

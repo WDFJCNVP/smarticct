@@ -58,9 +58,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
          'group_number' => '',
          'route' => '',
          'seat_capacity' => '',
-         'driver_name' => '',
-         'has_or_cr' => false,
-         'or_cr_expiry_date' => '',
+         'engine_number' => '',
+         'body_number' => '',
+         'chassis_number' => '',
          'has_franchise' => false,
          'franchise_expiry_date' => '',
          ],
@@ -74,14 +74,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     protected $validationAttributes = [
         'vehicles.*.seat_capacity'  => 'seat capacity',
-        'vehicles.*.driver_name'    => 'driver name',
         'vehicles.*.plate_number'   => 'plate number',
         'vehicles.*.vehicle_type'   => 'vehicle type',
         'vehicles.*.route'          => 'route',
-        'vehicles.*.has_or_cr'      => 'OR/CR verification',
-        'vehicles.*.or_cr_expiry_date' => 'OR/CR expiry date',
+        'vehicles.*.engine_number'  => 'engine number',
+        'vehicles.*.body_number'    => 'body number',
+        'vehicles.*.chassis_number' => 'chassis number',
         'vehicles.*.has_franchise'  => 'franchise verification',
-        'vehicles.*.franchise_expiry_date' => 'franchise expiry date',
+        'vehicles.*.franchise_expiry_date' => 'validity date of franchise',
         'vehicles.*.group_number'   => 'group number',
     ];
 
@@ -226,9 +226,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     'vehicles.*.plate_number'         => 'required|unique:vehicles,plate_number',
                     'vehicles.*.route'                => 'required|string',
                     'vehicles.*.seat_capacity'        => 'required|integer|min:10|max:50',
-                    'vehicles.*.driver_name'          => 'required|string|min:2',
-                    'vehicles.*.has_or_cr'            => 'required|accepted',
-                    'vehicles.*.or_cr_expiry_date'    => 'required|date|after:today',
+                    'vehicles.*.engine_number'        => 'required|string|min:2',
+                    'vehicles.*.body_number'          => 'required|string|min:2',
+                    'vehicles.*.chassis_number'       => 'required|string|min:2',
                     'vehicles.*.has_franchise'        => 'required|accepted',
                     'vehicles.*.franchise_expiry_date' => 'required|date|after:today',
                 ];
@@ -291,9 +291,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'group_number' => '',
             'route' => '',
             'seat_capacity' => '',
-            'driver_name' => '',
-            'has_or_cr' => false,
-            'or_cr_expiry_date' => '',
+            'engine_number' => '',
+            'body_number' => '',
+            'chassis_number' => '',
             'has_franchise' => false,
             'franchise_expiry_date' => '',
         ];
@@ -307,15 +307,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function vehicleIsComplete(array $vehicle): bool {
-        $required = ['vehicle_type', 'plate_number', 'route', 'seat_capacity', 'driver_name'];
+        $required = ['vehicle_type', 'plate_number', 'route', 'seat_capacity', 'engine_number', 'body_number', 'chassis_number'];
         foreach ($required as $field) {
             if (!filled($vehicle[$field] ?? null)) {
                 return false;
             }
-        }
-
-        if (empty($vehicle['has_or_cr']) || !filled($vehicle['or_cr_expiry_date'] ?? null)) {
-            return false;
         }
 
         if (empty($vehicle['has_franchise']) || !filled($vehicle['franchise_expiry_date'] ?? null)) {
@@ -395,6 +391,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
      x-on:open-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).show()"
      x-on:close-vehicle-modal.window="$flux.modal('edit-vehicle-' + $event.detail.index).close()">
     
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+    <x-page-header
+        :heading="$this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User'"
+        class="mb-3"
+    >
+        {{-- No extra controls – keep it minimal --}}
+    </x-page-header>
+
     {{-- Breadcrumbs on top on mobile; heading + breadcrumbs side-by-side from sm up --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 my-8">
         <flux:breadcrumbs class="order-1 sm:order-2">
@@ -402,9 +406,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
             <flux:breadcrumbs.item>Registration</flux:breadcrumbs.item>
         </flux:breadcrumbs>
 
-        <flux:heading size="xl" class="order-2 sm:order-1 !font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+        <x-heading
+            size="xl"
+            class="order-2 sm:order-1 !font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
             {{ $this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User' }}
-        </flux:heading>
+        </x-heading>
     </div>
 
     <div class="flex items-center gap-1 mb-6 font-secondary text-timestamp">
@@ -548,11 +556,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <p class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted truncate">
                                 {{ $vehicle['route'] }} · {{ $vehicle['seat_capacity'] }} seats
                                 @if(!empty($vehicle['group_number'])) · Group {{ $vehicle['group_number'] }} @endif
-                                · Driver: {{ $vehicle['driver_name'] }}
                             </p>
                             <p class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted truncate">
-                                OR/CR exp. {{ \Illuminate\Support\Carbon::parse($vehicle['or_cr_expiry_date'])->format('M d, Y') }}
-                                · Franchise exp. {{ \Illuminate\Support\Carbon::parse($vehicle['franchise_expiry_date'])->format('M d, Y') }}
+                                Engine: {{ $vehicle['engine_number'] }} · Body: {{ $vehicle['body_number'] }} · Chassis: {{ $vehicle['chassis_number'] }}
+                            </p>
+                            <p class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted truncate">
+                                Validity date of franchise: {{ \Illuminate\Support\Carbon::parse($vehicle['franchise_expiry_date'])->format('M d, Y') }}
                             </p>
                         </div>
                     </div>
@@ -641,35 +650,20 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 </div>
                             @endif
 
-                            <div class="sm:col-span-2">
-                                <x-input wire:model.blur="vehicles.{{ $index }}.driver_name" label="Dedicated driver" placeholder="e.g. Juan dela Cruz" size="sm" />
+                            <div>
+                                <x-input wire:model.blur="vehicles.{{ $index }}.engine_number" label="Engine number" placeholder="e.g. EN-12345" size="sm" />
+                            </div>
+                            <div>
+                                <x-input wire:model.blur="vehicles.{{ $index }}.body_number" label="Body number" placeholder="e.g. BD-12345" size="sm" />
+                            </div>
+                            <div>
+                                <x-input wire:model.blur="vehicles.{{ $index }}.chassis_number" label="Chassis number" placeholder="e.g. CH-123456789" size="sm" />
                             </div>
                         </x-inputs-container>
 
-                        <!-- Compliance documents (unchanged) -->
+                        <!-- Compliance documents -->
                         <div class="border-t border-light-bd-default dark:border-dark-bd-default pt-3 space-y-3">
                             <p class="font-secondary text-timestamp font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Compliance documents</p>
-
-                            <div class="flex items-start gap-3">
-                                <flux:checkbox wire:model.live="vehicles.{{ $index }}.has_or_cr" />
-                                <div class="flex-1 min-w-0 space-y-1">
-                                    <flux:label class="font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">
-                                        OR/CR verified
-                                    </flux:label>
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
-                                        <flux:input
-                                            type="date"
-                                            wire:model.live="vehicles.{{ $index }}.or_cr_expiry_date"
-                                            :disabled="!$this->vehicles[$index]['has_or_cr']"
-                                            size="sm"
-                                            class="flex-1"
-                                        />
-                                    </div>
-                                    <flux:error name="vehicles.{{ $index }}.has_or_cr" />
-                                    <flux:error name="vehicles.{{ $index }}.or_cr_expiry_date" />
-                                </div>
-                            </div>
 
                             <div class="flex items-start gap-3">
                                 <flux:checkbox wire:model.live="vehicles.{{ $index }}.has_franchise" />
@@ -678,7 +672,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                         Franchise verified
                                     </flux:label>
                                     <div class="flex items-center gap-2">
-                                        <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
+                                        <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Validity Date of Franchise:</span>
                                         <flux:input
                                             type="date"
                                             wire:model.live="vehicles.{{ $index }}.franchise_expiry_date"
@@ -767,35 +761,19 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             </div>
                         @endif
 
-                        <div class="sm:col-span-2">
-                            <x-input wire:model.blur="vehicles.{{ $index }}.driver_name" label="Dedicated driver" placeholder="e.g. Juan dela Cruz" size="sm" />
+                        <div>
+                            <x-input wire:model.blur="vehicles.{{ $index }}.engine_number" label="Engine number" placeholder="e.g. EN-12345" size="sm" />
+                        </div>
+                        <div>
+                            <x-input wire:model.blur="vehicles.{{ $index }}.body_number" label="Body number" placeholder="e.g. BD-12345" size="sm" />
+                        </div>
+                        <div>
+                            <x-input wire:model.blur="vehicles.{{ $index }}.chassis_number" label="Chassis number" placeholder="e.g. CH-123456789" size="sm" />
                         </div>
                     </x-inputs-container>
 
                     <div class="border-t border-light-bd-default dark:border-dark-bd-default pt-3 space-y-3">
                         <p class="font-secondary text-timestamp font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Compliance documents</p>
-
-                        <div class="flex items-start gap-3">
-                            <flux:checkbox wire:model.live="vehicles.{{ $index }}.has_or_cr" />
-                            <div class="flex-1 min-w-0 space-y-1">
-                                <flux:label class="font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">
-                                    OR/CR verified
-                                    <span class="ml-1 font-normal text-light-txt-muted dark:text-dark-txt-muted">(admin confirms document was submitted)</span>
-                                </flux:label>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
-                                    <flux:input
-                                        type="date"
-                                        wire:model.live="vehicles.{{ $index }}.or_cr_expiry_date"
-                                        :disabled="!$this->vehicles[$index]['has_or_cr']"
-                                        size="sm"
-                                        class="flex-1"
-                                    />
-                                </div>
-                                <flux:error name="vehicles.{{ $index }}.has_or_cr" />
-                                <flux:error name="vehicles.{{ $index }}.or_cr_expiry_date" />
-                            </div>
-                        </div>
 
                         <div class="flex items-start gap-3">
                             <flux:checkbox wire:model.live="vehicles.{{ $index }}.has_franchise" />
@@ -805,7 +783,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                     <span class="ml-1 font-normal text-light-txt-muted dark:text-dark-txt-muted">(admin confirms document was submitted)</span>
                                 </flux:label>
                                 <div class="flex items-center gap-2">
-                                    <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Expiration Date:</span>
+                                    <span class="font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">Validity Date of Franchise:</span>
                                     <flux:input
                                         type="date"
                                         wire:model.live="vehicles.{{ $index }}.franchise_expiry_date"
@@ -1020,9 +998,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 <flux:table.column align="center">Route</flux:table.column>
                                 <flux:table.column align="center">Seats</flux:table.column>
                                 <flux:table.column align="center">Group</flux:table.column>
-                                <flux:table.column align="center">Driver</flux:table.column>
-                                <flux:table.column align="center">OR/CR Exp.</flux:table.column>
-                                <flux:table.column align="center">Franchise Exp.</flux:table.column>
+                                <flux:table.column align="center">Engine No.</flux:table.column>
+                                <flux:table.column align="center">Body No.</flux:table.column>
+                                <flux:table.column align="center">Chassis No.</flux:table.column>
+                                <flux:table.column align="center">Validity Date of Franchise</flux:table.column>
                             </flux:table.columns>
                             <flux:table.rows>
                                 @foreach ($vehicles as $index => $vehicle)
@@ -1047,10 +1026,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                             @endif
                                         </flux:table.cell>
                                         <flux:table.cell align="center" class="font-secondary text-table-row whitespace-nowrap">
-                                            {{ $vehicle['driver_name'] }}
+                                            {{ $vehicle['engine_number'] }}
                                         </flux:table.cell>
                                         <flux:table.cell align="center" class="font-secondary text-table-row whitespace-nowrap">
-                                            {{ \Illuminate\Support\Carbon::parse($vehicle['or_cr_expiry_date'])->format('M d, Y') }}
+                                            {{ $vehicle['body_number'] }}
+                                        </flux:table.cell>
+                                        <flux:table.cell align="center" class="font-secondary text-table-row whitespace-nowrap">
+                                            {{ $vehicle['chassis_number'] }}
                                         </flux:table.cell>
                                         <flux:table.cell align="center" class="font-secondary text-table-row whitespace-nowrap">
                                             {{ \Illuminate\Support\Carbon::parse($vehicle['franchise_expiry_date'])->format('M d, Y') }}

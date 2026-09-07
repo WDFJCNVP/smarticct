@@ -42,6 +42,7 @@ new class extends Component
     public function queueVehicle() {
         
         if ($this->cashMode) {
+
             if (empty($this->amount_received) || $this->amount_received < $this->queueFee) {
                 $this->showInsufficientAmountAlert = true;
                 return;
@@ -109,13 +110,15 @@ new class extends Component
 
         // --- Card mode ---
         try {
+            $fee = $this->selectedVehicle->route_list->operatorTicketRate->queueing_fee ?? $this->queueFee;
+
             $request = new Request();
             $request->merge([
                 'uid'              => $this->card_number,
                 'driver_name'      => $this->driver_name,
                 'vehicle_id'       => $this->selectedVehicle->id,
                 'transaction_type' => 'operator_payment',
-                'amount'           => $this->selectedVehicle->route_list->operatorTicketRate->queueing_fee,
+                'amount'           => $this->selectedVehicle->route_list->operatorTicketRate->queueing_fee ?? $this->queueFee,
                 'destination'      => $this->selectedVehicle->route_list->terminal,
                 'vehicle_type'     => $this->selectedVehicle->vehicle_type,
                 'plate_number'     => $this->selectedVehicle->plate_number,
@@ -153,9 +156,28 @@ new class extends Component
                 ],
             ]);
 
+            // 1. Compile card receipt data before clearing card state
+            $cardReceiptData = [
+                'reference_no'    => $responseData['reference_no'] ?? ('CARD-' . now()->format('YmdHis') . '-' . $this->selectedVehicle->id),
+                'date'            => now()->format('m/d/y h:i A'),
+                'operator_name'   => $this->selectedOperator->name,
+                'driver_name'     => $this->driver_name,
+                'plate_number'    => $this->selectedVehicle->plate_number,
+                'vehicle_type'    => $this->selectedVehicle->vehicle_type,
+                'destination'     => $this->selectedVehicle->route_list->terminal ?? 'N/A',
+                'fee'             => $fee,
+                'amount_received' => 0,
+                'change'          => 0,
+                'is_cash'         => false,
+            ];
+
+            // 2. Trigger thermal printing
+            ThermalReceiptService::printQueueSlip($cardReceiptData);
+
+            // 3. Clear component state
             $this->clearCard();
 
-            // Card payment succeeded — go back to the live queue page.
+            // 4. Redirect to live queue
             $this->redirect(route('user.queue'), navigate: true);
             return;
         }
@@ -178,7 +200,6 @@ new class extends Component
             ]);
         }
     }
-
     #[Computed]
     public function selectedVehicle()
     {
@@ -258,10 +279,10 @@ new class extends Component
         return 0;
     }
 
+    // Updated to match working version - pre-fill from vehicle record
     public function updatedRouteListId()
     {
-        // Pre-fill from the vehicle's registered driver, but leave it editable —
-        // a different driver can show up for the same vehicle on a given day.
+        // Pre-fill from the vehicle's registered driver, but leave it editable
         $this->driver_name = $this->selectedVehicle?->driver_name ?? '';
     }
 
@@ -389,12 +410,22 @@ new class extends Component
 
 <div>
 
+    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
+    <x-page-header
+        heading="Queue Vehicle"
+        description="Tap an RFID card to queue an operator's vehicle, or pay with cash."
+        class="mb-3"
+    >
+        {{-- No extra controls – keep it minimal --}}
+    </x-page-header>
+
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-6">
         <flux:breadcrumbs class="order-1 sm:order-2 shrink-0 sm:pt-1">
             <flux:breadcrumbs.item href="{{ route('user.queue') }}" wire:navigate>Back to Live Queue</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>Queue Vehicle</flux:breadcrumbs.item>
         </flux:breadcrumbs>
 
+        {{-- Mobile-visible heading, since the page header above is desktop-only --}}
         <div class="order-2 sm:order-1 w-full sm:w-auto">
             <x-heading
                 size="xl"
@@ -403,9 +434,6 @@ new class extends Component
             >
                 Queue Vehicle
             </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                Tap an RFID card to queue an operator's vehicle, or pay with cash.
-            </x-text>
         </div>
     </div>
 

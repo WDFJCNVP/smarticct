@@ -18,7 +18,14 @@ class DispatchLogExportController extends Controller
             'vehicle_type' => 'nullable|string',
             'route'        => 'nullable|string',
             'status'       => 'nullable|in:departed,queued',
+            'paper'        => 'nullable|in:letter,legal,a4',
+            'orientation'  => 'nullable|in:portrait,landscape',
+            'preview'      => 'nullable|boolean',
         ]);
+
+        $paper       = $validated['paper'] ?? 'legal';
+        $orientation = $validated['orientation'] ?? 'portrait';
+        $isPreview   = $request->boolean('preview');
 
         // Blank from/to = "All time" (a real unbounded query, not a silent
         // fallback to today) — matches the "All Time"/"Today" quick-select
@@ -32,6 +39,7 @@ class DispatchLogExportController extends Controller
             : ($hasFrom ? Carbon::parse($validated['from'])->endOfDay() : null);
 
         $records = Queue::query()
+            ->with(['user', 'vehicle'])
             ->when($from, fn ($q) => $q->where('time_queued', '>=', $from))
             ->when($to, fn ($q) => $q->where('time_queued', '<=', $to))
             ->when(!empty($validated['vehicle_type']), fn ($q) => $q->where('vehicle_type', $validated['vehicle_type']))
@@ -41,9 +49,12 @@ class DispatchLogExportController extends Controller
             ->orderBy('time_queued')
             ->get();
 
-        // Group by destination so the printed log reads like the old logbook —
-        // one section per route, in departure order.
-        $grouped = $records->groupBy('destination');
+        $grouped = $records->groupBy('destination')->map(function ($entries) {
+            return [
+                'departed' => $entries->whereNotNull('time_departed'),
+                'queued'   => $entries->whereNull('time_departed'),
+            ];
+        });
 
         $scopeParts = array_filter([
             !empty($validated['vehicle_type']) ? $validated['vehicle_type'] : null,
@@ -58,7 +69,19 @@ class DispatchLogExportController extends Controller
             'generatedBy' => auth()->user()?->name ?? 'System',
             'generatedAt' => now(),
             'scopeNote'   => $scopeParts ? implode(' • ', $scopeParts) : null,
-        ])->setPaper('legal', 'portrait');
+            'paper'       => $paper,
+            'orientation' => $orientation,
+        ])->setPaper($paper, $orientation);
+
+        $filename = $from && $to
+            ? ($from->isSameDay($to)
+                ? 'dispatch-log-' . $from->format('Y-m-d') . '.pdf'
+                : 'dispatch-log-' . $from->format('Y-m-d') . '-to-' . $to->format('Y-m-d') . '.pdf')
+            : 'dispatch-log-all-time.pdf';
+
+        if ($isPreview) {
+            return $pdf->stream($filename);
+        }
 
         app(AuditLogsService::class)->create([
             'user_id'  => auth()->id(),
@@ -74,12 +97,6 @@ class DispatchLogExportController extends Controller
                 'records'      => $records->count(),
             ],
         ]);
-
-        $filename = $from && $to
-            ? ($from->isSameDay($to)
-                ? 'dispatch-log-' . $from->format('Y-m-d') . '.pdf'
-                : 'dispatch-log-' . $from->format('Y-m-d') . '-to-' . $to->format('Y-m-d') . '.pdf')
-            : 'dispatch-log-all-time.pdf';
 
         return $pdf->download($filename);
     }

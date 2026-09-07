@@ -15,11 +15,18 @@ class CashierTransactionExportController extends Controller
     public function export(Request $request)
     {
         $validated = $request->validate([
-            'from'       => 'nullable|date',
-            'to'         => 'nullable|date|after_or_equal:from',
-            'cashier_id' => 'nullable|exists:users,id',
-            'type'       => 'nullable|in:all,queue_fees,topups',
+            'from'        => 'nullable|date',
+            'to'          => 'nullable|date|after_or_equal:from',
+            'cashier_id'  => 'nullable|exists:users,id',
+            'type'        => 'nullable|in:all,queue_fees,topups',
+            'paper'       => 'nullable|in:letter,legal,a4',
+            'orientation' => 'nullable|in:portrait,landscape',
+            'preview'     => 'nullable|boolean',
         ]);
+
+        $paper       = $validated['paper'] ?? 'legal';
+        $orientation = $validated['orientation'] ?? 'portrait';
+        $isPreview   = $request->boolean('preview');
 
         $actingUser = $request->user();
  
@@ -93,7 +100,29 @@ class CashierTransactionExportController extends Controller
             'generatedAt'      => now(),
             'includeQueueFees' => $includeQueueFees,
             'includeTopUps'    => $includeTopUps,
-        ])->setPaper('legal', 'portrait');
+            'paper'            => $paper,
+            'orientation'      => $orientation,
+        ])->setPaper($paper, $orientation);
+
+        $filenameScope = $cashier ? '-' . str($cashier->name)->slug() : '';
+        $filenameType = match ($type) {
+            'queue_fees' => '-queue-fees',
+            'topups'     => '-topups',
+            default      => '',
+        };
+        $dateLabel = $rangeStart && $rangeEnd
+            ? ($rangeStart->isSameDay($rangeEnd)
+                ? $rangeStart->format('Y-m-d')
+                : $rangeStart->format('Y-m-d') . '-to-' . $rangeEnd->format('Y-m-d'))
+            : 'all-time';
+        $filename = 'cashier-transactions' . $filenameScope . $filenameType . '-' . $dateLabel . '.pdf';
+
+        // Previewing (the modal's live iframe) just renders the PDF inline —
+        // it isn't a real export yet, so it shouldn't show up in the audit
+        // trail or count as an actual download.
+        if ($isPreview) {
+            return $pdf->stream($filename);
+        }
 
         app(AuditLogsService::class)->create([
             'user_id'  => $actingUser->id,
@@ -109,19 +138,6 @@ class CashierTransactionExportController extends Controller
                 'records'    => $queueFees->count() + $topUps->count(),
             ],
         ]);
-
-        $filenameScope = $cashier ? '-' . str($cashier->name)->slug() : '';
-        $filenameType = match ($type) {
-            'queue_fees' => '-queue-fees',
-            'topups'     => '-topups',
-            default      => '',
-        };
-        $dateLabel = $rangeStart && $rangeEnd
-            ? ($rangeStart->isSameDay($rangeEnd)
-                ? $rangeStart->format('Y-m-d')
-                : $rangeStart->format('Y-m-d') . '-to-' . $rangeEnd->format('Y-m-d'))
-            : 'all-time';
-        $filename = 'cashier-transactions' . $filenameScope . $filenameType . '-' . $dateLabel . '.pdf';
 
         return $pdf->download($filename);
     }

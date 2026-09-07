@@ -12,9 +12,16 @@ class CardInventoryExportController extends Controller
     public function export(Request $request)
     {
         $validated = $request->validate([
-            'search' => 'nullable|string',
-            'status' => 'nullable|in:active,suspended,terminated',
+            'search'      => 'nullable|string',
+            'status'      => 'nullable|in:active,suspended,terminated',
+            'paper'       => 'nullable|in:letter,legal,a4',
+            'orientation' => 'nullable|in:portrait,landscape',
+            'preview'     => 'nullable|boolean',
         ]);
+
+        $paper       = $validated['paper'] ?? 'legal';
+        $orientation = $validated['orientation'] ?? 'portrait';
+        $isPreview   = $request->boolean('preview');
 
         $cards = Card::with('user')
             ->whereHas('user', fn ($q) => $q->whereIn('role', ['operator', 'commuter']))
@@ -49,7 +56,18 @@ class CardInventoryExportController extends Controller
             'generatedBy' => auth()->user()?->name ?? 'System',
             'generatedAt' => now(),
             'scopeNote'   => $scopeParts ? implode(' • ', $scopeParts) : null,
-        ])->setPaper('legal', 'portrait');
+            'paper'       => $paper,
+            'orientation' => $orientation,
+        ])->setPaper($paper, $orientation);
+
+        $filename = 'card-inventory-' . now()->format('Y-m-d') . '.pdf';
+
+        // Previewing (the modal's live iframe) just renders the PDF inline —
+        // it isn't a real export yet, so it shouldn't show up in the audit
+        // trail or count as an actual download.
+        if ($isPreview) {
+            return $pdf->stream($filename);
+        }
 
         app(AuditLogsService::class)->create([
             'user_id'  => auth()->id(),
@@ -63,6 +81,6 @@ class CardInventoryExportController extends Controller
             ],
         ]);
 
-        return $pdf->download('card-inventory-' . now()->format('Y-m-d') . '.pdf');
+        return $pdf->download($filename);
     }
 }

@@ -293,8 +293,7 @@ new #[Layout('layouts.public-layout')] class extends Component
                                 <p class="mb-2 font-medium text-light-txt-body dark:text-dark-txt-primary">Prepare the following requirements before visiting the terminal:</p>
                                 <ul class="space-y-1 list-disc list-inside mb-3">
                                     <li><strong>Franchise</strong> — issued by the Land Transportation Franchising and Regulatory Board (LTFRB)</li>
-                                    <li><strong>OR/CR</strong> — Official Receipt and Certificate of Registration of your vehicle</li>
-                                    <li><strong>Expiry date</strong> — of your franchise/OR/CR (critical for renewal tracking)</li>
+                                    <li><strong>Expiry date</strong> — of your franchise (critical for renewal tracking)</li>
                                 </ul>
 
                                 <p class="mb-2 font-medium text-light-txt-body dark:text-dark-txt-primary">Once your documents are ready, follow these steps:</p>

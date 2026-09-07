@@ -171,11 +171,6 @@ new class extends Component
                 </div>
 
                 <div class="flex items-center justify-between gap-3 p-3">
-                    <x-text variant="subtle" style="font-size: var(--text-table-row)">Driver</x-text>
-                    <x-text variant="strong" style="font-size: var(--text-table-row)">{{ $this->post->metadata['driver_name'] ?? 'N/A' }}</x-text>
-                </div>
-
-                <div class="flex items-center justify-between gap-3 p-3">
                     <x-text variant="subtle" style="font-size: var(--text-table-row)">Plate number</x-text>
                     <x-text variant="strong" style="font-size: var(--text-table-row)">{{ $this->getVehicle['plate_number'] }}</x-text>
                 </div>

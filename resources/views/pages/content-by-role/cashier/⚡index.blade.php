@@ -19,6 +19,8 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     public string $exportDateFrom = '';
     public string $exportDateTo = '';
     public string $exportType = ''; // '', queue_fees, topups
+    public string $exportPaper = 'legal';
+    public string $exportOrientation = 'portrait';
 
     public function mount()
     {
@@ -67,9 +69,26 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     public function exportUrl(): string
     {
         return route('cashier.transactions.export', array_filter([
-            'from' => $this->exportDateFrom,
-            'to'   => $this->exportDateTo,
-            'type' => $this->exportType,
+            'from'        => $this->exportDateFrom,
+            'to'          => $this->exportDateTo,
+            'type'        => $this->exportType,
+            'paper'       => $this->exportPaper,
+            'orientation' => $this->exportOrientation,
+        ]));
+    }
+
+    // Same params as exportUrl, plus preview=1 so the controller streams the
+    // PDF inline instead of forcing a download or logging it as an export.
+    #[Computed]
+    public function exportPreviewUrl(): string
+    {
+        return route('cashier.transactions.export', array_filter([
+            'from'        => $this->exportDateFrom,
+            'to'          => $this->exportDateTo,
+            'type'        => $this->exportType,
+            'paper'       => $this->exportPaper,
+            'orientation' => $this->exportOrientation,
+            'preview'     => 1,
         ]));
     }
 
@@ -304,13 +323,17 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             ->values();
     }
 
-    // ===================== EXPORT (stub) =====================
+    // ===================== EXPORT =====================
 
-    public function exportVehicleLog()
+    #[Computed]
+    public function exportVehicleLogUrl(): string
     {
-        // TODO: wire this to a real export — e.g. Maatwebsite/Excel or a signed CSV route.
-        // Left as an action stub since no export package/route was specified.
-        $this->dispatch('vehicle-log-export-requested');
+        // Reuses the existing dispatch-log export (same Queue data, already
+        // handles PDF generation + audit logging), scoped to today only.
+        return route('dispatch-log.export', [
+            'from' => today()->toDateString(),
+            'to'   => today()->toDateString(),
+        ]);
     }
 
     // ===================== FILTER UPDATES =====================
@@ -406,77 +429,43 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         }
     </style>
 
-    {{-- ===================== HEADER ===================== --}}
-    <div class="mb-6">
-        <div class="flex items-center justify-between gap-3 sm:gap-4">
-            <x-pages-heading
-                heading="Cashier Dashboard"
-                description="Your shift transactions and queue activity."
-                class="text-xl sm:text-2xl font-extrabold"
-            />
+    {{-- ===================== MINI-NAVBAR ===================== --}}
+    <x-page-header
+        heading="Your shift transactions and queue activity"
+    >
+        <flux:modal.trigger name="cashier-filters">
+            <button
+                type="button"
+                class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg bg-primary text-white border-0 hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover transition font-secondary text-xs sm:text-table-row shrink-0"
+            >
+                <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-[var(--color-dark-primary)]" />
+                <span class="hidden sm:inline">Filters</span>
+                @if ((int) $this->range !== 7)
+                    <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">1</span>
+                @endif
+            </button>
+        </flux:modal.trigger>
 
-            <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-                <div class="hidden sm:flex flex-col items-end">
-                    <span
-                        class="text-xs text-light-txt-muted dark:text-dark-txt-muted font-secondary leading-none mb-0.5"
-                        x-data="{ date: '' }"
-                        x-init="date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })"
-                        x-text="date"
-                    ></span>
-                    <div
-                        class="flex items-center gap-1.5 sm:gap-2 font-primary text-base sm:text-xl font-bold tabular-nums text-light-txt-primary dark:text-dark-txt-primary whitespace-nowrap"
-                        x-data="{
-                            now: '',
-                            tick() {
-                                this.now = new Date().toLocaleString('en-US', {
-                                    hour: '2-digit', minute: '2-digit', second: '2-digit',
-                                });
-                            },
-                        }"
-                        x-init="tick(); setInterval(() => tick(), 1000)"
-                    >
-                        <span class="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2 shrink-0">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success dark:bg-dark-success opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-success dark:bg-dark-success"></span>
-                        </span>
-                        <span x-text="now"></span>
-                    </div>
-                </div>
+        <flux:modal.trigger name="export-cashier-transactions" wire:click="prepareExportModal">
+            <button
+                type="button"
+                class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg bg-black text-white border-0 hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 transition font-secondary text-xs sm:text-table-row shrink-0"
+            >
+                <flux:icon.arrow-down-tray class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-black" />
+                <span class="hidden sm:inline">Export</span>
+            </button>
+        </flux:modal.trigger>
+    </x-page-header>
 
-                <button
-                    type="button"
-                    class="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:bg-light-subtle dark:hover:bg-dark-subtle transition shrink-0"
-                    aria-label="Notifications"
-                >
-                    <flux:icon.bell class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger dark:bg-dark-danger"></span>
-                </button>
-
-                <flux:modal.trigger name="cashier-filters">
-                    <button
-                        type="button"
-                        class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-body dark:text-dark-txt-body hover:bg-light-subtle dark:hover:bg-dark-subtle transition font-secondary text-xs sm:text-table-row shrink-0"
-                    >
-                        <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
-                        <span class="hidden sm:inline">Filters</span>
-                        @if ((int) $this->range !== 7)
-                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">1</span>
-                        @endif
-                    </button>
-                </flux:modal.trigger>
-
-                <flux:modal.trigger name="export-cashier-transactions" wire:click="prepareExportModal">
-                    <button
-                        type="button"
-                        class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-body dark:text-dark-txt-body hover:bg-light-subtle dark:hover:bg-dark-subtle transition font-secondary text-xs sm:text-table-row shrink-0"
-                    >
-                        <flux:icon.arrow-down-tray class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
-                        <span class="hidden sm:inline">Export</span>
-                    </button>
-                </flux:modal.trigger>
-            </div>
-        </div>
-        <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default mt-4 mb-0">
+    {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+    <div class="sm:hidden mb-4 pb-4 border-b border-light-bd-default dark:border-dark-bd-default">
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            My Dashboard
+        </x-heading>
     </div>
 
     {{-- ===================== FILTERS MODAL ===================== --}}
@@ -591,12 +580,78 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 </flux:select>
             </flux:field>
 
+            <div class="flex gap-2">
+                <flux:field class="flex-1">
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Paper size</flux:label>
+                    <flux:select wire:model.live="exportPaper" size="sm" class="font-secondary text-table-row">
+                        <flux:select.option value="letter">Letter</flux:select.option>
+                        <flux:select.option value="legal">Legal</flux:select.option>
+                        <flux:select.option value="a4">A4</flux:select.option>
+                    </flux:select>
+                </flux:field>
+                <flux:field class="flex-1">
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Orientation</flux:label>
+                    <flux:select wire:model.live="exportOrientation" size="sm" class="font-secondary text-table-row">
+                        <flux:select.option value="portrait">Portrait</flux:select.option>
+                        <flux:select.option value="landscape">Landscape</flux:select.option>
+                    </flux:select>
+                </flux:field>
+            </div>
+
             <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
                 <flux:modal.close class="w-full sm:w-auto">
                     <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
                         Cancel
                     </flux:button>
                 </flux:modal.close>
+                <flux:button
+                    type="button"
+                    x-on:click="Flux.modal('export-cashier-transactions').close(); Flux.modal('preview-cashier-transactions').show()"
+                    icon="eye"
+                    variant="primary"
+                    class="font-secondary w-full sm:w-auto justify-center"
+                >
+                    Preview
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- ===================== PREVIEW MODAL ===================== --}}
+    <flux:modal
+        name="preview-cashier-transactions"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-3xl mx-auto rounded-xl overflow-hidden"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-4">
+            <div class="flex items-start justify-between">
+                <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                    Preview
+                </flux:heading>
+                <button
+                    type="button"
+                    x-on:click="Flux.modal('preview-cashier-transactions').close()"
+                    class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1"
+                >
+                    <flux:icon name="x-mark" class="w-5 h-5" />
+                </button>
+            </div>
+
+            <iframe
+                wire:key="{{ $this->exportPreviewUrl }}"
+                src="{{ $this->exportPreviewUrl }}"
+                class="w-full h-[60vh] rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-white"
+            ></iframe>
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:button
+                    type="button"
+                    x-on:click="Flux.modal('preview-cashier-transactions').close(); Flux.modal('export-cashier-transactions').show()"
+                    variant="ghost"
+                    class="w-full sm:w-auto justify-center font-secondary"
+                >
+                    Back to filters
+                </flux:button>
                 <flux:button
                     href="{{ $this->exportUrl }}"
                     icon="arrow-down-tray"
@@ -784,14 +839,13 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
                     Today's vehicle log
                 </x-text>
-                <button
-                    type="button"
-                    wire:click="exportVehicleLog"
-                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:bg-light-subtle dark:hover:bg-dark-subtle transition font-secondary text-xs"
+                <a
+                    href="{{ $this->exportVehicleLogUrl }}"
+                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black text-white border-0 hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 transition font-secondary text-xs"
                 >
                     <flux:icon.arrow-down-tray class="w-3.5 h-3.5" />
                     Export
-                </button>
+                </a>
             </div>
             <div class="overflow-x-auto mt-2 max-h-72">
                 <table class="w-full font-secondary text-table-row">

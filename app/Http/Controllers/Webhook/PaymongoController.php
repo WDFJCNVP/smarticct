@@ -38,8 +38,11 @@ class PaymongoController extends Controller
                 if (!$checkoutSessionId) {
                     Log::error('WEBHOOK: payment.paid event missing checkout session id.', ['event' => $event]);
                 } else {
+                    // The payment method the customer actually used to pay (gcash, paymaya, card, qrph)
+                    $paymentMethod = $event['data']['attributes']['data']['attributes']['payment_method_used'] ?? null;
+
                     // 3. Atomic Database Crediting
-                    DB::transaction(function () use ($checkoutSessionId) {
+                    DB::transaction(function () use ($checkoutSessionId, $paymentMethod) {
                         $transaction = TopUpTransaction::where('checkout_session_id', $checkoutSessionId)
                             ->lockForUpdate()
                             ->first();
@@ -48,7 +51,10 @@ class PaymongoController extends Controller
                             return; // Stop if already paid or unknown session
                         }
 
-                        $transaction->update(['status' => 'paid']);
+                        $transaction->update([
+                            'status' => 'paid',
+                            'payment_method' => $paymentMethod,
+                        ]);
                         $card = Card::where('id', $transaction->card_id)->lockForUpdate()->first();
                         if ($card) {
                             $card->increment('balance', $transaction->points_credited);

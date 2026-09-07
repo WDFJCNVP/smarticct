@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\PasswordResetOtpMail;
 use Flux\Flux;
 
-new #[Layout('layouts.public-account-setup')] class extends Component
+new class extends Component
 {
     // State Tracking
     public bool $otpSent = false;
@@ -115,13 +115,13 @@ new #[Layout('layouts.public-account-setup')] class extends Component
 };
 ?>
 
-<div class="flex min-h-full flex-col justify-center px-6 py-12 sm:px-8">
+<div class="flex min-h-screen flex-col items-center justify-center px-6 py-4 sm:px-8">
   <div class="sm:mx-auto sm:w-full sm:max-w-sm text-center">
     <p class="font-secondary text-nav-label font-semibold uppercase tracking-widest text-secondary mb-1">Account recovery</p>
     <h2 class="font-primary text-page-title font-bold text-light-txt-primary dark:text-dark-txt-primary">Reset your password</h2>
   </div>
 
-  <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-sm">
+  <div class="w-full max-w-sm">
 
     @if(! $otpSent)
         <div wire:key="recovery-step-1" class="space-y-4">

@@ -20,11 +20,12 @@ use App\Http\Controllers\Web\User\{
 Route::livewire('/register', 'pages::public.public-registration')->name('public.register');
 Route::livewire('/register/setup', 'pages::public.public-registration-setup')->name('registration.setup');
 
-//Public Controller
+// Public Controller
 Route::controller(PublicController::class)->group(function () {
     Route::get('/', 'index')->name('explore');
 });
 
+// Route::livewire('/', 'pages::welcome')->name('explore');
 Route::livewire('/routes', 'pages::route-page')->name('route');
 Route::livewire('/feed', 'pages::feed')->name('feed');
 Route::livewire('/queue', 'pages::queue-page')->name('live.queue');
@@ -50,6 +51,9 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::livewire('/user/card', 'pages::card')
         ->name('user.card');
+
+    Route::livewire('/user/card/report', 'pages::card-report')
+        ->name('user.card.report');
 
     Route::livewire('/admin/dashboard', 'pages::content-by-role.admin.index')
         ->middleware('role:admin')
@@ -78,12 +82,19 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::livewire('/admin/cards', 'pages::content-by-role.admin.cards')
         ->name('admin.cards')
         ->middleware('role:admin');
+    Route::livewire('/admin/cards/issue', 'pages::content-by-role.admin.issue-card')
+        ->name('admin.cards.issue')
+        ->middleware('role:admin');
     Route::livewire('/admin/card/transaction/{user}', 'pages::content-by-role.admin.card-transaction')
         ->name('admin.card.transaction')
         ->middleware('role:admin');
 
     Route::livewire('/admin/topups', 'pages::content-by-role.admin.card-topups')
         ->name('admin.topups')
+        ->middleware('role:admin');
+
+    Route::livewire('/admin/topups/new', 'pages::content-by-role.admin.cash-topup')
+        ->name('admin.topups.new')
         ->middleware('role:admin');
 
     Route::livewire('/travel/record', 'pages::content-by-role.admin.travel-record')
@@ -140,6 +151,14 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('role:cashier,admin')
         ->name('cashier.cards');
 
+    Route::livewire('/cashier/cards/issue', 'pages::content-by-role.cashier.issue-card')
+        ->middleware('role:cashier,admin')
+        ->name('cashier.cards.issue');
+
+    Route::livewire('/cashier/fare-payment', 'pages::content-by-role.cashier.fare_payment')
+        ->middleware('role:cashier,admin')
+        ->name('cashier.fare-payment');
+
     //Operator Section
     Route::livewire('/operator/dashboard', 'pages::content-by-role.operator.index')
         ->middleware('role:operator')
@@ -157,7 +176,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('role:operator')
         ->name('operator.travel.record');
 
-    Route::livewire('/operator/travel-history', 'pages::content-by-role.operator.travel-history')
+    Route::livewire('/operator/travel-history', 'pages::content-by-role.operator.travel_history')
         ->middleware('role:operator')
         ->name('operator.travel.history');
     Route::get('/operator/travel-history/export', [\App\Http\Controllers\OperatorTravelHistoryExportController::class, 'export'])

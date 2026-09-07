@@ -235,75 +235,35 @@ new #[Layout('layouts.commuter-layout')] class extends Component
         }
     </style>
 
-    {{-- ===================== HEADER ===================== --}}
-    <div class="mb-6">
-        <div class="flex items-center justify-between gap-3 sm:gap-4">
-            <x-pages-heading
-                heading="Commuter Dashboard"
-                description="Your travel and rental overview."
-                class="text-xl sm:text-2xl font-extrabold"
-            />
+    {{-- ===================== MINI-NAVBAR ===================== --}}
+    <x-page-header
+        heading="Your expenses, travel, and rental overview"
+    >
+        <flux:modal.trigger name="commuter-filters">
+            <button
+                type="button"
+                class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg bg-primary text-white border-0 hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover transition font-secondary text-xs sm:text-table-row shrink-0"
+            >
+                <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-[var(--color-dark-primary)]" />
+                <span class="hidden sm:inline">Filters</span>
+                @if ((int) $this->range !== 7)
+                    <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">
+                        1
+                    </span>
+                @endif
+            </button>
+        </flux:modal.trigger>
+    </x-page-header>
 
-            {{-- Right side: date + clock (desktop), bell, filter --}}
-            <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-                {{-- Date + Clock container (hidden on mobile) --}}
-                <div class="hidden sm:flex flex-col items-end">
-                    <span
-                        class="text-xs text-light-txt-muted dark:text-dark-txt-muted font-secondary leading-none mb-0.5"
-                        x-data="{ date: '' }"
-                        x-init="date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })"
-                        x-text="date"
-                    ></span>
-
-                    <div
-                        class="flex items-center gap-1.5 sm:gap-2 font-primary text-base sm:text-xl font-bold tabular-nums text-light-txt-primary dark:text-dark-txt-primary whitespace-nowrap"
-                        x-data="{
-                            now: '',
-                            tick() {
-                                this.now = new Date().toLocaleString('en-US', {
-                                    hour: '2-digit', minute: '2-digit', second: '2-digit',
-                                });
-                            },
-                        }"
-                        x-init="tick(); setInterval(() => tick(), 1000)"
-                    >
-                        <span class="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2 shrink-0">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success dark:bg-dark-success opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-success dark:bg-dark-success"></span>
-                        </span>
-                        <span x-text="now"></span>
-                    </div>
-                </div>
-
-                {{-- Notifications --}}
-                <button
-                    type="button"
-                    class="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-muted dark:text-dark-txt-muted hover:bg-light-subtle dark:hover:bg-dark-subtle transition shrink-0"
-                    aria-label="Notifications"
-                >
-                    <flux:icon.bell class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger dark:bg-dark-danger"></span>
-                </button>
-
-                {{-- Filter button --}}
-                <flux:modal.trigger name="commuter-filters">
-                    <button
-                        type="button"
-                        class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg border border-light-bd-default dark:border-dark-bd-default text-light-txt-body dark:text-dark-txt-body hover:bg-light-subtle dark:hover:bg-dark-subtle transition font-secondary text-xs sm:text-table-row shrink-0"
-                    >
-                        <flux:icon.funnel class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-light-txt-muted dark:text-dark-txt-muted" />
-                        <span class="hidden sm:inline">Filters</span>
-                        @if ((int) $this->range !== 7)
-                            <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">
-                                1
-                            </span>
-                        @endif
-                    </button>
-                </flux:modal.trigger>
-            </div>
-        </div>
-
-        <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default mt-4 mb-0">
+    {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+    <div class="sm:hidden mb-4 pb-4 border-b border-light-bd-default dark:border-dark-bd-default">
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            My Dashboard
+        </x-heading>
     </div>
 
     {{-- ===================== FILTERS MODAL ===================== --}}
@@ -337,9 +297,15 @@ new #[Layout('layouts.commuter-layout')] class extends Component
         </div>
     </flux:modal>
 
-    {{-- ===================== LIVE STATUS STRIP ===================== --}}
+    {{-- ===================== ZONE: OVERVIEW ===================== --}}
+    <div class="flex items-center gap-2.5 text-light-txt-primary dark:text-dark-txt-primary">
+        <span class="zone-bar bg-primary dark:bg-dark-txt-primary"></span>
+        <span class="font-secondary text-nav-label font-bold uppercase tracking-widest">Overview</span>
+    </div>
+    <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default">
+
     <div
-        class="mt-6 mb-6 rounded-xl border border-light-bd-default dark:border-dark-bd-default bg-primary text-white overflow-hidden"
+        class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-8"
         x-data="{
             trips: @js($this->totalTrips),
             rentals: @js($this->activeRentalRequests),
@@ -354,47 +320,41 @@ new #[Layout('layouts.commuter-layout')] class extends Component
             if ($event.detail.spent !== spent) { spent = $event.detail.spent; flipS = true; setTimeout(() => flipS = false, 500); }
         "
     >
-        <div class="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/15">
-            <div class="flex items-center gap-3 px-5 py-4">
-                <flux:icon.map-pin class="w-5 h-5 text-white/60 shrink-0" />
-                <div>
-                    <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Trips Taken</div>
-                    <div class="font-primary text-3xl font-extrabold tabular-nums" :class="{ 'flap-flip': flipT }" x-text="trips"></div>
-                </div>
+        <flux:card class="p-3 sm:p-4">
+            <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 dark:bg-primary/20 shrink-0">
+                <flux:icon.map-pin class="w-4 h-4 sm:w-5 sm:h-5 text-primary dark:text-dark-txt-primary" />
             </div>
-            <div class="flex items-center gap-3 px-5 py-4">
-                <flux:icon.chat-bubble-left-right class="w-5 h-5 text-white/60 shrink-0" />
-                <div>
-                    <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Active Rentals</div>
-                    <div class="font-primary text-3xl font-extrabold tabular-nums" :class="{ 'flap-flip': flipR }" x-text="rentals"></div>
-                </div>
-            </div>
-            <div class="flex items-center gap-3 px-5 py-4">
-                <flux:icon.credit-card class="w-5 h-5 text-white/60 shrink-0" />
-                <div>
-                    <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Points Balance</div>
-                    <div class="font-primary text-3xl font-extrabold tabular-nums" :class="{ 'flap-flip': flipP }">
-                        <span x-show="points !== null" x-text="Number(points).toFixed(0)"></span>
-                        <span x-show="points === null" class="text-base font-normal opacity-70">No card</span>
-                    </div>
-                </div>
-            </div>
-            <div class="flex items-center gap-3 px-5 py-4">
-                <flux:icon.arrow-up class="w-5 h-5 text-white/60 shrink-0" />
-                <div>
-                    <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Points Spent</div>
-                    <div class="font-primary text-3xl font-extrabold tabular-nums" :class="{ 'flap-flip': flipS }" x-text="Number(spent).toFixed(0)"></div>
-                </div>
-            </div>
-        </div>
-    </div>
+            <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body block mt-2.5 sm:mt-3">Trips taken</x-text>
+            <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-light-txt-primary dark:text-dark-txt-primary block mt-0.5" x-bind:class="{ 'flap-flip': flipT }" x-text="trips"></x-text>
+        </flux:card>
 
-    {{-- ===================== ZONE: OVERVIEW ===================== --}}
-    <div class="flex items-center gap-2.5 text-light-txt-primary dark:text-dark-txt-primary">
-        <span class="zone-bar bg-primary dark:bg-dark-txt-primary"></span>
-        <span class="font-secondary text-nav-label font-bold uppercase tracking-widest">Overview</span>
+        <flux:card class="p-3 sm:p-4">
+            <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-secondary/10 shrink-0">
+                <flux:icon.chat-bubble-left-right class="w-4 h-4 sm:w-5 sm:h-5 text-secondary" />
+            </div>
+            <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body block mt-2.5 sm:mt-3">Active rentals</x-text>
+            <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-light-txt-primary dark:text-dark-txt-primary block mt-0.5" x-bind:class="{ 'flap-flip': flipR }" x-text="rentals"></x-text>
+        </flux:card>
+
+        <flux:card class="p-3 sm:p-4">
+            <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-info/10 dark:bg-dark-info/20 shrink-0">
+                <flux:icon.credit-card class="w-4 h-4 sm:w-5 sm:h-5 text-info dark:text-dark-info" />
+            </div>
+            <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body block mt-2.5 sm:mt-3">Points balance</x-text>
+            <div class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-info dark:text-dark-info mt-0.5" :class="{ 'flap-flip': flipP }">
+                <span x-show="points !== null" x-text="Number(points).toFixed(0)"></span>
+                <span x-show="points === null" class="text-sm font-normal opacity-70 text-light-txt-muted dark:text-dark-txt-muted">No card</span>
+            </div>
+        </flux:card>
+
+        <flux:card class="p-3 sm:p-4">
+            <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-warning/10 dark:bg-dark-warning/20 shrink-0">
+                <flux:icon.arrow-up class="w-4 h-4 sm:w-5 sm:h-5 text-warning dark:text-dark-warning" />
+            </div>
+            <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body block mt-2.5 sm:mt-3">Points spent</x-text>
+            <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-warning dark:text-dark-warning block mt-0.5" x-bind:class="{ 'flap-flip': flipS }" x-text="Number(spent).toFixed(0)"></x-text>
+        </flux:card>
     </div>
-    <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default">
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
         <flux:card class="p-4 lg:col-span-2">
@@ -478,76 +438,28 @@ new #[Layout('layouts.commuter-layout')] class extends Component
             </x-text>
             <div class="mt-2 space-y-2">
                 @forelse ($this->recentRentalRequests as $req)
-                    <div class="flex justify-between items-center border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
-                        <div>
-                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body">
+                    <div class="flex justify-between items-center gap-2 border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
+                        <div class="min-w-0">
+                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body break-words">
                                 {{ $req->pick_up_location }} → {{ $req->drop_off_location }}
                             </span>
                             <span class="block font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                 {{ $req->created_at->diffForHumans() }}
                             </span>
                         </div>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium shrink-0
                             @if($req->status === 'pending') bg-warning/10 text-warning dark:bg-dark-warning/20 dark:text-dark-warning
-                            @elseif($req->status === 'accepted') bg-info/10 text-info dark:bg-dark-info/20 dark:text-dark-info
+                            @elseif($req->status === 'accept') bg-info/10 text-info dark:bg-dark-info/20 dark:text-dark-info
                             @elseif($req->status === 'ongoing') bg-success/10 text-success dark:bg-dark-success/20 dark:text-dark-success
                             @else bg-light-subtle text-light-txt-muted dark:bg-dark-subtle dark:text-dark-txt-muted
                             @endif">
-                            {{ ucfirst($req->status) }}
+                            {{ $req->status === 'accept' ? 'Accepted' : ucfirst($req->status) }}
                         </span>
                     </div>
                 @empty
                     <p class="text-light-txt-muted dark:text-dark-txt-muted py-4 text-center">No rental requests yet.</p>
                 @endforelse
             </div>
-        </flux:card>
-    </div>
-
-    {{-- ===================== ZONE: TERMINAL QUEUE STATUS ===================== --}}
-    <div class="flex items-center gap-2.5 text-light-txt-primary dark:text-dark-txt-primary">
-        <span class="zone-bar bg-warning dark:bg-dark-warning"></span>
-        <span class="font-secondary text-nav-label font-bold uppercase tracking-widest">Terminal Queue Status</span>
-    </div>
-    <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default">
-
-    <div class="mb-8">
-        <flux:card class="p-0 overflow-hidden">
-            <div class="px-4 pt-4">
-                <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
-                    Current vehicles staging / loading
-                </x-text>
-            </div>
-            <div class="overflow-x-auto mt-2">
-                <table class="w-full font-secondary text-table-row">
-                    <thead>
-                        <tr class="text-left text-light-txt-body dark:text-dark-txt-body border-b border-light-bd-default dark:border-dark-bd-default">
-                            <th class="py-2 px-4 font-semibold">Vehicle Type</th>
-                            <th class="py-2 px-4 font-semibold">Destination</th>
-                            <th class="py-2 px-4 font-semibold text-right">Count</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($this->queueSnapshot as $row)
-                            <tr class="border-b border-light-bd-default/50 dark:border-dark-bd-default/50 last:border-0">
-                                <td class="py-2.5 px-4 text-light-txt-body dark:text-dark-txt-body">
-                                    {{ ucfirst(str_replace('_', ' ', $row->vehicle_type)) }}
-                                </td>
-                                <td class="py-2.5 px-4 text-light-txt-body dark:text-dark-txt-body">{{ $row->destination }}</td>
-                                <td class="py-2.5 px-4 text-right font-primary tabular-nums font-semibold">
-                                    {{ $row->count }}
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="3" class="py-8 text-center text-light-txt-muted dark:text-dark-txt-muted">
-                                    No vehicles currently queueing.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            <div class="h-1"></div>
         </flux:card>
     </div>
 
@@ -565,9 +477,9 @@ new #[Layout('layouts.commuter-layout')] class extends Component
             </x-text>
             <div class="mt-2 space-y-2">
                 @forelse ($this->recentTrips as $trip)
-                    <div class="flex justify-between items-center border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
-                        <div>
-                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body">
+                    <div class="flex justify-between items-center gap-2 border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
+                        <div class="min-w-0">
+                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body break-words">
                                 {{ $trip->destination }} ({{ ucfirst($trip->vehicle_type) }})
                             </span>
                             <span class="block font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
@@ -587,16 +499,16 @@ new #[Layout('layouts.commuter-layout')] class extends Component
             </x-text>
             <div class="mt-2 space-y-2">
                 @forelse ($this->recentCardTransactions as $txn)
-                    <div class="flex justify-between items-center border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
-                        <div>
-                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body capitalize">
+                    <div class="flex justify-between items-center gap-2 border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
+                        <div class="min-w-0">
+                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body capitalize break-words">
                                 {{ str_replace('_', ' ', $txn->transaction_type) }}
                             </span>
                             <span class="block font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                 {{ $txn->created_at->diffForHumans() }}
                             </span>
                         </div>
-                        <span class="font-primary text-stat-value font-semibold
+                        <span class="font-primary text-stat-value font-semibold shrink-0
                             @if($txn->transaction_type === 'top_up') text-success dark:text-dark-success
                             @else text-light-txt-primary dark:text-dark-txt-primary
                             @endif">

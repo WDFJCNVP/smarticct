@@ -204,7 +204,6 @@ new class extends Component
             $metadata['vehicle_id']     = $validated_attributes['vehicle_id'] ?? null;
             $metadata['vehicle_type']   = $vehicle->vehicle_type ?? null;
             $metadata['plate_number']   = $vehicle->plate_number ?? null;
-            $metadata['driver_name']    = $vehicle->driver_name ?? null;
             $metadata['total_seats']    = $vehicle->total_seats ?? null;
             $metadata['seats_offered']  = $validated_attributes['seats_offered'] ?? null;
         } elseif ($this->type === 'rental' && auth()->user()->role === 'commuter') {
@@ -257,16 +256,31 @@ new class extends Component
         })
     "
 >
-    <x-card class="!rounded-xl !border !border-light-bd-default dark:!border-dark-bd-default !bg-light-secondary dark:!bg-dark-secondary !shadow-sm">
+    <div>
         <div class="flex items-start gap-3">
-            <x-avatar size="sm" name="{{ auth()->user()->name }}" />
+            <x-avatar size="sm" name="{{ auth()->user()->name }}" class="hidden sm:flex" />
 
             <div class="flex-1 min-w-0">
-                <x-input
-                    wire:model.live="body"
-                    placeholder="{{ in_array(auth()->user()->role, ['admin', 'cashier']) ? 'Post announcements' : 'Post a rental offer or a request — include route, seats and rate.' }}"
-                    class="!bg-light-primary dark:!bg-dark-subtle !border-light-bd-default dark:!border-dark-bd-default"
-                />
+                <div class="flex items-center gap-2">
+                    <div class="flex-1 min-w-0">
+                        <x-input
+                            wire:model.live="body"
+                            placeholder="{{ in_array(auth()->user()->role, ['admin', 'cashier']) ? 'Post announcements' : 'Post a rental offer or a request.' }}"
+                            class="!bg-light-primary dark:!bg-dark-subtle !border-light-bd-default dark:!border-dark-bd-default"
+                        />
+                    </div>
+
+                    <x-button
+                        variant="primary"
+                        type="button"
+                        wire:click="postPreview"
+                        wire:loading.attr="disabled"
+                        wire:target="publish"
+                        class="sm:!hidden !inline-flex !flex-row !flex-nowrap !items-center !justify-center !gap-1.5 !whitespace-nowrap !rounded-full !shrink-0 !w-auto !h-auto !min-w-0 !px-4 !py-2 !leading-none !bg-[color:var(--color-primary)] hover:!bg-[color:var(--color-primary-hover)] !text-white"
+                    >
+                        <flux:icon.paper-airplane class="!inline-block !w-4 !h-4 !shrink-0 !align-middle" />
+                    </x-button>
+                </div>
 
                 @error('body')
                     <x-text class="!text-danger dark:!text-dark-danger mt-1 ml-1" style="font-size: var(--text-timestamp)">{{ $message }}</x-text>
@@ -296,7 +310,7 @@ new class extends Component
                     </div>
                 @endif
 
-                <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-3">
+                <div class="hidden sm:flex flex-wrap items-center gap-1.5 sm:gap-2 mt-3">
                     @if(in_array(auth()->user()->role, ['operator', 'commuter']))
                         <button
                             type="button"
@@ -347,7 +361,7 @@ new class extends Component
                 </div>
             </div>
         </div>
-    </x-card>
+    </div>
 
     <flux:modal 
         wire:model="is_post_preview" 
@@ -471,14 +485,9 @@ new class extends Component
                                     <flux:error name="vehicle_id" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
                                     @if ($this->selectedVehicle)
                                         @php($vehicle = $this->selectedVehicle)
-                                        @if (!$vehicle->has_or_cr || ($vehicle->or_cr_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->or_cr_expiry_date)->isPast()) || !$vehicle->has_franchise || ($vehicle->franchise_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->franchise_expiry_date)->isPast()))
+                                        @if (!$vehicle->has_franchise || ($vehicle->franchise_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->franchise_expiry_date)->isPast()))
                                             <div class="mt-3 rounded-lg border border-light-bd-default dark:border-dark-bd-default p-3 space-y-2">
-                                                @if (!$vehicle->has_or_cr || ($vehicle->or_cr_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->or_cr_expiry_date)->isPast()))
-                                                    <flux:callout variant="warning" icon="exclamation-triangle" heading="This vehicle's OR/CR is missing or expired." />
-                                                @endif
-                                                @if (!$vehicle->has_franchise || ($vehicle->franchise_expiry_date && \Illuminate\Support\Carbon::parse($vehicle->franchise_expiry_date)->isPast()))
-                                                    <flux:callout variant="warning" icon="exclamation-triangle" heading="This vehicle's franchise is missing or expired." />
-                                                @endif
+                                                <flux:callout variant="warning" icon="exclamation-triangle" heading="This vehicle's franchise is missing or expired." />
                                             </div>
                                         @endif
                                         <div class="mt-4">

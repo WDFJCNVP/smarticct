@@ -31,20 +31,20 @@
 
                 
                 <x-dashboard.sidebar-menu.sidebar-group heading="Routes">
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Local</x-dashboard.sidebar-menu.sidebar-item>
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Provincial</x-dashboard.sidebar-menu.sidebar-item>
-                </x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('route') }}" icon="home">Local</x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('route') }}" icon="home">Provincial</x-dashboard.sidebar-menu.sidebar-item>
+                </x-dashboard.sidebar-menu.sidebar-group>
 
                 <x-dashboard.sidebar-menu.sidebar-group heading="Queueing">
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Jeep</x-dashboard.sidebar-menu.sidebar-item>
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Bus</x-dashboard.sidebar-menu.sidebar-item>
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Van</x-dashboard.sidebar-menu.sidebar-item>
-                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/queue/jeep" icon="home">Multicab</x-dashboard.sidebar-menu.sidebar-item>
-                </x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.live.queue') }}" icon="home">Jeep</x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.live.queue') }}" icon="home">Bus</x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.live.queue') }}" icon="home">Van</x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.live.queue') }}" icon="home">Multicab</x-dashboard.sidebar-menu.sidebar-item>
+                </x-dashboard.sidebar-menu.sidebar-group>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/vehicles" icon="home">Vehicles</x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/notifaction" icon="home">Your Card</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.vehicles') }}" icon="home">Vehicles</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.travel.history') }}" icon="home">Travel Records</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.card') }}" icon="home">Your Card</x-dashboard.sidebar-menu.sidebar-item>
 
             </flux:sidebar.nav>
 

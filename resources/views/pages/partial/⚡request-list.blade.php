@@ -156,7 +156,7 @@ new class extends Component
                                 </x-badge>
                             </div>
                             <div class="mt-1">
-                                <x-text>{{ $request->purpose }}</x-text>
+                                <x-text>{{ $request->message }}</x-text>
                             </div>
                         </div>
                     </div>
@@ -343,6 +343,55 @@ new class extends Component
                             </div>
                             <x-text variant="strong" style="font-size: var(--text-table-row)">{{ $this->post_interest_info->user->phone_number }}</x-text>
                         </div>
+
+                        @if (!empty($this->post_interest_info->metadata['email_address'] ?? null))
+                            <div class="flex items-center justify-between gap-3 p-3">
+                                <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
+                                    <flux:icon.envelope class="w-4 h-4" />
+                                    <x-text class="text-inherit" style="font-size: var(--text-table-row)">Email</x-text>
+                                </div>
+                                <x-text variant="strong" class="text-right" style="font-size: var(--text-table-row)">{{ $this->post_interest_info->metadata['email_address'] }}</x-text>
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Trip details -->
+                    <div>
+                        <x-text variant="strong" class="block mb-2" style="font-size: var(--text-table-row)">Trip details</x-text>
+
+                        <div class="flex flex-wrap items-center gap-1 mb-3">
+                            @if ($this->post_interest_info->trip_type === 'round_trip')
+                                <flux:badge color="orange" size="sm" icon="arrows-right-left">Round trip</flux:badge>
+                            @else
+                                <flux:badge color="orange" size="sm" icon="arrow-right">One way</flux:badge>
+                            @endif
+                            <flux:badge color="orange" size="sm" icon="calendar-days">{{ $this->post_interest_info->trip_date->format('D, M j Y') }}</flux:badge>
+                            <flux:badge color="orange" size="sm" icon="users">{{ $this->post_interest_info->body_count }} passenger(s)</flux:badge>
+                        </div>
+
+                        <div class="rounded-lg border border-light-bd-default dark:border-dark-bd-default divide-y divide-light-bd-default dark:divide-dark-bd-default">
+                            <div class="flex items-center justify-between gap-3 p-3">
+                                <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
+                                    <flux:icon.map-pin class="w-4 h-4" />
+                                    <x-text class="text-inherit" style="font-size: var(--text-table-row)">From</x-text>
+                                </div>
+                                <x-text variant="strong" class="text-right" style="font-size: var(--text-table-row)">{{ $this->post_interest_info->pick_up_location }}</x-text>
+                            </div>
+                            <div class="flex items-center justify-between gap-3 p-3">
+                                <div class="flex items-center gap-1.5 text-light-txt-muted dark:text-dark-txt-muted shrink-0">
+                                    <flux:icon.flag class="w-4 h-4" />
+                                    <x-text class="text-inherit" style="font-size: var(--text-table-row)">To</x-text>
+                                </div>
+                                <x-text variant="strong" class="text-right" style="font-size: var(--text-table-row)">{{ $this->post_interest_info->drop_off_location }}</x-text>
+                            </div>
+                        </div>
+
+                        @if (!empty($this->post_interest_info->message))
+                            <div class="mt-3">
+                                <x-text class="text-inherit" style="font-size: var(--text-table-row)">Purpose</x-text>
+                                <x-text variant="strong" class="block mt-1">{{ $this->post_interest_info->message }}</x-text>
+                            </div>
+                        @endif
                     </div>
 
                     <!-- User's valid ID -->

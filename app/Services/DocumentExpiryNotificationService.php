@@ -6,29 +6,35 @@ use App\Models\Vehicle;
 use App\Models\Notification;
 use App\Models\UserNotification;
 use App\Events\NotificationEvent;
+use App\Mail\FranchiseExpiryMail;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class DocumentExpiryNotificationService
 {
     // Which expiry columns to watch, and how each one should read in a message.
     private const WATCHED_DOCUMENTS = [
-        'or_cr_expiry_date'     => 'OR/CR',
         'franchise_expiry_date' => 'franchise',
     ];
 
     /**
-     * Notify operators whose vehicle documents (OR/CR, franchise) are about
-     * to expire, once per document per expiry date.
+     * Notify operators whose vehicle documents (franchise) are about
+     * to expire, once per document per scheduled run.
      *
-     * Runs daily via the scheduler (see routes/console.php). Because it runs
-     * every day, a vehicle sitting at "9 days left" today will still be
-     * "8 days left" tomorrow and so on — so instead of firing only on the
-     * exact 7-day mark (which would silently miss anyone if a run is ever
-     * skipped), it fires as soon as a document enters the warning window
-     * and then de-dupes so the operator only gets one notification per
-     * document per expiry date, not one every day of the window.
+     * Runs twice a week via the scheduler (see routes/console.php — Monday
+     * and Thursday), giving operators a running reminder for the whole month
+     * leading up to expiry instead of a single one-off notice. The window is
+     * "within N days" rather than an exact day-N check so a vehicle already
+     * inside the window still gets caught even if a run is ever skipped.
+     *
+     * De-dupe is scoped to (vehicle, document, expiry date, day) — this only
+     * stops the *same* run from firing twice (e.g. if triggered manually and
+     * via schedule on the same day), it does not stop the next scheduled
+     * reminder later in the week. Once the franchise is renewed the expiry
+     * date changes, which naturally resets the reminder cycle.
      */
-    public function notifyExpiringDocuments(int $daysBefore = 7): int
+    public function notifyExpiringDocuments(int $daysBefore = 30): int
     {
         $today = today();
         $windowEnd = $today->copy()->addDays($daysBefore)->endOfDay();
@@ -59,7 +65,7 @@ class DocumentExpiryNotificationService
                     continue;
                 }
 
-                if ($this->alreadyNotified($vehicle->id, $column, $expiryDate)) {
+                if ($this->alreadyNotifiedToday($vehicle->id, $column, $expiryDate, $today)) {
                     continue;
                 }
 
@@ -75,10 +81,10 @@ class DocumentExpiryNotificationService
         return $sentCount;
     }
 
-    private function alreadyNotified(int $vehicleId, string $column, Carbon $expiryDate): bool
+    private function alreadyNotifiedToday(int $vehicleId, string $column, Carbon $expiryDate, Carbon $today): bool
     {
         return Notification::where('type', 'DocumentExpiring')
-            ->where('metadata->dedup_key', $this->dedupKey($vehicleId, $column, $expiryDate))
+            ->where('metadata->dedup_key', $this->dedupKey($vehicleId, $column, $expiryDate, $today))
             ->exists();
     }
 
@@ -95,7 +101,7 @@ class DocumentExpiryNotificationService
             'message' => "Your {$label} for vehicle {$vehicle->plate_number} will expire on "
                 . "{$expiryDate->format('F d, Y')}. You have {$daysLeftText} left to remediate.",
             'metadata' => [
-                'dedup_key'    => $this->dedupKey($vehicle->id, $column, $expiryDate),
+                'dedup_key'    => $this->dedupKey($vehicle->id, $column, $expiryDate, $today),
                 'vehicle_id'   => $vehicle->id,
                 'plate_number' => $vehicle->plate_number,
                 'document'     => $column,
@@ -107,10 +113,42 @@ class DocumentExpiryNotificationService
             'notification_id' => $notification->id,
             'user_id'         => $vehicle->user_id,
         ]);
+
+        $this->sendExpiryEmail($vehicle, $label, $expiryDate, $daysLeftText);
     }
 
-    private function dedupKey(int $vehicleId, string $column, Carbon $expiryDate): string
+    /**
+     * Email the operator on their registered account email, in addition to
+     * the in-app notification above. Failures are logged instead of thrown
+     * so one bad email doesn't stop the rest of the batch from processing.
+     */
+    private function sendExpiryEmail(Vehicle $vehicle, string $label, Carbon $expiryDate, string $daysLeftText): void
     {
-        return "vehicle:{$vehicleId}:{$column}:{$expiryDate->toDateString()}";
+        $email = $vehicle->user->email_address ?? null;
+
+        if (!$email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->send(new FranchiseExpiryMail(
+                $vehicle->user->name,
+                $vehicle->plate_number,
+                ucfirst($label),
+                $expiryDate->format('F d, Y'),
+                $daysLeftText,
+            ));
+        } catch (\Throwable $e) {
+            Log::error('Failed to send franchise expiry email', [
+                'vehicle_id' => $vehicle->id,
+                'user_id'    => $vehicle->user_id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function dedupKey(int $vehicleId, string $column, Carbon $expiryDate, Carbon $sentOn): string
+    {
+        return "vehicle:{$vehicleId}:{$column}:{$expiryDate->toDateString()}:{$sentOn->toDateString()}";
     }
 }

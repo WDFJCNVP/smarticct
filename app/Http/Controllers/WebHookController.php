@@ -65,12 +65,12 @@ class WebHookController extends Controller
 
                 //  Add points 
                 Card::where('id', $topUp->card_id)
-                    ->increment('balance', $topUp->points_to_load);
+                    ->increment('balance', $topUp->points_credited);
 
                 $notification = Notification::create([
                     'type'    => 'Top-up',
                     'title'   => 'Points Loaded',
-                    'message' => "You've successfully loaded {$topUp->points_to_load} points to your card.",
+                    'message' => "You've successfully loaded {$topUp->points_credited} points to your card.",
                 ]);
 
                 UserNotification::create([
@@ -83,7 +83,7 @@ class WebHookController extends Controller
                 Log::info('Top-up credited', [
                     'topup_id'       => $topUp->id,
                     'card_id'   => $topUp->card_id,
-                    'points_added'   => $topUp->points_to_load,
+                    'points_added'   => $topUp->points_credited,
                 ]);
             });
         }

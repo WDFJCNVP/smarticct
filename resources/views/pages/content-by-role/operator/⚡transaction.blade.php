@@ -10,8 +10,23 @@ new #[Layout('layouts.operator-layout')]class extends Component
 ?>
 
 <div>
+    <x-page-header
+        heading="View and manage your transactions."
+        class="mb-6"
+    >
+        {{-- No extra controls – keep it minimal --}}
+    </x-page-header>
 
-    <x-pages-heading heading="Transactions" description="View and manage your transactions." />
+    {{-- Mobile-visible heading, since the page header above is desktop-only --}}
+    <div class="sm:hidden mb-4 pb-4 border-b border-light-bd-default dark:border-dark-bd-default">
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            Transactions
+        </x-heading>
+    </div>
 
     <div x-data="{ tab: 'active' }" class="space-y-6 mt-6">
         <div class="flex gap-6 border-b border-zinc-200 dark:border-zinc-700 text-sm justify-end">
@@ -36,17 +51,6 @@ new #[Layout('layouts.operator-layout')]class extends Component
             >
                 Renting Transaction History
             </button>
-
-            <button
-                type="button"
-                @click="tab = 'card-history'"
-                :class="tab === 'card-history'
-                    ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400 font-medium'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'"
-                class="pb-3 border-b-2 transition-colors cursor-pointer"
-            >
-                Card Transactions History
-            </button>
         </div>
 
         <div x-show="tab === 'active'" x-cloak class="space-y-3">
@@ -58,12 +62,6 @@ new #[Layout('layouts.operator-layout')]class extends Component
         <div x-show="tab === 'rent-transaction'" x-cloak class="space-y-4">
 
            <livewire:pages::content-by-role.operator.transaction-history />
-
-        </div>
-
-        <div x-show="tab === 'card-history'" x-cloak>
-
-            Card Transactions History
 
         </div>
 
