@@ -113,7 +113,7 @@
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
         <a class="flex items-center gap-2 ml-2 min-w-0" href="{{ route('admin.dashboard') }}">
-            <img src="{{ Vite::asset('resources/images/logo.png') }}" alt="SmartICCT" class="h-7 w-7 shrink-0 object-contain block">
+            <img src="{{ asset('images/logo.png') }}" alt="SmartICCT" class="h-7 w-7 shrink-0 object-contain block">
             <span class="font-primary text-base font-extrabold text-light-txt-primary dark:text-dark-txt-primary tracking-tight truncate">
                 SmartICCT
             </span>
