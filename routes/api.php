@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\RfidCardRegistrationController;
 use App\Http\Controllers\Api\SkipVehicleController;
 use App\Http\Controllers\Webhook\PaymongoController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\KioskQueueController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -28,3 +29,4 @@ Route::post('/webhooks/paymongo/disbursement', [PaymongoController::class, 'hand
 
 //Kiosk endpoint
 Route::get('/card/{uid}', [UserController::class, 'getUser']);  
+Route::get('/queued/routes', [KioskQueueController::class, 'getAvailableRides']);
