@@ -75,10 +75,6 @@ new class extends Component {
         );
     }
 
-    // Operator taps this when a commuter pays their fare in cash directly,
-    // at the vehicle, with no cashier involved. Only logs the trip and
-    // bumps the seat count — never touches the operator's card balance,
-    // since they're already physically holding that cash.
     public function reportCashFare($queueId)
     {
         $this->show_cash_fare_modal = false;

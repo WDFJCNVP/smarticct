@@ -19,7 +19,7 @@ class UserController extends Controller
         $cleanUid = trim($uid);
 
         //Check if the card exists 
-        $card = Card::with('user.vehicles')->where('uid', $cleanUid)->first();
+        $card = Card::with('user.vehicles.route_list.operatorTicketRate')->where('uid', $cleanUid)->first();
 
         //Guard
         if (! $card) {
@@ -61,7 +61,7 @@ class UserController extends Controller
             ], 401);
         }
 
-        $card = Card::with('user.vehicles')
+        $card = Card::with('user.vehicles.route_list.operatorTicketRate')
             ->where('user_id', $user->id)
             ->where('status', 'active')
             ->first();

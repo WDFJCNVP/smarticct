@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Vehicle extends Model
 {
-    /** @use HasFactory<\Database\Factories\VehicleFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -23,6 +22,14 @@ class Vehicle extends Model
         'franchise_expiry_date',
     ];
 
+    /**
+     * Automatically append virtual attributes to model / JSON serialization.
+     */
+    protected $appends = [
+        'queueing_fee',
+        'destination',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -33,12 +40,40 @@ class Vehicle extends Model
             'franchise_expiry_date' => 'date',
         ];
     }
+
+    /**
+     * Safely resolve the queueing fee from the linked route list and ticket rate.
+     */
+    public function getQueueingFeeAttribute(): float
+    {
+        return (float) ($this->route_list?->operatorTicketRate?->queueing_fee ?? 0.00);
+    }
+
+    /**
+     * Safely resolve the default terminal/destination.
+     */
+    public function getDestinationAttribute(): ?string
+    {
+        return $this->route_list?->terminal;
+    }
+
+    public function route_list()
+    {
+        return $this->belongsTo(RouteList::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function dailyScheduleSlots()
     {
         return $this->hasMany(DailyScheduleSlot::class);
     }
 
-    public function queue() {
+    public function queue()
+    {
         return $this->hasOne(Queue::class);
     }
 
@@ -47,19 +82,14 @@ class Vehicle extends Model
         return $this->hasOne(DailyScheduleSlot::class)
                     ->whereDate('schedule_date', today());
     }
-    public function user() {
-        return $this->belongsTo(User::class);
-    }
 
-    public function route() {
+    public function route()
+    {
         return $this->hasOne(Route::class);
     }
 
-    public function route_list() {
-        return $this->belongsTo(RouteList::class);
-    }
-
-    public function vehicle_group() {
+    public function vehicle_group()
+    {
         return $this->hasMany(VehicleGroup::class);
     }
 
