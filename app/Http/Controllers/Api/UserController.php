@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 
 use App\Models\Card;
 use App\Models\User;
+use App\Models\RouteList;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\JsonResponse;
 
@@ -74,9 +75,17 @@ class UserController extends Controller
         }
 
         return response()->json([
-            'status'  => 'success',
-            'message' => 'Authentication successful',
-            'data'    => $card,
+            'status'        => 'success',
+            'message'       => 'Authentication successful',
+            'data'          => $card,
+            'route_list'    => $this->getRouteList(),
         ], 200);
+    }
+
+    public function getRouteList() {
+
+        $data = RouteList::with('operatorTicketRate')->get();
+
+        return $data;
     }
 }
