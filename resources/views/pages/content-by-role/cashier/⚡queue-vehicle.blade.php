@@ -172,7 +172,7 @@ new class extends Component
             ];
 
             // 2. Trigger thermal printing
-            ThermalReceiptService::printQueueSlip($cardReceiptData);
+            // ThermalReceiptService::printQueueSlip($cardReceiptData);
 
             // 3. Clear component state
             $this->clearCard();

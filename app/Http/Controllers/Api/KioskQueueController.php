@@ -27,7 +27,7 @@ class KioskQueueController extends Controller
         // 2. Pre-load all routes and ticket rates into memory to prevent N+1 queries
         $activeRouteFares = RouteList::with('operatorTicketRate')->get();
 
-        $destinations = ['Naga', 'Legaspi', 'Baao', 'Buhi', 'Mountain Unit'];
+        $destinations = ['Naga', 'Legaspi', 'Baao', 'Buhi', 'Mountain Unit', 'Nabua'];
         $groupedRoutes = [];
 
         foreach ($destinations as $destination) {
