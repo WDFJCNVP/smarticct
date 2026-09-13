@@ -43,6 +43,7 @@ class UserController extends Controller
             'status'  => 'success',
             'message' => 'User and card details retrieved successfully.',
             'data'    => $card,
+            'route_list'    => $this->getRouteList(),
         ], 200);
     }
 
