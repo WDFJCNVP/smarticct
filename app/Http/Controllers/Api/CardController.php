@@ -334,6 +334,7 @@ class CardController extends Controller
 
                 CardTransaction::create([
                     'card_id'          => $operatorCard->id,
+                    'processed_by'     => auth()->id(),
                     'transaction_type' => 'fare_earning',
                     'reference_no'     => 'FARECASH-' . $travelRecord->id,
                     'reference_id'     => $travelRecord->id,
@@ -536,10 +537,10 @@ class CardController extends Controller
     {
         try {
             $validated = $request->validate([
-                'uid'              => 'required|string|max:50',
+                'uid'              => ['required', 'string', 'regex:/^[0-9A-Fa-f]{8}$/'],
                 'vehicle_id'       => 'nullable|numeric',
                 'name'             => 'nullable|string|max:50',
-                'driver_name'      => 'nullable|string|max:100',
+                'driver_name'      => 'required_if:transaction_type,operator_payment|nullable|string|max:100',
                 'transaction_type' => [
                                         'required',
                                         Rule::in([
@@ -555,6 +556,8 @@ class CardController extends Controller
             ]);
 
             // dd($validated['vehicle_type']);
+
+            $validated['uid'] = strtoupper($validated['uid']);
 
             Log::info('Card tap received', $validated);
 
@@ -666,6 +669,7 @@ class CardController extends Controller
                         //Create CardTransaction (operator record)
                         CardTransaction::create([
                             'card_id'          => $operatorCard->id,
+                            'processed_by'     => auth()->id(),
                             'transaction_type' => 'fare_earning',
                             'reference_no'     => 'FARE-' . $this->travel_record->id,
                             'reference_id'     => $this->travel_record->id,
@@ -679,9 +683,9 @@ class CardController extends Controller
                             'message'          => "Fare earning: {$queue->destination} trip, plate {$queue->plate_number}",
                         ]);
 
-                        //Create CardTransaction (commuter record)
                         CardTransaction::create([
                             'card_id'          => $card->id,
+                            'processed_by'     => auth()->id(),
                             'transaction_type' => 'queue_deduction',
                             'reference_no'     => 'TAPIN-' . $this->travel_record->id,
                             'reference_id'     => $this->travel_record->id,
@@ -695,14 +699,12 @@ class CardController extends Controller
                             'message'          => "Fare paid: {$queue->destination} trip, plate {$queue->plate_number}",
                         ]);
 
-                        // 1. UV-Express reaches 9+ seats for the first time -> Start 30-min countdown
                         if ($queue->vehicle_type === 'UV-express' && $queue->seat_count >= 9 && $queue->departs_at === null) {
                             $departsAt = Carbon::now()->addMinutes(30);
                             $queue->update(['departs_at' => $departsAt]);
 
                             ProcessAfterDepart::dispatch($queue->id)->delay($departsAt);
                         }
-                        // 2. Any vehicle reaches full capacity -> Depart immediately
                         elseif ($queue->seat_count >= $queue->seat_capacity) {
                             $queue->update(['departs_at' => Carbon::now()]);
 

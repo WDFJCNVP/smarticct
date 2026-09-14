@@ -47,8 +47,8 @@
         </style>
     </head>
     <body class="min-h-screen bg-white dark:bg-dark-secondary">
-        <flux:sidebar sticky collapsible="mobile" class="border-e border-light-bd-default bg-light-primary dark:border-dark-bd-default dark:bg-dark-primary">
-            <flux:sidebar.header class="flex items-center justify-between gap-3 px-2 pb-2 w-full">
+        <flux:sidebar sticky collapsible="mobile" class="border-e border-light-bd-default bg-light-primary dark:border-dark-bd-default dark:bg-dark-primary !flex !flex-col !h-dvh !max-h-dvh !overflow-hidden">
+            <flux:sidebar.header class="flex items-center justify-between gap-3 px-2 pt-2 pb-2 w-full shrink-0">
                 <a class="flex items-center gap-3 min-w-0" href="{{ route('operator.dashboard') }}" wire:navigate>
                     <img src="{{ asset('images/logo.png') }}" alt="SmartICCT"
                          class="h-8 w-8 lg:h-14 lg:w-14 shrink-0 object-contain block">
@@ -59,43 +59,43 @@
                 <flux:sidebar.collapse class="lg:hidden shrink-0" />
             </flux:sidebar.header>
 
-            <div class="border-b border-light-bd-default dark:border-dark-bd-default mx-2 mb-1"></div>
+            <div class="border-b border-light-bd-default dark:border-dark-bd-default mx-2 mb-1 shrink-0"></div>
 
-            <flux:sidebar.nav class="sidebar-nav-large gap-1 mt-1">
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.dashboard') }}" icon="home" wire:navigate>
-                    Dashboard
-                </x-dashboard.sidebar-menu.sidebar-item>
+            <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                <flux:sidebar.nav class="sidebar-nav-large gap-1 mt-1">
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.dashboard') }}" icon="home" wire:navigate>
+                        Dashboard
+                    </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('feed') }}" icon="squares-2x2" wire:navigate>
-                    Feed
-                </x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('feed') }}" icon="squares-2x2" wire:navigate>
+                        Feed
+                    </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="/operator/vehicles" icon="truck" wire:navigate>
-                    My Vehicle
-                </x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="/operator/vehicles" icon="truck" wire:navigate>
+                        My Vehicle
+                    </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.travel.history') }}" icon="clipboard-document-list" wire:navigate>
-                    Travel History
-                </x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.travel.history') }}" icon="clipboard-document-list" wire:navigate>
+                        Travel History
+                    </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.queue') }}" icon="clock" wire:navigate>
-                    Queueing
-                </x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.queue') }}" icon="clock" wire:navigate>
+                        Queueing
+                    </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.transaction') }}" icon="credit-card" wire:navigate>
-                    Transactions
-                </x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.transaction') }}" icon="banknotes" wire:navigate>
+                        Transactions
+                    </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.earnings') }}" icon="credit-card" wire:navigate>
-                    Earnings
-                </x-dashboard.sidebar-menu.sidebar-item>
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('operator.earnings') }}" icon="arrow-trending-up" wire:navigate>
+                        Earnings
+                    </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.card') }}" icon="credit-card" wire:navigate>
-                    My Card
-                </x-dashboard.sidebar-menu.sidebar-item>
-            </flux:sidebar.nav>
-
-            <flux:spacer />
+                    <x-dashboard.sidebar-menu.sidebar-item href="{{ route('user.card') }}" icon="credit-card" wire:navigate>
+                        My Card
+                    </x-dashboard.sidebar-menu.sidebar-item>
+                </flux:sidebar.nav>
+            </div>
 
             <livewire:pages::sidebar-profile variant="sidebar" />
         </flux:sidebar>

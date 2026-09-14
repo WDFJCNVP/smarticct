@@ -96,12 +96,10 @@ new class extends Component
 <div class="flex flex-col h-full">
     <div class="shrink-0">
 
-        {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
         <x-page-header
-            heading="Manage queue order and advance the next vehicle for today's schedule."
+            heading="Current Active Group"
             class="mb-3"
         >
-            {{-- No extra controls – keep it minimal --}}
         </x-page-header>
 
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-6">
@@ -110,14 +108,12 @@ new class extends Component
                 <flux:breadcrumbs.item>Active Groups</flux:breadcrumbs.item>
             </flux:breadcrumbs>
 
-            {{-- Mobile-visible heading, since the page header above is desktop-only --}}
             <div class="order-2 sm:order-1 w-full sm:w-auto">
                 <x-heading
-                    size="xl"
                     class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                    style="font-size: var(--text-page-title)"
+                    style="font-size: var(--text-section-heading)"
                 >
-                    Current Active Group
+                    Manage queue order and advance the next vehicle for today's schedule
                 </x-heading>
             </div>
         </div>

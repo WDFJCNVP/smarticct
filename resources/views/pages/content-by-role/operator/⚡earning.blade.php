@@ -343,9 +343,8 @@ new #[Layout('layouts.operator-layout')] class extends Component
 };
 ?>
 <div>
-    {{-- ====== PAGE HEADER (mini-navbar: heading left, filters + date range right) ====== --}}
     <x-page-header
-        heading="Fare revenue from your vehicles — cash and card — with driver performance."
+        heading="Fare Revenue"
         class="mb-6"
     >
         <div class="flex items-center gap-2 w-full sm:w-auto">

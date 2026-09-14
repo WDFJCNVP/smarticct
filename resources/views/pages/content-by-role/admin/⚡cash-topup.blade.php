@@ -107,12 +107,21 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public function updatedCashCardUid(): void
     {
+        $this->cashCardUid = strtoupper(trim($this->cashCardUid));
+
         $this->cashSelectedAmount   = null;
         $this->cashCustomAmount     = null;
         $this->cashAmountReceived   = null;
         $this->cashSelectedUserId   = null;
 
         if (empty($this->cashCardUid)) {
+            $this->cashCardState = 'ready';
+            return;
+        }
+
+        // A real tap always produces the full 8-character UID in one burst —
+        // don't attempt a lookup (or show "not recognised") on a partial scan.
+        if (!preg_match('/^[0-9A-F]{8}$/', $this->cashCardUid)) {
             $this->cashCardState = 'ready';
             return;
         }
@@ -309,16 +318,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
-    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
     <x-page-header
-        heading="New Cash Top-Up"
-        description="Load balance onto a commuter or operator card via cash payment."
+        description="New Cash Top-up"
         class="mb-3"
     >
-        {{-- No extra controls – keep it minimal --}}
     </x-page-header>
 
-    {{-- Breadcrumbs on top on mobile; heading + breadcrumbs side-by-side from sm up --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
         <flux:breadcrumbs class="order-1 sm:order-2">
             <flux:breadcrumbs.item href="{{ route('admin.topups') }}" wire:navigate>Back to Card Top-Ups</flux:breadcrumbs.item>
@@ -329,9 +334,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
             <x-heading
                 size="xl"
                 class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                style="font-size: var(--text-page-title)"
+                style="font-size: var(--text-section-heading)"
             >
-                New Cash Top-Up
+                Load balance onto a commuter or operator card via cash payment.
             </x-heading>
         </div>
     </div>
@@ -397,13 +402,26 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 <flux:icon name="credit-card" class="w-3.5 h-3.5" />
                                 Card UID
                             </flux:label>
-                            <flux:input
-                                wire:model.live.debounce.300ms="cashCardUid"
-                                placeholder="Tap card on reader…"
-                                autocomplete="off"
-                                autofocus
-                                class="font-mono tracking-widest mt-1"
-                            />
+                            <div class="relative mt-1">
+                                <input
+                                    type="text"
+                                    wire:model.live.debounce.200ms="cashCardUid"
+                                    autocomplete="off"
+                                    autofocus
+                                    maxlength="8"
+                                    x-ref="cashCardUidInput"
+                                    @keydown.enter.prevent
+                                    class="absolute inset-0 w-full h-full opacity-0 cursor-default"
+                                />
+                                <div class="pointer-events-none rounded-lg border-2 border-dashed p-2.5 flex items-center justify-center gap-2 transition-colors
+                                    {{ $cashCardUid ? 'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' : 'border-light-bd-default dark:border-dark-bd-default' }}">
+                                    @if ($cashCardUid)
+                                        <span class="font-mono text-sm tracking-[0.2em] font-semibold text-light-txt-primary dark:text-dark-txt-primary">{{ $cashCardUid }}</span>
+                                    @else
+                                        <span class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Tap card on reader…</span>
+                                    @endif
+                                </div>
+                            </div>
                         </flux:field>
                     </div>
                 @endif

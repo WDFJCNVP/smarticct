@@ -15,6 +15,8 @@ protected $fillable = [
     'processed_by',
     'source',
     'reference_no',
+    'reference_id',
+    'reference_type',
     'metadata',
     'transaction_type',
     'amount',

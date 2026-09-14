@@ -22,6 +22,8 @@ return new class extends Migration
             $table->string('engine_number')->nullable();
             $table->string('body_number')->nullable();
             $table->string('chassis_number')->nullable();
+            
+            $table->string('driver_name')->nullable();
 
             $table->boolean('has_franchise')->default(false);
             $table->date('franchise_expiry_date')->nullable()->index();

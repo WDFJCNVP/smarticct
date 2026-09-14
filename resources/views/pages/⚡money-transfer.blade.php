@@ -4,8 +4,13 @@ use Livewire\Component;
 use Livewire\Attributes\Computed;
 use App\Models\Card;
 use App\Models\CardTransaction;
+use App\Models\Notification;
+use App\Models\UserNotification;
+use App\Events\NotificationEvent;
 use App\Services\OperatorDisbursementService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Flux\Flux;
 
 new class extends Component
 {
@@ -122,58 +127,106 @@ new class extends Component
 
         if (!$isAdmin && !$card) {
             $this->addError('withdrawAmount', 'No card linked to your account.');
+            Flux::toast(variant: 'danger', duration: 4000, heading: 'No card linked.', text: 'No card is linked to your account.');
             return;
         }
 
         if (!$this->hasSufficientBalance) {
             $this->addError('withdrawAmount', 'Insufficient balance to cover this withdrawal plus the transfer fee.');
+            Flux::toast(variant: 'warning', duration: 4000, heading: 'Insufficient balance.', text: 'Your balance can\'t cover this withdrawal plus the transfer fee.');
             return;
         }
 
         $totalDeduction = $this->totalDeduction;
         $balanceBefore = $this->currentBalance;
+        $institutionName = $this->selectedInstitutionName;
 
-        $succeeded = DB::transaction(function () use ($card, $validated, $totalDeduction, $balanceBefore, $isAdmin) {
-            // Deduct card balance only if operator
-            if (!$isAdmin && $card) {
-                $card->decrement('balance', $totalDeduction);
-                $card->refresh();
-            }
+        try {
+            $succeeded = DB::transaction(function () use ($card, $validated, $totalDeduction, $balanceBefore, $isAdmin, $institutionName) {
+                // Deduct card balance only if operator
+                if (!$isAdmin && $card) {
+                    $card->decrement('balance', $totalDeduction);
+                    $card->refresh();
+                }
 
-            $result = app(OperatorDisbursementService::class)->createWithdrawal([
-                'provider'       => $validated['provider'],
-                'amount'         => $validated['withdrawAmount'],
-                'account_number' => $validated['accountNumber'],
-                'account_name'   => $validated['accountName'],
-                'bic'            => $validated['selectedBic'],
-                'operator_id'    => auth()->id(),
-            ]);
+                $result = app(OperatorDisbursementService::class)->createWithdrawal([
+                    'provider'       => $validated['provider'],
+                    'amount'         => $validated['withdrawAmount'],
+                    'account_number' => $validated['accountNumber'],
+                    'account_name'   => $validated['accountName'],
+                    'bic'            => $validated['selectedBic'],
+                    'operator_id'    => auth()->id(),
+                ]);
 
-            CardTransaction::create([
-                'card_id'          => $isAdmin ? null : $card->id,
-                'transaction_type' => $isAdmin ? 'admin_withdrawal' : 'withdrawal',
-                'reference_no'     => $result['reference_number'],
-                'amount'           => $totalDeduction,
-                'balance_before'   => $balanceBefore,
-                'balance_after'    => $balanceBefore - $totalDeduction,
-                'status'           => $result['successful'] ? 'pending' : 'failed',
-                'transaction_time' => now(),
-                'source'           => $isAdmin ? 'admin_withdraw_page' : 'operator_withdraw_page',
-                'message'          => "Withdrawal via {$validated['provider']} to {$this->selectedInstitutionName} ({$validated['accountNumber']})",
-                'metadata'         => (array) $result['response'],
-            ]);
+                $transaction = CardTransaction::create([
+                    'card_id'          => $isAdmin ? null : $card->id,
+                    'processed_by'     => auth()->id(),
+                    'transaction_type' => $isAdmin ? 'admin_withdrawal' : 'withdrawal',
+                    'reference_no'     => $result['reference_number'],
+                    'amount'           => $totalDeduction,
+                    'balance_before'   => $balanceBefore,
+                    'balance_after'    => $balanceBefore - $totalDeduction,
+                    'status'           => $result['successful'] ? 'pending' : 'failed',
+                    'transaction_time' => now(),
+                    'source'           => $isAdmin ? 'admin_withdraw_page' : 'operator_withdraw_page',
+                    'message'          => "Withdrawal via {$validated['provider']} to {$institutionName} ({$validated['accountNumber']})",
+                    'metadata'         => (array) $result['response'],
+                ]);
 
-            if (!$result['successful'] && !$isAdmin && $card) {
-                $card->increment('balance', $totalDeduction);
-            }
+                if (!$result['successful'] && !$isAdmin && $card) {
+                    $card->increment('balance', $totalDeduction);
+                }
 
-            return $result['successful'];
-        });
+                if ($result['successful']) {
+                    // Persistent, in-app notification so the withdrawal shows up
+                    // in the bell/notification center, not just as a toast.
+                    $notification = Notification::create([
+                        'type'    => 'Withdrawal',
+                        'title'   => 'Withdrawal submitted',
+                        'message' => "Your ₱" . number_format($totalDeduction, 2) . " withdrawal to {$institutionName} is being processed.",
+                        'metadata' => [
+                            'amount'       => $totalDeduction,
+                            'reference_no' => $transaction->reference_no,
+                            'provider'     => $validated['provider'],
+                        ],
+                    ]);
+
+                    UserNotification::create([
+                        'notification_id' => $notification->id,
+                        'user_id'         => auth()->id(),
+                    ]);
+                }
+
+                return $result['successful'];
+            });
+        } catch (\Exception $e) {
+            Log::error('Withdrawal failed', ['error' => $e->getMessage(), 'user_id' => auth()->id()]);
+            $this->addError('withdrawAmount', 'Withdrawal request failed. Please check your details and try again.');
+            Flux::toast(variant: 'danger', duration: 4000, heading: 'Withdrawal failed.', text: 'Something went wrong while processing this withdrawal. Please try again.');
+            return;
+        }
 
         if (!$succeeded) {
             $this->addError('withdrawAmount', 'Withdrawal request failed. Please check your details and try again.');
+            Flux::toast(variant: 'danger', duration: 4000, heading: 'Withdrawal failed.', text: 'Please check your details and try again.');
             return;
         }
+
+        try {
+            broadcast(new NotificationEvent());
+        } catch (\Exception $e) {
+            // The withdrawal already succeeded above — a broadcast/websocket
+            // hiccup (e.g. Reverb not running) should only cost real-time
+            // UI refresh, not the transaction itself.
+            Log::warning('Withdrawal succeeded but notification broadcast failed', ['error' => $e->getMessage()]);
+        }
+
+        Flux::toast(
+            variant: 'success',
+            duration: 4000,
+            heading: 'Withdrawal submitted!',
+            text: "₱" . number_format($totalDeduction, 2) . " is on its way to {$institutionName}.",
+        );
 
         session()->flash('withdrawal_submitted', true);
 
@@ -188,10 +241,19 @@ new class extends Component
     }
 }; ?>
 
-<div class="max-w-4xl mx-auto">
-    <div class="flex items-center gap-3 mb-5">
-        <flux:button :href="auth()->user()->role === 'admin' ? route('admin.dashboard') : route('operator.dashboard')" wire:navigate variant="ghost" icon="arrow-left" />
-        <flux:heading size="xl">Withdraw balance</flux:heading>
+<div>
+    <x-page-header
+        description="Transfer your card balance to your linked e-wallet or bank account."
+        class="mb-3"
+    >
+    </x-page-header>
+
+    <div class="max-w-4xl mx-auto">
+    <div class="mb-5">
+        <flux:breadcrumbs>
+            <flux:breadcrumbs.item :href="auth()->user()->role === 'admin' ? route('admin.dashboard') : route('operator.dashboard')" wire:navigate>Back to Dashboard</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>Withdraw</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
@@ -292,5 +354,6 @@ new class extends Component
                 @endif
             </flux:card>
         </div>
+    </div>
     </div>
 </div>

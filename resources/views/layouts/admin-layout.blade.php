@@ -37,15 +37,47 @@
             width: 1.25rem !important;
             height: 1.25rem !important;
         }
+
+        /* Thin, subtle scrollbar for the sidebar nav area */
+        .sidebar-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+            /* Nudge the scrollbar toward the right edge without shifting content */
+            margin-right: -4px;
+            padding-right: 4px;
+        }
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.15);
+            border-radius: 9999px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+        .dark .sidebar-scroll {
+            scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+        }
+        .dark .sidebar-scroll::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+        .dark .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
     </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-dark-secondary">
     <flux:sidebar 
         sticky 
         collapsible="mobile"
-        class="border-e border-light-bd-default bg-light-primary dark:border-dark-bd-default dark:bg-dark-primary"
+        class="border-e border-light-bd-default bg-light-primary dark:border-dark-bd-default dark:bg-dark-primary !flex !flex-col !h-dvh !max-h-dvh !overflow-hidden"
     >
-        <flux:sidebar.header class="flex items-center justify-between gap-2 px-2 pb-2 w-full">
+        <flux:sidebar.header class="flex items-center justify-between gap-2 px-2 pt-2 pb-2 w-full shrink-0">
             <a class="flex items-center gap-2 min-w-0 shrink">
                 <img src="{{ asset('images/logo.png') }}" alt="SmartICCT"
                      class="h-8 w-8 lg:h-14 lg:w-14 shrink-0 object-contain block">
@@ -56,55 +88,62 @@
             <flux:sidebar.collapse class="lg:hidden shrink-0" />
         </flux:sidebar.header>
 
-        <div class="border-b border-light-bd-default dark:border-dark-bd-default mx-2 mb-1"></div>
+        <div class="border-b border-light-bd-default dark:border-dark-bd-default mx-2 mb-1 shrink-0"></div>
 
-        <flux:sidebar.nav class="sidebar-nav-large gap-1 mt-1">
-            <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('admin.dashboard') }}"
-                icon="home"
-            >Dashboard</x-dashboard.sidebar-menu.sidebar-item>
+        <div class="sidebar-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <flux:sidebar.nav class="sidebar-nav-large gap-1 mt-1">
+                <x-dashboard.sidebar-menu.sidebar-item
+                    href="{{ route('admin.dashboard') }}"
+                    icon="home"
+                >Dashboard</x-dashboard.sidebar-menu.sidebar-item>
 
-            <livewire:pages::feed-sidebar-item />
-            <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('admin.routes') }}"
-                icon="map"
-            >Routes</x-dashboard.sidebar-menu.sidebar-item>
+                <livewire:pages::feed-sidebar-item />
+                <x-dashboard.sidebar-menu.sidebar-item
+                    href="{{ route('admin.routes') }}"
+                    icon="map"
+                >Routes</x-dashboard.sidebar-menu.sidebar-item>
 
-            <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('live.queue') }}"
-                icon="clock"
-                wire:navigate
-            >Queueing</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item
+                    href="{{ route('live.queue') }}"
+                    icon="clock"
+                    wire:navigate
+                >Queueing</x-dashboard.sidebar-menu.sidebar-item>
 
-            <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('admin.travel.record') }}"
-                icon="briefcase"
-            >Travel Records</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item
+                    href="{{ route('admin.travel.record') }}"
+                    icon="briefcase"
+                >Travel Records</x-dashboard.sidebar-menu.sidebar-item>
 
-            <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('admin.audit.logs') }}"
-                icon="shield-check"
-            >Audit Logs</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item
+                    href="{{ route('admin.audit.logs') }}"
+                    icon="shield-check"
+                >Audit Logs</x-dashboard.sidebar-menu.sidebar-item>
 
-            <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('admin.users') }}"
-                icon="users"
-                wire:navigate
-            >Users</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item
+                    href="{{ route('admin.users') }}"
+                    icon="users"
+                    wire:navigate
+                >Users</x-dashboard.sidebar-menu.sidebar-item>
 
-            <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('admin.cards') }}"
-                icon="credit-card"
-            >Card</x-dashboard.sidebar-menu.sidebar-item>
+                <x-dashboard.sidebar-menu.sidebar-item
+                    href="{{ route('admin.cards') }}"
+                    icon="credit-card"
+                >Card</x-dashboard.sidebar-menu.sidebar-item>
 
-            <x-dashboard.sidebar-menu.sidebar-item
-                href="{{ route('admin.topups') }}"
-                icon="banknotes"
-                wire:navigate
-            >Top-Up</x-dashboard.sidebar-menu.sidebar-item>
-        </flux:sidebar.nav>
+                <x-dashboard.sidebar-menu.sidebar-item
+                    href="{{ route('admin.topups') }}"
+                    icon="banknotes"
+                    wire:navigate
+                >Top-Up</x-dashboard.sidebar-menu.sidebar-item>
 
-        <flux:spacer />
+                <x-dashboard.sidebar-menu.sidebar-item
+                    href="{{ route('admin.transactions') }}"
+                    icon="currency-dollar"
+                    wire:navigate
+                >Transactions</x-dashboard.sidebar-menu.sidebar-item>
+            </flux:sidebar.nav>
+        </div>
+
         <livewire:pages::sidebar-profile />
     </flux:sidebar>
 

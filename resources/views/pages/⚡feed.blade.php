@@ -464,61 +464,57 @@ new class extends Component
             </button>
         </div>
 
+        {{-- Mobile-only menu row: always visible regardless of which tab is active --}}
+        @auth
+            <div class="flex lg:hidden items-center gap-2 flex-wrap sm:flex-nowrap mb-3">
+                <x-button
+                    href="{{ route('post.archived') }}"
+                    wire:navigate
+                    variant="ghost"
+                    icon="archive-box"
+                    class="!font-secondary text-sm !px-3 !py-1.5
+                        !border !border-light-bd-default dark:!border-dark-bd-default
+                        !text-light-txt-primary dark:!text-dark-txt-primary
+                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                        flex-1 sm:flex-none justify-center"
+                >
+                    <span>Archived</span>
+                </x-button>
+                <x-button
+                    href="{{ route('post.my-posts') }}"
+                    wire:navigate
+                    variant="ghost"
+                    icon="document-text"
+                    class="!font-secondary text-sm !px-3 !py-1.5
+                        !border !border-light-bd-default dark:!border-dark-bd-default
+                        !text-light-txt-primary dark:!text-dark-txt-primary
+                        hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                        flex-1 sm:flex-none justify-center"
+                >
+                    <span>My posts</span>
+                </x-button>
+                @if (in_array(auth()->user()->role, ['operator', 'commuter']))
+                    <x-button
+                        href="{{ route('post.trash') }}"
+                        wire:navigate
+                        variant="ghost"
+                        icon="trash"
+                        class="!font-secondary text-sm !px-3 !py-1.5
+                            !border !border-light-bd-default dark:!border-dark-bd-default
+                            !text-light-txt-primary dark:!text-dark-txt-primary
+                            hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                            flex-1 sm:flex-none justify-center"
+                    >
+                        <span>Trash</span>
+                    </x-button>
+                @endif
+            </div>
+        @endauth
+
         <div class="flex flex-col lg:flex-row gap-4 h-full min-h-0">
             <div class="flex-1 min-w-0 flex-col gap-4 min-h-0" :class="mobileTab === 'feed' ? 'flex' : 'hidden lg:flex'">
                 @auth
-                    {{-- ====== PAGE ACTIONS (title left, actions right — fills the dead space, mirrors "Terminal Announcements" on the sidebar) ====== --}}
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <x-text variant="strong" class="hidden sm:block !font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary" style="font-size: var(--text-card-title)">
-                            Terminal Feed
-                        </x-text>
-
-                        <div class="flex items-center gap-2 w-full sm:w-auto sm:flex-wrap">
-                        <x-button
-                            href="{{ route('post.archived') }}"
-                            wire:navigate
-                            variant="ghost"
-                            icon="archive-box"
-                            class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-1.5
-                                !border !border-light-bd-default dark:!border-dark-bd-default
-                                !text-light-txt-primary dark:!text-dark-txt-primary
-                                hover:!bg-light-subtle dark:hover:!bg-dark-subtle
-                                flex-1 sm:flex-none justify-center"
-                        >
-                            <span>Archived</span>
-                        </x-button>
-                        <x-button
-                            href="{{ route('post.my-posts') }}"
-                            wire:navigate
-                            variant="ghost"
-                            icon="document-text"
-                            class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-1.5
-                                !border !border-light-bd-default dark:!border-dark-bd-default
-                                !text-light-txt-primary dark:!text-dark-txt-primary
-                                hover:!bg-light-subtle dark:hover:!bg-dark-subtle
-                                flex-1 sm:flex-none justify-center"
-                        >
-                            <span>My posts</span>
-                        </x-button>
-                        @if (in_array(auth()->user()->role, ['operator', 'commuter']))
-                            <x-button
-                                href="{{ route('post.trash') }}"
-                                wire:navigate
-                                variant="ghost"
-                                icon="trash"
-                                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-1.5
-                                    !border !border-light-bd-default dark:!border-dark-bd-default
-                                    !text-light-txt-primary dark:!text-dark-txt-primary
-                                    hover:!bg-light-subtle dark:hover:!bg-dark-subtle
-                                    flex-1 sm:flex-none justify-center"
-                            >
-                                <span>Trash</span>
-                            </x-button>
-                        @endif
-                        </div>
-                    </div>
-
-                    <div class="shrink-0">
+                    <div class="rounded-xl border border-light-bd-default dark:border-dark-bd-default p-3">
                         <livewire:pages::create-post />
                     </div>
                 @endauth
@@ -621,6 +617,52 @@ new class extends Component
         </div>
 
         <div class="w-full lg:w-80 shrink-0 flex-col gap-3 min-h-0" :class="mobileTab === 'announcements' ? 'flex' : 'hidden lg:flex'">
+            @auth
+                <div class="hidden lg:flex items-center justify-center gap-2 w-full">
+                    <x-button
+                        href="{{ route('post.archived') }}"
+                        wire:navigate
+                        variant="ghost"
+                        icon="archive-box"
+                        class="!font-secondary text-sm !px-3 !py-1.5
+                            !border !border-light-bd-default dark:!border-dark-bd-default
+                            !text-light-txt-primary dark:!text-dark-txt-primary
+                            hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                            flex-1 sm:flex-none justify-center"
+                    >
+                        <span>Archived</span>
+                    </x-button>
+                    <x-button
+                        href="{{ route('post.my-posts') }}"
+                        wire:navigate
+                        variant="ghost"
+                        icon="document-text"
+                        class="!font-secondary text-sm !px-3 !py-1.5
+                            !border !border-light-bd-default dark:!border-dark-bd-default
+                            !text-light-txt-primary dark:!text-dark-txt-primary
+                            hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                            flex-1 sm:flex-none justify-center"
+                    >
+                        <span>My posts</span>
+                    </x-button>
+                    @if (in_array(auth()->user()->role, ['operator', 'commuter']))
+                        <x-button
+                            href="{{ route('post.trash') }}"
+                            wire:navigate
+                            variant="ghost"
+                            icon="trash"
+                            class="!font-secondary text-sm !px-3 !py-1.5
+                                !border !border-light-bd-default dark:!border-dark-bd-default
+                                !text-light-txt-primary dark:!text-dark-txt-primary
+                                hover:!bg-light-subtle dark:hover:!bg-dark-subtle
+                                flex-1 sm:flex-none justify-center"
+                        >
+                            <span>Trash</span>
+                        </x-button>
+                    @endif
+                </div>
+            @endauth
+
             <x-text variant="strong" class="!font-primary !font-bold !text-xl text-center" style="font-size: var(--text-card-title)">
                 Terminal Announcements
             </x-text>

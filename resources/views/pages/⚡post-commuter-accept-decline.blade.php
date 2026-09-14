@@ -2,6 +2,10 @@
 
 use Livewire\Component;
 
+use App\Models\Notification;
+use App\Models\UserNotification;
+use App\Events\NotificationEvent;
+
 new class extends Component
 {
     public $this_operator;
@@ -12,6 +16,11 @@ new class extends Component
     public function cancelThisTransaction() {
         $this->this_operator->update(['status' => 'cancel']);
         $this->this_operator->post->update(['status' => 'published']);
+
+        $this->notifyOperator(
+            'Transaction cancelled',
+            'The commuter cancelled the transaction for a post you were interested in.',
+        );
 
         Flux::toast(
             duration: 0,
@@ -30,12 +39,37 @@ new class extends Component
         $this->this_operator->update(['status' => 'accept']);
         $this->this_operator->post->update(['status' => 'rented']);
 
+        $this->notifyOperator(
+            'You were accepted',
+            'A commuter accepted you for their post. Check the details under Active transaction.',
+        );
+
         Flux::toast(
             duration: 0,
             variant: 'success',
             heading: 'Operator accepted',
             text: 'You have accepted this operator for the rental.',
         );
+    }
+
+    protected function notifyOperator(string $title, string $message): void
+    {
+        if (!$this->this_operator->user_id) {
+            return;
+        }
+
+        $notification = Notification::create([
+            'type'    => 'Rental',
+            'title'   => $title,
+            'message' => $message,
+        ]);
+
+        UserNotification::create([
+            'notification_id' => $notification->id,
+            'user_id'         => $this->this_operator->user_id,
+        ]);
+
+        broadcast(new NotificationEvent());
     }
 
     public function acceptOperatorRequest() {

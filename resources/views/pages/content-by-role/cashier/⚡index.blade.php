@@ -14,103 +14,28 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 {
     public string $range = '7'; // days: 7, 14, 30
 
-    // ===================== EXPORT MODAL =====================
-
-    public string $exportDateFrom = '';
-    public string $exportDateTo = '';
-    public string $exportType = ''; // '', queue_fees, topups
-    public string $exportPaper = 'legal';
-    public string $exportOrientation = 'portrait';
-
-    public function mount()
-    {
-        $this->exportDateFrom = today()->toDateString();
-        $this->exportDateTo = today()->toDateString();
-    }
-
-    // Reset the export dialog back to "today / all" each time it opens, so
-    // it never quietly carries a narrowed filter over to the next export.
-    public function prepareExportModal()
-    {
-        $this->exportDateFrom = today()->toDateString();
-        $this->exportDateTo = today()->toDateString();
-        $this->exportType = '';
-    }
-
-    public function setExportRangeAllTime()
-    {
-        $this->exportDateFrom = '';
-        $this->exportDateTo = '';
-    }
-
-    public function setExportRangeToday()
-    {
-        $this->exportDateFrom = today()->toDateString();
-        $this->exportDateTo = today()->toDateString();
-    }
-
-    #[Computed]
-    public function exportRangePreset(): string
-    {
-        if ($this->exportDateFrom === '' && $this->exportDateTo === '') {
-            return 'all';
-        }
-
-        $today = today()->toDateString();
-
-        if ($this->exportDateFrom === $today && $this->exportDateTo === $today) {
-            return 'today';
-        }
-
-        return 'custom';
-    }
-
-    #[Computed]
-    public function exportUrl(): string
-    {
-        return route('cashier.transactions.export', array_filter([
-            'from'        => $this->exportDateFrom,
-            'to'          => $this->exportDateTo,
-            'type'        => $this->exportType,
-            'paper'       => $this->exportPaper,
-            'orientation' => $this->exportOrientation,
-        ]));
-    }
-
-    // Same params as exportUrl, plus preview=1 so the controller streams the
-    // PDF inline instead of forcing a download or logging it as an export.
-    #[Computed]
-    public function exportPreviewUrl(): string
-    {
-        return route('cashier.transactions.export', array_filter([
-            'from'        => $this->exportDateFrom,
-            'to'          => $this->exportDateTo,
-            'type'        => $this->exportType,
-            'paper'       => $this->exportPaper,
-            'orientation' => $this->exportOrientation,
-            'preview'     => 1,
-        ]));
-    }
-
     // ===================== KPI CARDS =====================
 
     #[Computed]
-    public function queueFeesCollected()
+    public function queueFeesCollectedToday()
     {
+        // Terminal-wide, today only — was previously all-time with no date
+        // filter, the only unscoped tile among three "today" KPI cards in
+        // the same row.
         $totalCardFees = CardTransaction::where('transaction_type', 'queueing_fee')
             ->where('status', 'success')
+            ->whereDate('transaction_time', today())
             ->sum('amount');
 
+        // Cash queue fees and cash fare payments share the same table with
+        // no dedicated type column — 'CASH-' is the queue-fee prefix,
+        // 'FARECASH-' is the fare-payment one, so this excludes the latter.
         $totalCashFees = CashTransaction::where('status', 'success')
+            ->where('reference_no', 'like', 'CASH-%')
+            ->whereDate('created_at', today())
             ->sum('amount');
 
-        $totalCollected = $totalCardFees + $totalCashFees;
-
-        // $totalWithdrawn = TerminalTransaction::where('transaction_type', 'withdrawal')
-        //     ->where('status', 'succeeded')
-        //     ->sum('amount');
-
-        return $totalCollected;
+        return $totalCardFees + $totalCashFees;
     }
 
     #[Computed]
@@ -118,12 +43,13 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     {
         $cardFees = CardTransaction::where('processed_by', Auth::id())
             ->where('transaction_type', 'queueing_fee')   // fixed
-            ->where('status', 'success')                    // added — only successful ones should count
+            ->where('status', 'success')                    // added
             ->whereDate('transaction_time', today())
             ->count();
 
         $cashFees = CashTransaction::where('processed_by', Auth::id())
             ->where('status', 'success')
+            ->where('reference_no', 'like', 'CASH-%')
             ->whereDate('created_at', today())
             ->count();
 
@@ -141,6 +67,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
         $cashFees = CashTransaction::where('processed_by', Auth::id())
             ->where('status', 'success')
+            ->where('reference_no', 'like', 'CASH-%')
             ->whereDate('created_at', today())
             ->sum('amount');
 
@@ -157,23 +84,6 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     }
 
     #[Computed]
-    public function myQueueFeesToday()
-    {
-        $card = CardTransaction::where('processed_by', Auth::id())
-            ->where('transaction_type', 'queueing_fee')   // fixed
-            ->where('status', 'success')                    // added
-            ->whereDate('transaction_time', today())
-            ->count();
-
-        $cash = CashTransaction::where('processed_by', Auth::id())
-            ->where('status', 'success')
-            ->whereDate('created_at', today())
-            ->count();
-
-        return $card + $cash;
-    }
-
-    #[Computed]
     public function vehiclesLoggedToday()
     {
         // Terminal-wide — queues has no cashier-attribution column yet
@@ -186,6 +96,65 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         return CardTransaction::whereIn('status', ['failed', 'insufficient_balance'])
             ->whereDate('created_at', today())
             ->count();
+    }
+
+    #[Computed]
+    public function myFaresCollectedToday()
+    {
+        // Card fares tapped at this cashier's terminal (source = 'cashier';
+        // excludes 'cashier_cash', the cash counterpart below — same split
+        // used in cashier/transactions.blade.php).
+        $cardFares = CardTransaction::where('processed_by', Auth::id())
+            ->where('transaction_type', 'fare_earning')
+            ->where('source', 'cashier')
+            ->where('status', 'success')
+            ->whereDate('transaction_time', today())
+            ->sum('amount');
+
+        $cashFares = CashTransaction::where('processed_by', Auth::id())
+            ->where('status', 'success')
+            ->where('reference_no', 'like', 'FARECASH-%')
+            ->whereDate('created_at', today())
+            ->sum('amount');
+
+        return $cardFares + $cashFares;
+    }
+
+    #[Computed]
+    public function myFarePaymentModeSplit()
+    {
+        $cardFares = CardTransaction::where('processed_by', Auth::id())
+            ->where('transaction_type', 'fare_earning')
+            ->where('source', 'cashier')
+            ->where('status', 'success')
+            ->whereDate('transaction_time', today())
+            ->sum('amount');
+
+        $cashFares = CashTransaction::where('processed_by', Auth::id())
+            ->where('status', 'success')
+            ->where('reference_no', 'like', 'FARECASH-%')
+            ->whereDate('created_at', today())
+            ->sum('amount');
+
+        $labels = [];
+        $data = [];
+
+        if ($cashFares > 0) {
+            $labels[] = 'Cash';
+            $data[] = (float) $cashFares;
+        }
+
+        if ($cardFares > 0) {
+            $labels[] = 'Card';
+            $data[] = (float) $cardFares;
+        }
+
+        if (empty($labels)) {
+            $labels = ['No fares yet'];
+            $data = [1];
+        }
+
+        return compact('labels', 'data');
     }
 
     // ===================== CHARTS =====================
@@ -207,6 +176,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
         $cashFees = CashTransaction::where('processed_by', Auth::id())
             ->where('status', 'success')
+            ->where('reference_no', 'like', 'CASH-%')
             ->whereBetween('created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
             ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
             ->groupBy('day')
@@ -233,6 +203,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
         $cash = CashTransaction::where('processed_by', Auth::id())
             ->where('status', 'success')
+            ->where('reference_no', 'like', 'CASH-%')
             ->whereBetween('created_at', [$start, $end])
             ->sum('amount');
 
@@ -289,40 +260,6 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             ->get(['id', 'vehicle_type', 'destination', 'status', 'time_queued', 'time_departed']);
     }
 
-    #[Computed]
-    public function myRecentTransactions()
-    {
-        $cardFees = CardTransaction::where('processed_by', Auth::id())
-            ->where('transaction_type', 'queueing_fee')   // fixed
-            ->where('status', 'success')                    // added — don't show failed attempts as "recent transactions"
-            ->latest('transaction_time')
-            ->limit(5)
-            ->get(['id', 'amount', 'transaction_time'])
-            ->map(fn ($t) => (object) [
-                'label' => 'Queue fee',
-                'mode' => 'Card',
-                'amount' => $t->amount,
-                'occurred_at' => $t->transaction_time,
-            ]);
-
-        $cashFees = CashTransaction::where('processed_by', Auth::id())
-            ->where('status', 'success')
-            ->latest('created_at')
-            ->limit(5)
-            ->get(['id', 'amount', 'created_at'])
-            ->map(fn ($t) => (object) [
-                'label' => 'Queue fee',
-                'mode' => 'Cash',
-                'amount' => $t->amount,
-                'occurred_at' => $t->created_at,
-            ]);
-
-        return $cardFees->concat($cashFees)
-            ->sortByDesc('occurred_at')
-            ->take(5)
-            ->values();
-    }
-
     // ===================== EXPORT =====================
 
     #[Computed]
@@ -363,6 +300,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 ->count();
             $cash = CashTransaction::where('processed_by', Auth::id())
                 ->where('status', 'success')
+                ->where('reference_no', 'like', 'CASH-%')
                 ->whereBetween('created_at', [$start, $end])
                 ->count();
 
@@ -391,18 +329,20 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             $this->myCollectedToday,
             $this->topUpsToday,
             $this->collectionsTrend,
-            $this->myQueueFeesToday,
+            $this->queueFeesCollectedToday,
             $this->vehiclesLoggedToday,
             $this->failedTransactionsToday,
+            $this->myFaresCollectedToday,
+            $this->myFarePaymentModeSplit,
             $this->myCollectionsOverTime,
             $this->myCollectionsByMode,
             $this->todayQueueVolumeByVehicleType,
             $this->todaysVehicleLog,
-            $this->myRecentTransactions,
         );
 
         $this->dispatch('collections-chart-updated', chart: $this->myCollectionsOverTime);
         $this->dispatch('collections-mode-chart-updated', chart: $this->myCollectionsByMode);
+        $this->dispatch('fare-mode-chart-updated', chart: $this->myFarePaymentModeSplit);
         $this->dispatch('queue-volume-chart-updated', chart: $this->todayQueueVolumeByVehicleType);
         $this->dispatch('status-strip-updated', transactions: $this->myTransactionsToday, collected: $this->myCollectedToday);
     }
@@ -431,7 +371,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
     {{-- ===================== MINI-NAVBAR ===================== --}}
     <x-page-header
-        heading="Your shift transactions and queue activity"
+        description="Your shift transactions and queue activity"
     >
         <flux:modal.trigger name="cashier-filters">
             <button
@@ -443,16 +383,6 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 @if ((int) $this->range !== 7)
                     <span class="flex items-center justify-center w-4 h-4 rounded-full bg-primary dark:bg-dark-txt-primary text-white dark:text-primary text-[10px] font-bold">1</span>
                 @endif
-            </button>
-        </flux:modal.trigger>
-
-        <flux:modal.trigger name="export-cashier-transactions" wire:click="prepareExportModal">
-            <button
-                type="button"
-                class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg bg-black text-white border-0 hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 transition font-secondary text-xs sm:text-table-row shrink-0"
-            >
-                <flux:icon.arrow-down-tray class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-black" />
-                <span class="hidden sm:inline">Export</span>
             </button>
         </flux:modal.trigger>
     </x-page-header>
@@ -497,172 +427,6 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         </div>
     </flux:modal>
 
-    {{-- ===================== EXPORT MODAL ===================== --}}
-    <flux:modal
-        name="export-cashier-transactions"
-        :closable="false"
-        class="w-[calc(100%-2rem)] sm:max-w-lg mx-auto rounded-xl overflow-hidden"
-    >
-        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
-            <div class="flex items-start justify-between">
-                <div>
-                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
-                        Export cashier transactions
-                    </flux:heading>
-                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                        Choose what to include in the PDF. Defaults to today, covering both queue fees and top-ups.
-                    </flux:text>
-                </div>
-                <flux:modal.close>
-                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
-                        <flux:icon name="x-mark" class="w-5 h-5" />
-                    </button>
-                </flux:modal.close>
-            </div>
-
-            <flux:field>
-                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Date range</flux:label>
-
-                <div class="flex gap-2 mt-1.5">
-                    <button
-                        type="button"
-                        wire:click="setExportRangeAllTime"
-                        class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
-                            {{ $this->exportRangePreset === 'all'
-                                ? 'bg-primary text-white border-primary'
-                                : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
-                    >
-                        All Time
-                    </button>
-                    <button
-                        type="button"
-                        wire:click="setExportRangeToday"
-                        class="flex-1 rounded-lg border px-3 py-2 font-secondary text-sm font-medium transition text-center
-                            {{ $this->exportRangePreset === 'today'
-                                ? 'bg-primary text-white border-primary'
-                                : 'bg-transparent text-light-txt-body dark:text-dark-txt-body border-light-bd-default dark:border-dark-bd-default hover:bg-light-subtle dark:hover:bg-dark-subtle' }}"
-                    >
-                        Today
-                    </button>
-                </div>
-
-                <div class="flex items-center gap-2 mt-3">
-                    <flux:input
-                        type="date"
-                        wire:model.live="exportDateFrom"
-                        size="sm"
-                        class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
-                    />
-                    <span class="text-light-txt-muted dark:text-dark-txt-muted text-sm shrink-0">to</span>
-                    <flux:input
-                        type="date"
-                        wire:model.live="exportDateTo"
-                        size="sm"
-                        class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
-                    />
-                </div>
-                <flux:text class="mt-1.5 font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">
-                    Or pick a custom range above.
-                </flux:text>
-            </flux:field>
-
-            <flux:field>
-                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Transaction type</flux:label>
-                <flux:select
-                    wire:model.live="exportType"
-                    size="sm"
-                    placeholder="All (queue fees & top-ups)"
-                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
-                >
-                    <flux:select.option value="">All (queue fees &amp; top-ups)</flux:select.option>
-                    <flux:select.option value="queue_fees">Queue fees only</flux:select.option>
-                    <flux:select.option value="topups">Top-ups only</flux:select.option>
-                </flux:select>
-            </flux:field>
-
-            <div class="flex gap-2">
-                <flux:field class="flex-1">
-                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Paper size</flux:label>
-                    <flux:select wire:model.live="exportPaper" size="sm" class="font-secondary text-table-row">
-                        <flux:select.option value="letter">Letter</flux:select.option>
-                        <flux:select.option value="legal">Legal</flux:select.option>
-                        <flux:select.option value="a4">A4</flux:select.option>
-                    </flux:select>
-                </flux:field>
-                <flux:field class="flex-1">
-                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Orientation</flux:label>
-                    <flux:select wire:model.live="exportOrientation" size="sm" class="font-secondary text-table-row">
-                        <flux:select.option value="portrait">Portrait</flux:select.option>
-                        <flux:select.option value="landscape">Landscape</flux:select.option>
-                    </flux:select>
-                </flux:field>
-            </div>
-
-            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
-                <flux:modal.close class="w-full sm:w-auto">
-                    <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
-                        Cancel
-                    </flux:button>
-                </flux:modal.close>
-                <flux:button
-                    type="button"
-                    x-on:click="Flux.modal('export-cashier-transactions').close(); Flux.modal('preview-cashier-transactions').show()"
-                    icon="eye"
-                    variant="primary"
-                    class="font-secondary w-full sm:w-auto justify-center"
-                >
-                    Preview
-                </flux:button>
-            </div>
-        </div>
-    </flux:modal>
-
-    {{-- ===================== PREVIEW MODAL ===================== --}}
-    <flux:modal
-        name="preview-cashier-transactions"
-        :closable="false"
-        class="w-[calc(100%-2rem)] sm:max-w-3xl mx-auto rounded-xl overflow-hidden"
-    >
-        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-4">
-            <div class="flex items-start justify-between">
-                <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
-                    Preview
-                </flux:heading>
-                <button
-                    type="button"
-                    x-on:click="Flux.modal('preview-cashier-transactions').close()"
-                    class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1"
-                >
-                    <flux:icon name="x-mark" class="w-5 h-5" />
-                </button>
-            </div>
-
-            <iframe
-                wire:key="{{ $this->exportPreviewUrl }}"
-                src="{{ $this->exportPreviewUrl }}"
-                class="w-full h-[60vh] rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-white"
-            ></iframe>
-
-            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
-                <flux:button
-                    type="button"
-                    x-on:click="Flux.modal('preview-cashier-transactions').close(); Flux.modal('export-cashier-transactions').show()"
-                    variant="ghost"
-                    class="w-full sm:w-auto justify-center font-secondary"
-                >
-                    Back to filters
-                </flux:button>
-                <flux:button
-                    href="{{ $this->exportUrl }}"
-                    icon="arrow-down-tray"
-                    variant="primary"
-                    class="font-secondary w-full sm:w-auto justify-center"
-                >
-                    Download PDF
-                </flux:button>
-            </div>
-        </div>
-    </flux:modal>
 
     {{-- ===================== LIVE STATUS STRIP ===================== --}}
     <div
@@ -724,10 +488,10 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 <div class="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-info/10 dark:bg-dark-info/20 shrink-0">
                     <flux:icon.ticket class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-info dark:text-dark-info" />
                 </div>
-                <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body">Queue fees collected</x-text>
+                <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body">Queue fees collected today (terminal)</x-text>
             </div>
             <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-info dark:text-dark-info block mt-2 sm:mt-3">
-                ₱{{ number_format($this->queueFeesCollected, 2) }}
+                ₱{{ number_format($this->queueFeesCollectedToday, 2) }}
             </x-text>
         </flux:card>
 
@@ -736,7 +500,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 <div class="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-primary/10 dark:bg-primary/20 shrink-0">
                     <flux:icon.truck class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary dark:text-dark-txt-primary" />
                 </div>
-                <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body">Vehicles logged today</x-text>
+                <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body">Vehicles logged today (terminal)</x-text>
             </div>
             <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-light-txt-primary dark:text-dark-txt-primary block mt-2 sm:mt-3">
                 {{ $this->vehiclesLoggedToday }}
@@ -748,7 +512,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 <div class="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-danger/10 dark:bg-dark-danger/20 shrink-0">
                     <flux:icon.exclamation-triangle class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-danger dark:text-dark-danger" />
                 </div>
-                <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body">Failed transactions today</x-text>
+                <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body">Failed transactions today (terminal)</x-text>
             </div>
             <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-danger dark:text-dark-danger block mt-2 sm:mt-3">
                 {{ $this->failedTransactionsToday }}
@@ -791,6 +555,45 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                 wire:ignore
                 x-data="donutChart(@js($this->myCollectionsByMode))"
                 @collections-mode-chart-updated.window="update($event.detail.chart)"
+            >
+                <div class="relative h-44 sm:h-56">
+                    <canvas x-ref="canvas" x-show="!empty"></canvas>
+                    <div x-show="empty" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center px-4">
+                        <flux:icon.chart-pie class="w-6 h-6 text-light-txt-muted dark:text-dark-txt-muted" />
+                        <span class="font-secondary text-xs sm:text-sm text-light-txt-muted dark:text-dark-txt-muted">No data yet</span>
+                    </div>
+                </div>
+            </div>
+        </flux:card>
+    </div>
+
+    {{-- ===================== MY FARES (commuter boarding) =====================
+         Previously had no presence on this dashboard even though fare
+         payment is the cashier's other core daily task alongside queueing. --}}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
+        <flux:card class="p-3 sm:p-4 flex flex-col justify-center">
+            <div class="flex items-center gap-1.5 sm:gap-2.5">
+                <div class="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-secondary/10 dark:bg-secondary/20 shrink-0">
+                    <flux:icon.banknotes class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-secondary-hover dark:text-secondary" />
+                </div>
+                <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body">My fares collected today</x-text>
+            </div>
+            <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-light-txt-primary dark:text-dark-txt-primary block mt-2 sm:mt-3">
+                ₱{{ number_format($this->myFaresCollectedToday, 2) }}
+            </x-text>
+        </flux:card>
+
+        <flux:card class="p-4 lg:col-span-2">
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                    Fare payment mode
+                </x-text>
+                <span class="font-secondary text-xs font-medium text-light-txt-muted dark:text-dark-txt-muted">{{ array_sum($this->myFarePaymentModeSplit['data']) }} total</span>
+            </div>
+            <div
+                wire:ignore
+                x-data="donutChart(@js($this->myFarePaymentModeSplit))"
+                @fare-mode-chart-updated.window="update($event.detail.chart)"
             >
                 <div class="relative h-44 sm:h-56">
                     <canvas x-ref="canvas" x-show="!empty"></canvas>
@@ -885,55 +688,4 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         </flux:card>
     </div>
 
-    {{-- ===================== ZONE: RECENT ACTIVITY ===================== --}}
-    <div class="flex items-center gap-2.5 text-light-txt-primary dark:text-dark-txt-primary">
-        <span class="zone-bar bg-secondary"></span>
-        <span class="font-secondary text-nav-label font-bold uppercase tracking-widest">Recent Activity</span>
-    </div>
-    <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default">
-
-    <flux:card class="p-0 overflow-hidden">
-        <div class="px-4 pt-4">
-            <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
-                My recent transactions
-            </x-text>
-        </div>
-        <div class="overflow-x-auto mt-2">
-            <table class="w-full font-secondary text-table-row">
-                <thead>
-                    <tr class="text-left text-light-txt-body dark:text-dark-txt-body border-b border-light-bd-default dark:border-dark-bd-default">
-                        <th class="py-2 px-4 font-semibold">Type</th>
-                        <th class="py-2 px-4 font-semibold">Mode</th>
-                        <th class="py-2 px-4 font-semibold text-right">Amount</th>
-                        <th class="py-2 px-4 font-semibold text-right">When</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($this->myRecentTransactions as $txn)
-                        <tr class="border-b border-light-bd-default/50 dark:border-dark-bd-default/50 last:border-0">
-                            <td class="py-2.5 px-4 text-light-txt-body dark:text-dark-txt-body">{{ $txn->label }}</td>
-                            <td class="py-2.5 px-4">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge font-medium bg-light-subtle dark:bg-dark-subtle text-light-txt-primary dark:text-dark-txt-primary">
-                                    {{ $txn->mode }}
-                                </span>
-                            </td>
-                            <td class="py-2.5 px-4 text-right font-primary text-stat-value font-semibold text-success dark:text-dark-success">
-                                ₱{{ number_format($txn->amount, 2) }}
-                            </td>
-                            <td class="py-2.5 px-4 text-right font-secondary text-timestamp tabular-nums text-light-txt-muted dark:text-dark-txt-muted whitespace-nowrap">
-                                {{ \Illuminate\Support\Carbon::parse($txn->occurred_at)->diffForHumans() }}
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="py-8 text-center text-light-txt-muted dark:text-dark-txt-muted">
-                                No transactions processed yet today.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-        <div class="h-1"></div>
-    </flux:card>
 </div>

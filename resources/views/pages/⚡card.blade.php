@@ -3,31 +3,115 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
+use Livewire\WithPagination;
 use App\Models\Card;
 use App\Services\CheckoutSessionService;
 use App\Models\CardReport;
 use App\Models\CardTransaction;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 new class extends Component
 {
+    use WithPagination;
+
     public $amount = 100; // Default preset amount
 
+    public string $activityTypeFilter = 'all';
+    public string $activitySort = 'desc';
+
+    public function updatedActivityTypeFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedActivitySort()
+    {
+        $this->resetPage();
+    }
+
     #[Computed]
-    public function recentActivity()
+    public function activityTypeOptions(): array
+    {
+        $role = auth()->user()->role;
+
+        return [
+            'all'           => 'All activity',
+            'fare_activity' => $role === 'operator' ? 'Queue fee payment' : 'Fare payment',
+            'top_up'        => 'Top-ups',
+            'report'        => 'Reports',
+        ];
+    }
+
+    #[Computed]
+    public function cardActivityHistory()
     {
         if (!$this->userCard) {
-            return collect();
+            return new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10);
         }
 
-        $type = auth()->user()->role === 'operator' ? 'queueing_fee' : 'queue_deduction';
+        $cardId   = $this->userCard->id;
+        $role     = auth()->user()->role;
+        $fareType = $role === 'operator' ? 'queueing_fee' : 'queue_deduction';
 
-        return $this->userCard
-            ->cardTransactions()
-            ->where('transaction_type', $type)
-            ->latest('transaction_time')
-            ->limit(10)
-            ->get();
+        $fareActivity = DB::table('card_transactions')
+            ->select([
+                DB::raw("CONCAT('ct-', id) as activity_id"),
+                DB::raw("'fare_activity' as category"),
+                'message as description',
+                'amount',
+                'status',
+                'transaction_time as activity_date',
+            ])
+            ->where('card_id', $cardId)
+            ->where('transaction_type', $fareType);
+
+        $topUps = DB::table('top_up_transactions')
+            ->select([
+                DB::raw("CONCAT('tu-', id) as activity_id"),
+                DB::raw("'top_up' as category"),
+                DB::raw("CONCAT('Top-up via ', COALESCE(payment_method, 'online payment')) as description"),
+                'points_credited as amount',
+                'status',
+                'created_at as activity_date',
+            ])
+            ->where('card_id', $cardId);
+
+        $reports = DB::table('card_reports')
+            ->select([
+                DB::raw("CONCAT('cr-', id) as activity_id"),
+                DB::raw("'report' as category"),
+                DB::raw("CONCAT('Card reported ', reason) as description"),
+                DB::raw('NULL as amount'),
+                'status',
+                'created_at as activity_date',
+            ])
+            ->where('card_id', $cardId);
+
+        // Only union in the sources the current filter actually needs
+        $sources = [];
+        if (in_array($this->activityTypeFilter, ['all', 'fare_activity'])) {
+            $sources[] = $fareActivity;
+        }
+        if (in_array($this->activityTypeFilter, ['all', 'top_up'])) {
+            $sources[] = $topUps;
+        }
+        if (in_array($this->activityTypeFilter, ['all', 'report'])) {
+            $sources[] = $reports;
+        }
+
+        if (empty($sources)) {
+            return new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10);
+        }
+
+        $query = array_shift($sources);
+        foreach ($sources as $source) {
+            $query->unionAll($source);
+        }
+
+        $query->orderBy('activity_date', $this->activitySort === 'asc' ? 'asc' : 'desc');
+
+        return $query->paginate(10, ['*'], 'activityPage');
     }
 
     #[Computed]
@@ -90,7 +174,7 @@ new class extends Component
 <div>
     {{-- ====== PAGE HEADER (consistent with dashboard) ====== --}}
     <x-page-header
-        heading="My ICCT Card's details"
+        description="My ICCT's card details"
         class="mb-6"
     >
         {{-- No extra buttons/slots for now – keep it clean --}}
@@ -115,7 +199,7 @@ new class extends Component
                             <flux:icon.credit-card class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary dark:text-dark-txt-primary" />
                         </div>
                         <x-text class="font-secondary text-xs sm:text-stat-label text-light-txt-muted dark:text-dark-txt-muted">
-                            Total balance
+                            {{ auth()->user()->role === 'commuter' ? 'Points balance' : 'Total balance' }}
                         </x-text>
                         <button
                             type="button"
@@ -130,10 +214,14 @@ new class extends Component
 
                     <x-text class="font-primary text-2xl sm:text-3xl font-bold text-light-txt-primary dark:text-dark-txt-primary block h-[40px] flex items-center">
                         <span x-show="showBalance">
-                            ₱{{ number_format($this->userCard->balance, 2) }}
+                            @if (auth()->user()->role === 'commuter')
+                                {{ number_format($this->userCard->balance, 2) }} pts
+                            @else
+                                ₱{{ number_format($this->userCard->balance, 2) }}
+                            @endif
                         </span>
                         <span x-show="!showBalance" x-cloak class="tracking-wider">
-                            ₱••••••
+                            {{ auth()->user()->role === 'commuter' ? '••••••' : '₱••••••' }}
                         </span>
                     </x-text>
 
@@ -206,48 +294,74 @@ new class extends Component
             </div>
         </div>
 
-        {{-- Recent activity – standard card list, zone header matches the dashboard --}}
+        {{-- Card activity history – filters + pagination, unifies card_transactions, top-ups, and card reports --}}
         <div>
             <div class="flex items-center gap-2.5 text-light-txt-primary dark:text-dark-txt-primary mb-3">
                 <span class="w-1 h-[1.1rem] rounded-sm bg-primary dark:bg-dark-txt-primary"></span>
-                <span class="font-secondary text-nav-label font-bold uppercase tracking-widest">Recent Activity</span>
+                <span class="font-secondary text-nav-label font-bold uppercase tracking-widest">Card Activity History</span>
             </div>
 
-            <div class="space-y-2 max-h-96 overflow-y-auto pr-1">
-                @forelse ($this->recentActivity as $transaction)
+            <div class="flex flex-col sm:flex-row gap-2 mb-3">
+                <flux:select wire:model.live="activityTypeFilter" size="sm" class="font-secondary text-sm">
+                    @foreach ($this->activityTypeOptions as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                <flux:select wire:model.live="activitySort" size="sm" class="font-secondary text-sm">
+                    <flux:select.option value="desc">Latest to oldest</flux:select.option>
+                    <flux:select.option value="asc">Oldest to latest</flux:select.option>
+                </flux:select>
+            </div>
+
+            <div class="space-y-2">
+                @forelse ($this->cardActivityHistory as $activity)
                     @php
-                        $isCredit = $transaction->transaction_type === 'top_up' || $transaction->amount > 0;
+                        $isCredit = $activity->category === 'top_up';
+                        $isReport = $activity->category === 'report';
                     @endphp
                     <flux:card size="sm" class="flex items-center gap-3 justify-between !p-3 dark:bg-dark-secondary dark:border-dark-bd-default">
                         <div>
-                            @if ($transaction->status !== 'failed')
-                                <flux:icon name="check" class="w-4 h-4 text-success dark:text-dark-success" />
-                            @else
+                            @if ($activity->status === 'failed')
                                 <flux:icon name="exclamation-triangle" class="w-4 h-4 text-danger dark:text-dark-danger" />
+                            @elseif ($activity->status === 'pending')
+                                <flux:icon name="clock" class="w-4 h-4 text-warning dark:text-dark-warning" />
+                            @else
+                                <flux:icon name="check" class="w-4 h-4 text-success dark:text-dark-success" />
                             @endif
                         </div>
                         <div class="flex-1 min-w-0">
                             <x-text class="text-sm font-medium truncate text-light-txt-body dark:text-dark-txt-primary">
-                                {{ $transaction->message ?? ucfirst(str_replace('_', ' ', $transaction->transaction_type)) }}
+                                {{ ucfirst($activity->description) }}
                             </x-text>
                             <x-text class="text-[11px] text-light-txt-muted dark:text-dark-txt-muted mt-0.5">
-                                {{ $transaction->location }} · {{ $transaction->transaction_time?->diffForHumans() }}
+                                {{ \Illuminate\Support\Carbon::parse($activity->activity_date)->diffForHumans() }}
                             </x-text>
                         </div>
-                        @if ($transaction->status !== 'failed')
-                            <x-text size="sm" class="font-medium tabular-nums text-light-txt-body dark:text-dark-txt-primary">
-                                - ₱{{ number_format(abs($transaction->amount), 2) }}
+                        @if (!$isReport)
+                            <x-text size="sm" class="font-medium tabular-nums {{ $isCredit ? 'text-success dark:text-dark-success' : 'text-light-txt-body dark:text-dark-txt-primary' }}">
+                                {{ $isCredit ? '+' : '-' }} ₱{{ number_format(abs($activity->amount), 2) }}
                             </x-text>
+                        @else
+                            <flux:badge size="sm" color="{{ $activity->status === 'pending' ? 'yellow' : ($activity->status === 'approved' ? 'green' : 'red') }}">
+                                {{ ucfirst($activity->status) }}
+                            </flux:badge>
                         @endif
                     </flux:card>
                 @empty
                     <flux:card class="px-6 py-10 text-center dark:bg-dark-secondary dark:border-dark-bd-default">
                         <flux:icon name="clock" class="w-8 h-8 text-light-txt-muted dark:text-dark-txt-muted mx-auto mb-2" />
-                        <x-text class="text-sm text-light-txt-muted dark:text-dark-txt-muted">No recent activity yet.</x-text>
+                        <x-text class="text-sm text-light-txt-muted dark:text-dark-txt-muted">No activity yet.</x-text>
                         <x-text class="text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Your card transactions will appear here.</x-text>
                     </flux:card>
                 @endforelse
             </div>
+
+            @if ($this->cardActivityHistory->hasPages())
+                <div class="mt-3">
+                    {{ $this->cardActivityHistory->links() }}
+                </div>
+            @endif
         </div>
 
     @else

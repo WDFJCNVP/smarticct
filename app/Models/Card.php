@@ -15,11 +15,27 @@ class Card extends Model
         'card_number',
         'uid',
         'balance',
+        'status',
+        'suspension_reason',
+        'suspended_at',
+        'suspended_by',
     ];
-    
+
+    protected $casts = [
+        'suspended_at' => 'datetime',
+    ];
 
     public function user() {
         return $this->belongsTo(User::class);
+    }
+
+    public function suspendedBy() {
+        return $this->belongsTo(User::class, 'suspended_by');
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === 'suspended';
     }
     
     public function cardTransactions()

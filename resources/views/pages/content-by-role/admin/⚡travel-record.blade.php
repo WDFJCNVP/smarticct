@@ -248,7 +248,7 @@ new class extends Component
     {{-- ====== PAGE HEADER (mini-navbar: heading left, actions right) ====== --}}
     <x-page-header
         heading="Travel Record"
-        description="You can monitor travel records here."
+        description="Terminal-wide Travel Records"
         class="mb-6"
     >
         <div class="flex items-center gap-2 w-full sm:w-auto">
@@ -367,7 +367,6 @@ new class extends Component
         <div class="w-full sm:w-auto flex items-center gap-2">
             <flux:select
                 wire:model.live="sortBy"
-                size="sm"
                 class="flex-1 sm:w-36 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
             >
                 <flux:select.option value="desc">Latest first</flux:select.option>
@@ -485,10 +484,8 @@ new class extends Component
                 <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
                     <flux:table.column align="center" class="px-2! md:px-4! py-2">Plate No.</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Driver</flux:table.column>
-                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Vehicle Type</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Route</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Occupancy</flux:table.column>
-                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Queued</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Departed</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Status</flux:table.column>
                 </flux:table.columns>
@@ -508,22 +505,12 @@ new class extends Component
                                 {{ $record->driver_name ?: '—' }}
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2">
-                                <flux:badge size="sm" color="{{ $record->vehicle_type === 'Bus' ? 'blue' : 'amber' }}" class="font-secondary text-badge text-xs">
-                                    {{ $record->vehicle_type }}
-                                </flux:badge>
-                            </flux:table.cell>
-
                             <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-primary">
                                 {{ $record->destination }}
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp {{ $isOverbooked ? 'text-danger dark:text-dark-danger' : 'text-light-txt-muted dark:text-dark-txt-muted' }}">
                                 {{ $record->seat_count }}/{{ $record->seat_capacity }}
-                            </flux:table.cell>
-
-                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ $record->time_queued?->format('M d, Y g:i a') ?? '—' }}
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
@@ -540,7 +527,7 @@ new class extends Component
                         </flux:table.row>
                     @empty
                         <flux:table.row>
-                            <flux:table.cell colspan="8" class="px-2 md:px-4 py-4">
+                            <flux:table.cell colspan="6" class="px-2 md:px-4 py-4">
                                 <div class="flex flex-col items-center justify-center py-6 md:py-12 gap-2">
                                     <flux:icon.truck class="w-6 h-6 md:w-8 md:h-8 text-light-txt-muted dark:text-dark-txt-muted" />
                                     <x-text class="font-secondary text-sm md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">

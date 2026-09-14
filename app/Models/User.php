@@ -98,7 +98,7 @@ class User extends Authenticatable
     }
 
     public function card() {
-        return $this->hasOne(Card::class);
+        return $this->hasOne(Card::class)->latestOfMany();
     }
 
     public function vehicles() {

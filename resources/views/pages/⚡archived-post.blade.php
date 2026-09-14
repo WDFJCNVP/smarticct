@@ -213,23 +213,19 @@ new class extends Component
 
 <div>
     <x-page-header
-        heading="Archived Posts"
+        description="My Archived Posts"
         class="mb-4 sm:mb-6"
     ></x-page-header>
 
     {{-- Header — matches Feed --}}
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4 sm:mb-6">
         <div>
-            <x-heading
-                size="xl"
+            <x-heading 
                 class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                style="font-size: var(--text-page-title)"
+                style="font-size: var(--text-page-subtitle)"
             >
-                Archived Posts
-            </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
                 Your archived rental posts and announcements.
-            </x-text>
+            </x-heading>
         </div>
 
         {{-- Navigation buttons — matches Feed --}}

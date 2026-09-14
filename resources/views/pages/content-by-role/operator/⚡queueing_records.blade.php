@@ -15,6 +15,7 @@ new  #[Layout('layouts.operator-layout')] class extends Component
     public $vehicle_type;
     public $plate_number;
     public $search = '';
+    public $sortBy = 'latest';
 
     public Vehicle $vehicle;
 
@@ -23,20 +24,45 @@ new  #[Layout('layouts.operator-layout')] class extends Component
         abort_if($vehicle->user_id !== auth()->id(), 404);
     }
 
+    public function updatedSearch() { $this->resetPage(); }
+    public function updatedSortBy() { $this->resetPage(); }
+
+    public function clearFilters()
+    {
+        $this->reset(['search']);
+        $this->sortBy = 'latest';
+        $this->resetPage();
+    }
+
+    #[Computed]
+    public function activeFilterCount()
+    {
+        return collect([$this->search])
+            ->filter(fn ($v) => filled($v))
+            ->count();
+    }
+
     #[Computed]
     public function getQueuedRecords() {
         return Queue::query()
-            ->where('user_id', auth()->user()->id) 
+            ->where('user_id', auth()->user()->id)
             ->where('plate_number', $this->vehicle->plate_number)
             ->when($this->search, function ($q) {
                 $q->where(function ($q2) {
                     $q2->where('driver_name', 'like', '%' . $this->search . '%')
                     ->orWhere('status', 'like', '%' . $this->search . '%')
-                    ->orWhere('plate_number', 'like', '%' . $this->search . '%')
                     ->orWhere('destination', 'like', '%' . $this->search . '%');
                 });
             })
-            ->latest()
+            ->when($this->sortBy, function ($q) {
+                match ($this->sortBy) {
+                    'oldest'        => $q->oldest(),
+                    'driver_asc'    => $q->orderBy('driver_name', 'asc'),
+                    'driver_desc'   => $q->orderBy('driver_name', 'desc'),
+                    'departed_desc' => $q->orderByDesc('time_departed'),
+                    default         => $q->latest(),
+                };
+            }, fn ($q) => $q->latest())
             ->paginate(10);
     }
 
@@ -57,26 +83,22 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 };
 ?>
 <div>
-    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
     <x-page-header
-        heading="All queuing and departure history for this vehicle."
+        heading="Vehicles' Travel Record"
     >
-        {{-- No extra controls – keep it minimal --}}
     </x-page-header>
 
-    {{-- Heading with breadcrumbs on the right --}}
-    <div class="flex items-start justify-between gap-4 mb-6">
+    <div class="flex flex-col-reverse sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6">
         <div>
             <x-heading
-                size="xl"
                 class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                style="font-size: var(--text-page-title)"
+                style="font-size: var(--text-section-heading)"
             >
-                Travel records
+                All queuing and departure history for this vehicle.
             </x-heading>
         </div>
 
-        <flux:breadcrumbs class="shrink-0 pt-1">
+        <flux:breadcrumbs class="shrink-0 sm:pt-1">
             <flux:breadcrumbs.item href="{{ route('operator.vehicles') }}" wire:navigate>
                 Back to my vehicles
             </flux:breadcrumbs.item>
@@ -101,6 +123,12 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 
             <div class="flex flex-wrap gap-3 sm:gap-6">
                 <div>
+                    <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Body no.</span>
+                    <span class="text-sm font-mono font-medium text-light-txt-body dark:text-dark-txt-body">
+                        {{ $this->vehicle->body_number ?? '—' }}
+                    </span>
+                </div>
+                <div>
                     <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Seats</span>
                     <span class="text-sm font-medium text-light-txt-body dark:text-dark-txt-body">
                         {{ $this->vehicle->total_seats }}
@@ -113,24 +141,17 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                     </span>
                 </div>
                 <div>
-                    <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Engine no.</span>
-                    <span class="text-sm font-medium text-light-txt-body dark:text-dark-txt-body">
-                        {{ $this->vehicle->engine_number ?? '—' }}
-                    </span>
-                </div>
-                <div>
-                    <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Compliance</span>
-                    <div class="flex items-center gap-2">
-                        @if($this->vehicle->has_franchise && $this->vehicle->franchise_expiry_date)
-                            <flux:tooltip content="Franchise verified (expires {{ $this->vehicle->franchise_expiry_date->format('M d, Y') }})">
-                                <flux:icon.check-circle class="w-4 h-4 text-success dark:text-dark-success" />
-                            </flux:tooltip>
-                        @else
-                            <flux:tooltip content="Franchise not verified">
-                                <flux:icon.x-circle class="w-4 h-4 text-danger dark:text-dark-danger" />
-                            </flux:tooltip>
-                        @endif
-                    </div>
+                    <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Franchise</span>
+                    @php $status = $this->vehicle->documentStatus(); @endphp
+                    @if ($status === 'valid')
+                        <span class="text-sm font-medium text-success dark:text-dark-success">Valid</span>
+                    @elseif ($status === 'expiring')
+                        <span class="text-sm font-medium text-warning dark:text-dark-warning">Expiring</span>
+                    @elseif ($status === 'expired')
+                        <span class="text-sm font-medium text-danger dark:text-dark-danger">Expired</span>
+                    @else
+                        <span class="text-sm font-medium text-light-txt-muted dark:text-dark-txt-muted">Not verified</span>
+                    @endif
                 </div>
             </div>
         </div>
@@ -190,44 +211,61 @@ new  #[Layout('layouts.operator-layout')] class extends Component
         </flux:card>
     </div>
 
-    {{-- Table card (no search bar) --}}
+    {{-- ====== SEARCH & SORT (inline) ====== --}}
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+        {{-- Search --}}
+        <div class="flex-1">
+            <flux:input
+                wire:model.live.debounce.300ms="search"
+                placeholder="Search driver name or destination..."
+                class="w-full font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+                icon="magnifying-glass"
+            />
+        </div>
+
+        {{-- Sort + Clear --}}
+        <div class="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <flux:select
+                wire:model.live="sortBy"
+                size="sm"
+                class="w-full sm:w-52 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+            >
+                <flux:select.option value="latest">Latest queued</flux:select.option>
+                <flux:select.option value="oldest">Oldest queued</flux:select.option>
+                <flux:select.option value="driver_asc">Driver (A → Z)</flux:select.option>
+                <flux:select.option value="driver_desc">Driver (Z → A)</flux:select.option>
+                <flux:select.option value="departed_desc">Recently departed</flux:select.option>
+            </flux:select>
+
+            @if ($this->activeFilterCount > 0)
+                <flux:button wire:click="clearFilters" size="sm" variant="ghost" icon="x-mark" class="font-secondary shrink-0">
+                    Clear
+                </flux:button>
+            @endif
+        </div>
+    </div>
+
     <flux:card class="mb-4 p-0! overflow-hidden">
         <div class="overflow-x-auto">
             <flux:table container:class="md:max-h-160">
                 <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
-                    <flux:table.column align="center" class="px-2! md:px-4! py-2">#</flux:table.column>
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Driver</flux:table.column>
-                    {{-- Hidden on mobile --}}
-                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Type</flux:table.column>
+                    <flux:table.column align="center" class="px-2! md:px-4! py-2!">Driver</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Destination</flux:table.column>
-                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Plate no.</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Status</flux:table.column>
-                    <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Seats</flux:table.column>
+                    <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Seats Occupied</flux:table.column>
                     <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Time queued</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Time departed</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
-                    @forelse ($this->getQueuedRecords as $index => $queue)
+                    @forelse ($this->getQueuedRecords as $queue)
                         <flux:table.row :key="$queue->id">
-                            <flux:table.cell align="center" class="px-2! md:px-4! py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ $index + 1 }}
-                            </flux:table.cell>
-
-                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
+                            <flux:table.cell align="center" class="!px-2 md:!px-4 !py-1.5 md:!py-2 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
                                 {{ $queue->driver_name ?? '—' }}
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
-                                {{ $queue->vehicle_type }}
-                            </flux:table.cell>
-
-                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
                                 {{ $queue->destination }}
-                            </flux:table.cell>
-
-                            <flux:table.cell align="center" class="hidden md:table-cell px-2 md:px-4 py-1.5 md:py-2 font-mono text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ $queue->plate_number }}
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2">
@@ -270,7 +308,7 @@ new  #[Layout('layouts.operator-layout')] class extends Component
                         </flux:table.row>
                     @empty
                         <flux:table.row>
-                            <flux:table.cell colspan="9" class="px-2 md:px-4 py-4">
+                            <flux:table.cell colspan="6" class="px-2 md:px-4 py-4">
                                 <div class="flex flex-col items-center justify-center py-6 md:py-12 gap-2">
                                     <flux:icon.archive-box class="w-6 h-6 md:w-8 md:h-8 text-light-txt-muted dark:text-dark-txt-muted" />
                                     <x-text class="font-secondary text-sm md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">

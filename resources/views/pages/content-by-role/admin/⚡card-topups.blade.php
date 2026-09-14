@@ -19,7 +19,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
     public string $exportDateFrom = '';
     public string $exportDateTo = '';
-    public string $exportType = ''; // '', queue_fees, topups
+    public string $exportType = ''; // '', queue_fees, fare_payments, topups
     public string $exportPaper = 'legal';
     public string $exportOrientation = 'portrait';
 
@@ -166,43 +166,37 @@ new #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
-    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
     <x-page-header
+        description="Card Top-ups"
         class="mb-4"
     >
         <flux:modal.trigger name="export-cashier-transactions" wire:click="prepareExportModal">
-            <button
-                type="button"
-                class="flex items-center gap-1.5 sm:gap-2 px-3 h-9 rounded-lg bg-black text-white border-0 hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 transition font-secondary text-xs sm:text-table-row shrink-0 w-full sm:w-auto justify-center"
+            <flux:button
+                icon="arrow-down-tray"
+                size="sm"
+                class="font-secondary shrink-0 w-full sm:w-auto justify-center !bg-black !text-white !border-0 hover:!bg-neutral-800 dark:!bg-white dark:!text-black dark:hover:!bg-neutral-200"
             >
-                <flux:icon.arrow-down-tray class="w-3.5 h-3.5 text-white dark:text-black" />
-                <span>Export Cash Report</span>
-            </button>
+                Export Cash Report
+            </flux:button>
         </flux:modal.trigger>
     </x-page-header>
 
-    {{-- ====== PAGE ACTIONS (desktop only — mobile keeps its own copy below, inline with the heading) ====== --}}
     <div class="hidden sm:flex sm:items-center sm:justify-between gap-3 mb-6">
         <x-heading
             size="xl"
             class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-            style="font-size: var(--text-page-title)"
+            style="font-size: var(--text-section-heading)"
         >
-            Card Top-Ups
+            All cash top-up transactions processed by cashiers.
         </x-heading>
 
         <flux:link href="{{ route('admin.topups.new') }}" wire:navigate class="w-full sm:w-auto">
-            <flux:button
-                variant="primary"
-                icon="credit-card"
-                class="font-secondary w-full sm:w-auto justify-center"
-            >
+            <flux:button variant="primary" icon="plus" size="sm" class="font-secondary w-full sm:w-auto justify-center bg-primary text-white hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover">
                 New Cash Top-Up
             </flux:button>
         </flux:link>
     </div>
 
-    {{-- Mobile-visible heading, since the page header above is desktop-only --}}
     <div class="sm:hidden flex items-start justify-between gap-4 mb-6">
         <div>
             <x-heading
@@ -314,8 +308,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     placeholder="All (queue fees & top-ups)"
                     class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
                 >
-                    <flux:select.option value="">All (queue fees &amp; top-ups)</flux:select.option>
+                    <flux:select.option value="">All (queue fees, fare payments &amp; top-ups)</flux:select.option>
                     <flux:select.option value="queue_fees">Queue fees only</flux:select.option>
+                    <flux:select.option value="fare_payments">Fare payments only</flux:select.option>
                     <flux:select.option value="topups">Top-ups only</flux:select.option>
                 </flux:select>
             </flux:field>
@@ -482,28 +477,34 @@ new #[Layout('layouts.admin-layout')] class extends Component
     </div>
 
     {{-- Filters --}}
-    <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
-        <flux:input
-            class="flex-1 font-secondary text-table-row"
-            size="sm"
-            icon="magnifying-glass"
-            placeholder="Search name, ID, or card no…"
-            wire:model.live.debounce.300ms="search"
-        />
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <div class="flex-1">
+            <flux:input
+                type="text"
+                wire:model.live.debounce.300ms="search"
+                placeholder="Search name, ID, or card no…"
+                class="w-full font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+                icon="magnifying-glass"
+            />
+        </div>
 
-        <flux:select wire:model.live="filterStatus" size="sm" placeholder="Status" class="w-full sm:w-44 font-secondary text-table-row">
-            <flux:select.option value="">All statuses</flux:select.option>
-            <flux:select.option value="paid">Paid</flux:select.option>
-            <flux:select.option value="pending">Pending</flux:select.option>
-            <flux:select.option value="failed">Failed</flux:select.option>
-            <flux:select.option value="needs_attention">Needs attention</flux:select.option>
-        </flux:select>
+        <div class="w-full sm:w-44">
+            <flux:select wire:model.live="filterStatus" placeholder="Status" class="w-full font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary">
+                <flux:select.option value="">All statuses</flux:select.option>
+                <flux:select.option value="paid">Paid</flux:select.option>
+                <flux:select.option value="pending">Pending</flux:select.option>
+                <flux:select.option value="failed">Failed</flux:select.option>
+                <flux:select.option value="needs_attention">Needs attention</flux:select.option>
+            </flux:select>
+        </div>
 
-        <flux:select wire:model.live="filterSource" size="sm" placeholder="Source" class="w-full sm:w-40 font-secondary text-table-row">
-            <flux:select.option value="">All sources</flux:select.option>
-            <flux:select.option value="cashier">Cashier</flux:select.option>
-            <flux:select.option value="online">Online</flux:select.option>
-        </flux:select>
+        <div class="w-full sm:w-40">
+            <flux:select wire:model.live="filterSource" placeholder="Source" class="w-full font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary">
+                <flux:select.option value="">All sources</flux:select.option>
+                <flux:select.option value="cashier">Cashier</flux:select.option>
+                <flux:select.option value="online">Online</flux:select.option>
+            </flux:select>
+        </div>
     </div>
 
     {{-- Log table --}}
@@ -511,24 +512,17 @@ new #[Layout('layouts.admin-layout')] class extends Component
         <div class="overflow-x-auto">
             <flux:table container:class="max-h-160">
                 <flux:table.columns sticky class="bg-light-subtle/50 dark:bg-dark-secondary/50">
-                    <flux:table.column align="center" class="px-1! sm:px-2! md:px-4! py-2">#</flux:table.column>
-                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Cardholder</flux:table.column>
-                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Card no.</flux:table.column>
-                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Points loaded</flux:table.column>
-                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Amount paid</flux:table.column>
-                    <flux:table.column align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-2">Source</flux:table.column>
-                    <flux:table.column align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-2">Payment method</flux:table.column>
-                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2">Status</flux:table.column>
-                    <flux:table.column align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-2">Date</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2 text-center">Cardholder</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2 text-center">Amount paid</flux:table.column>
+                    <flux:table.column align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-2 text-center">Source</flux:table.column>
+                    <flux:table.column align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-2 text-center">Payment method</flux:table.column>
+                    <flux:table.column align="center" class="px-1 sm:px-2 md:px-4 py-2 text-center">Status</flux:table.column>
+                    <flux:table.column align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-2 text-center">Date</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
                     @forelse ($this->getTopUps as $index => $topUp)
                         <flux:table.row :key="$topUp->id">
-                            <flux:table.cell align="center" class="px-1! sm:px-2! md:px-4! py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ ($this->getTopUps->currentPage() - 1) * $this->getTopUps->perPage() + $index + 1 }}
-                            </flux:table.cell>
-
                             <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
                                 <div class="flex flex-col items-center">
                                     <span class="font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-primary">
@@ -540,21 +534,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 </div>
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
-                                <span class="font-mono text-xs md:text-table-row tracking-widest text-light-txt-muted dark:text-dark-txt-muted">
-                                    **** {{ $topUp->card ? substr($topUp->card->card_number, -4) : '----' }}
-                                </span>
-                            </flux:table.cell>
-
-                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row tabular-nums text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ number_format($topUp->points_to_load) }}
-                            </flux:table.cell>
-
-                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row tabular-nums font-medium text-light-txt-primary dark:text-dark-txt-primary">
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 text-center font-secondary text-xs md:text-table-row tabular-nums font-medium text-light-txt-primary dark:text-dark-txt-primary">
                                 ₱{{ number_format($topUp->amount_paid, 2) }}
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                            <flux:table.cell align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2 text-center">
                                 @if ($topUp->processed_by)
                                     <flux:badge size="sm" color="blue" icon="user">Cashier</flux:badge>
                                 @else
@@ -562,11 +546,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 @endif
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
+                            <flux:table.cell align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2 text-center font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">
                                 {{ $topUp->payment_method ? ucfirst($topUp->payment_method) : '—' }}
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2">
+                            <flux:table.cell align="center" class="px-1 sm:px-2 md:px-4 py-1.5 md:py-2 text-center">
                                 @if ($topUp->status === 'paid')
                                     <flux:badge color="green" size="sm" icon="check-circle">Paid</flux:badge>
                                 @elseif ($topUp->status === 'failed')
@@ -576,13 +560,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 @endif
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted tabular-nums">
+                            <flux:table.cell align="center" class="hidden md:table-cell px-1 sm:px-2 md:px-4 py-1.5 md:py-2 text-center font-secondary text-xs md:text-table-row text-light-txt-muted dark:text-dark-txt-muted tabular-nums">
                                 {{ $topUp->created_at->format('Y-m-d H:i') }}
                             </flux:table.cell>
                         </flux:table.row>
                     @empty
                         <flux:table.row>
-                            <flux:table.cell colspan="9">
+                            <flux:table.cell colspan="6">
                                 <div class="flex flex-col items-center justify-center py-12 gap-2">
                                     <flux:icon.banknotes class="w-8 h-8 text-light-txt-muted dark:text-dark-txt-muted" />
                                     <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">No top-up records found.</p>

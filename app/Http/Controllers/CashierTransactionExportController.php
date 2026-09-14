@@ -18,7 +18,7 @@ class CashierTransactionExportController extends Controller
             'from'        => 'nullable|date',
             'to'          => 'nullable|date|after_or_equal:from',
             'cashier_id'  => 'nullable|exists:users,id',
-            'type'        => 'nullable|in:all,queue_fees,topups',
+            'type'        => 'nullable|in:all,queue_fees,fare_payments,topups',
             'paper'       => 'nullable|in:letter,legal,a4',
             'orientation' => 'nullable|in:portrait,landscape',
             'preview'     => 'nullable|boolean',
@@ -49,21 +49,24 @@ class CashierTransactionExportController extends Controller
 
         $type = $validated['type'] ?? 'all';
         $includeQueueFees = in_array($type, ['all', 'queue_fees']);
+        $includeFarePayments = in_array($type, ['all', 'fare_payments']);
         $includeTopUps = in_array($type, ['all', 'topups']);
 
-        // --- Queue fee payments (cash) -------------------------------------
+        $baseCashQuery = fn () => CashTransaction::query()
+            ->with(['processedBy', 'operator', 'vehicle', 'queue'])
+            ->where('status', 'success')
+            ->when($rangeStart, fn ($q) => $q->where('created_at', '>=', $rangeStart))
+            ->when($rangeEnd, fn ($q) => $q->where('created_at', '<=', $rangeEnd))
+            ->when($cashierId, fn ($q) => $q->where('processed_by', $cashierId));
+
         $queueFees = $includeQueueFees
-            ? CashTransaction::query()
-                ->with(['processedBy', 'operator', 'vehicle', 'queue'])
-                ->where('status', 'success')
-                ->when($rangeStart, fn ($q) => $q->where('created_at', '>=', $rangeStart))
-                ->when($rangeEnd, fn ($q) => $q->where('created_at', '<=', $rangeEnd))
-                ->when($cashierId, fn ($q) => $q->where('processed_by', $cashierId))
-                ->orderBy('created_at')
-                ->get()
+            ? $baseCashQuery()->where('reference_no', 'like', 'CASH-%')->orderBy('created_at')->get()
             : collect();
 
-        // --- Card top-ups paid in cash --------------------------------------
+        $farePayments = $includeFarePayments
+            ? $baseCashQuery()->where('reference_no', 'like', 'FARECASH-%')->orderBy('created_at')->get()
+            : collect();
+
         $topUps = $includeTopUps
             ? TopUpTransaction::query()
                 ->with(['processedBy', 'user', 'card'])
@@ -76,39 +79,43 @@ class CashierTransactionExportController extends Controller
                 ->get()
             : collect();
 
-        // When scoped to "all cashiers" (admin, no cashier filter), group each
-        // section by who processed it so the report reads like one section
-        // per cashier rather than one long undifferentiated list.
         $groupedQueueFees = $cashierId ? null : $queueFees->groupBy(fn ($t) => $t->processedBy?->name ?? 'Unknown');
+        $groupedFarePayments = $cashierId ? null : $farePayments->groupBy(fn ($t) => $t->processedBy?->name ?? 'Unknown');
         $groupedTopUps = $cashierId ? null : $topUps->groupBy(fn ($t) => $t->processedBy?->name ?? 'Unknown');
 
         $queueFeeTotal = $queueFees->sum('amount');
+        $farePaymentTotal = $farePayments->sum('amount');
         $topUpTotal = $topUps->sum('amount_paid');
 
         $pdf = Pdf::loadView('pdf.cashier-transactions', [
-            'from'             => $rangeStart,
-            'to'               => $rangeEnd,
-            'cashier'          => $cashier,
-            'queueFees'        => $queueFees,
-            'topUps'           => $topUps,
-            'groupedQueueFees' => $groupedQueueFees,
-            'groupedTopUps'    => $groupedTopUps,
-            'queueFeeTotal'    => $queueFeeTotal,
-            'topUpTotal'       => $topUpTotal,
-            'grandTotal'       => $queueFeeTotal + $topUpTotal,
-            'generatedBy'      => $actingUser->name ?? 'System',
-            'generatedAt'      => now(),
-            'includeQueueFees' => $includeQueueFees,
-            'includeTopUps'    => $includeTopUps,
-            'paper'            => $paper,
-            'orientation'      => $orientation,
+            'from'                => $rangeStart,
+            'to'                  => $rangeEnd,
+            'cashier'             => $cashier,
+            'queueFees'           => $queueFees,
+            'farePayments'        => $farePayments,
+            'topUps'              => $topUps,
+            'groupedQueueFees'    => $groupedQueueFees,
+            'groupedFarePayments' => $groupedFarePayments,
+            'groupedTopUps'       => $groupedTopUps,
+            'queueFeeTotal'       => $queueFeeTotal,
+            'farePaymentTotal'    => $farePaymentTotal,
+            'topUpTotal'          => $topUpTotal,
+            'grandTotal'          => $queueFeeTotal + $farePaymentTotal + $topUpTotal,
+            'generatedBy'         => $actingUser->name ?? 'System',
+            'generatedAt'         => now(),
+            'includeQueueFees'    => $includeQueueFees,
+            'includeFarePayments' => $includeFarePayments,
+            'includeTopUps'       => $includeTopUps,
+            'paper'               => $paper,
+            'orientation'         => $orientation,
         ])->setPaper($paper, $orientation);
 
         $filenameScope = $cashier ? '-' . str($cashier->name)->slug() : '';
         $filenameType = match ($type) {
-            'queue_fees' => '-queue-fees',
-            'topups'     => '-topups',
-            default      => '',
+            'queue_fees'    => '-queue-fees',
+            'fare_payments' => '-fare-payments',
+            'topups'        => '-topups',
+            default         => '',
         };
         $dateLabel = $rangeStart && $rangeEnd
             ? ($rangeStart->isSameDay($rangeEnd)
@@ -135,7 +142,7 @@ class CashierTransactionExportController extends Controller
                 'to'         => $rangeEnd?->toDateString() ?? 'All time',
                 'cashier'    => $cashier?->name ?? 'All cashiers',
                 'type'       => $type,
-                'records'    => $queueFees->count() + $topUps->count(),
+                'records'    => $queueFees->count() + $farePayments->count() + $topUps->count(),
             ],
         ]);
 

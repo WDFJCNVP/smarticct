@@ -35,7 +35,7 @@ new #[Layout('layouts.operator-layout')]class extends Component
 
 <div>
     <x-page-header
-        heading="View and manage your transactions."
+        heading="My Rental Transactions"
         class="mb-6"
     >
         {{-- No extra controls – keep it minimal --}}
