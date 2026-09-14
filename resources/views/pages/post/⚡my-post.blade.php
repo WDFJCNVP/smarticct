@@ -65,18 +65,10 @@ new class extends Component
             </x-text>
         </div>
 
-        <div class="flex items-center gap-1 sm:gap-2 flex-wrap mt-1 sm:mt-0">
-            <x-button
-                href="{{ route('post.my-posts') }}"
-                wire:navigate
-                variant="ghost"
-                icon="arrow-left"
-                class="!font-secondary text-sm sm:text-base !px-2 sm:!px-3 !py-1 sm:!py-2"
-            >
-                <span class="hidden sm:inline">Back to My Posts</span>
-                <span class="sm:hidden">Back</span>
-            </x-button>
-        </div>
+        <flux:breadcrumbs class="shrink-0 sm:pt-1">
+            <flux:breadcrumbs.item href="{{ route('post.my-posts') }}" wire:navigate>Back to My Posts</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>My Post</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
     </div>
 
     <x-card

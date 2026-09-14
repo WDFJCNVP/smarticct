@@ -10,6 +10,7 @@ use App\Models\UserNotification;
 use App\Models\Post;
 use App\Models\RentTransaction;
 use App\Models\CardTransaction;
+use App\Models\Queue;
 use App\Events\NotificationEvent;
 use App\Services\QueueManagementService;
 use Illuminate\Support\Arr;
@@ -166,6 +167,55 @@ class UserService
 
             return $user;
         });
+    }
+
+    /**
+     * Human-readable warnings about what's currently "live" for this user
+     * (queued vehicles, a published rental post, an ongoing rental
+     * transaction). Suspension is never blocked by these — an admin needs
+     * to be able to suspend someone immediately regardless (e.g. for
+     * safety or fraud reasons) — this is purely informational so the
+     * admin isn't surprised by what's still active when they confirm.
+     *
+     * @return array<int, string>
+     */
+    public function activeSuspensionWarnings(User $user): array
+    {
+        $warnings = [];
+
+        if ($user->role === 'operator') {
+            $queuedPlates = Queue::whereIn('vehicle_id', $user->vehicles()->pluck('id'))
+                ->where('status', '!=', 'departed')
+                ->pluck('plate_number');
+
+            if ($queuedPlates->isNotEmpty()) {
+                $warnings[] = $queuedPlates->count() === 1
+                    ? "Vehicle {$queuedPlates->first()} is currently in the queue."
+                    : "{$queuedPlates->count()} of their vehicles are currently in the queue (" . $queuedPlates->implode(', ') . ").";
+            }
+        }
+
+        $hasActivePost = Post::where('user_id', $user->id)
+            ->where('type', 'rental')
+            ->whereIn('status', ['published', 'rented'])
+            ->exists();
+
+        if ($hasActivePost) {
+            $warnings[] = 'They have an active rental post live in the feed.';
+        }
+
+        $hasOngoingTransaction = RentTransaction::where('status', 'ongoing')
+            ->where(function ($query) use ($user) {
+                $query->where('post_owner_id', $user->id)
+                    ->orWhere('interested_user_id', $user->id);
+            })
+            ->exists();
+
+        if ($hasOngoingTransaction) {
+            $warnings[] = 'They have an ongoing rental transaction.';
+        }
+
+        return $warnings;
     }
 
     public function suspend(User $user, string $reason): User

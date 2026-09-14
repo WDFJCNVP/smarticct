@@ -21,7 +21,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         // re-tap the card.
         $uid = request()->query('uid');
         if ($uid) {
-            $this->issueCardUid = $uid;
+            $this->issueCardUid = strtoupper(trim($uid));
         }
     }
 
@@ -70,12 +70,14 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
     public function issueNewCard(): void
     {
+        $this->issueCardUid = strtoupper(trim($this->issueCardUid));
+
         $this->validate([
-            'issueCardUid' => 'required|string|min:4|unique:cards,uid',
+            'issueCardUid' => ['required', 'string', 'regex:/^[0-9A-F]{8}$/', 'unique:cards,uid'],
             'issueUserId'  => 'required|integer|exists:users,id',
         ], [
             'issueCardUid.unique'  => 'This card UID is already assigned to another user.',
-            'issueCardUid.min'     => 'The scanned UID looks too short — please scan again.',
+            'issueCardUid.regex'   => 'That doesn\'t look like a valid card tap — expected an 8-character UID. Please tap again.',
             'issueUserId.required' => 'Please select who this card is for.',
         ]);
 
@@ -159,16 +161,11 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         </div>
     </div>
 
-    {{-- Back to Card Top-Up --}}
     <div class="mb-6">
-        <a
-            href="{{ route('cashier.cards') }}"
-            wire:navigate
-            class="inline-flex items-center gap-1.5 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-primary dark:hover:text-dark-txt-primary transition"
-        >
-            <flux:icon name="arrow-left" class="w-4 h-4" />
-            Back to Card Top-Up
-        </a>
+        <flux:breadcrumbs>
+            <flux:breadcrumbs.item href="{{ route('cashier.cards') }}" wire:navigate>Back to Card Top-Up</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>Issue New Card</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -188,17 +185,53 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                             <flux:icon name="credit-card" class="w-3.5 h-3.5" />
                             Card UID
                         </flux:label>
-                        <flux:input
-                            wire:model.live="issueCardUid"
-                            placeholder="Tap the card on the reader..."
-                            autocomplete="off"
-                            class="font-mono tracking-widest"
-                            autofocus
-                        />
+
+                        <div class="relative mt-1">
+                            <input
+                                type="text"
+                                wire:model.live.debounce.200ms="issueCardUid"
+                                autocomplete="off"
+                                autofocus
+                                maxlength="8"
+                                x-ref="cardUidInput"
+                                @keydown.enter.prevent
+                                class="absolute inset-0 w-full h-full opacity-0 cursor-default"
+                            />
+
+                            <div
+                                class="pointer-events-none rounded-lg border-2 border-dashed p-5 flex flex-col items-center justify-center text-center transition-colors
+                                    {{ $issueCardUid ? 'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' : 'border-light-bd-default dark:border-dark-bd-default' }}"
+                            >
+                                @if ($issueCardUid)
+                                    <flux:icon name="check-circle" class="w-7 h-7 text-success dark:text-dark-success mb-1.5" />
+                                    <p class="font-mono text-lg tracking-[0.3em] font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                                        {{ strtoupper($issueCardUid) }}
+                                    </p>
+                                    <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Card detected</p>
+                                @else
+                                    <flux:icon name="wifi" class="w-7 h-7 text-light-txt-muted dark:text-dark-txt-muted mb-1.5 animate-pulse" />
+                                    <p class="font-secondary text-sm font-medium text-light-txt-body dark:text-dark-txt-body">Waiting for your tap…</p>
+                                    <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Please tap the card on the reader only once.</p>
+                                @endif
+                            </div>
+                        </div>
+
                         <flux:error name="issueCardUid" />
-                        <flux:description class="font-secondary text-helper text-light-txt-muted dark:text-dark-txt-muted">
-                            The UID is captured automatically by the RFID reader. Do not type this manually.
-                        </flux:description>
+
+                        @if ($issueCardUid)
+                            <button
+                                type="button"
+                                wire:click="$set('issueCardUid', '')"
+                                x-on:click="$nextTick(() => $refs.cardUidInput.focus())"
+                                class="mt-2 font-secondary text-xs text-primary hover:underline"
+                            >
+                                Not this card? Tap again
+                            </button>
+                        @else
+                            <flux:description class="font-secondary text-helper text-light-txt-muted dark:text-dark-txt-muted">
+                                Captured automatically by the RFID reader — an 8-character UID. Do not type this manually.
+                            </flux:description>
+                        @endif
                     </flux:field>
 
                     <flux:field>

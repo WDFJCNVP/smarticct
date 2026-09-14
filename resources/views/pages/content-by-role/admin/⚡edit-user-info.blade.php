@@ -12,6 +12,8 @@ use App\Models\Route;
 use App\Models\RouteList;
 use App\Models\VehicleGroup;
 use App\Models\OperatorTicketRate;
+use App\Models\Queue;
+use App\Models\Post;
 
 use App\Services\UserService;
 use App\Services\AuditLogsService;
@@ -44,6 +46,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public $create_engine_number = '';
     public $create_body_number = '';
     public $create_chassis_number = '';
+    public $create_driver_name = '';
     public $create_has_franchise = false;
     public $create_franchise_expiry_date = '';
 
@@ -78,6 +81,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         'create_engine_number'         => 'engine number',
         'create_body_number'           => 'body number',
         'create_chassis_number'        => 'chassis number',
+        'create_driver_name'           => 'driver name',
         'create_has_franchise'         => 'franchise verification',
         'create_franchise_expiry_date' => 'validity date of franchise',
 
@@ -88,6 +92,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         'editingVehicles.*.engine_number'         => 'engine number',
         'editingVehicles.*.body_number'           => 'body number',
         'editingVehicles.*.chassis_number'        => 'chassis number',
+        'editingVehicles.*.driver_name'           => 'driver name',
         'editingVehicles.*.has_franchise'         => 'franchise verification',
         'editingVehicles.*.franchise_expiry_date' => 'validity date of franchise',
     ];
@@ -114,6 +119,77 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     #[Computed]
+    public function getSuspensionWarnings(): array
+    {
+        return app(UserService::class)->activeSuspensionWarnings($this->user);
+    }
+
+    /**
+     * A vehicle that is currently in the dispatch queue (any status other
+     * than "departed") cannot have its details changed — the record is
+     * "live" and editing it mid-queue could desync the dispatch board,
+     * fares already collected, or the printed queue slip.
+     */
+    public function isVehicleQueued(int $vehicle_id): bool
+    {
+        return Queue::where('vehicle_id', $vehicle_id)
+            ->where('status', '!=', 'departed')
+            ->exists();
+    }
+
+    /**
+     * A vehicle that currently has an active/published rental post in the
+     * feed cannot have its details changed — commuters may already be
+     * viewing or acting on that listing (trip requests, rental offers).
+     */
+    public function isVehiclePosted(int $vehicle_id): bool
+    {
+        return Post::where('type', 'rental')
+            ->where('status', 'published')
+            ->where('metadata->vehicle_id', $vehicle_id)
+            ->exists();
+    }
+
+    /**
+     * Returns a human-readable reason why a vehicle's details are locked
+     * from editing/deleting, or null if it's safe to modify.
+     */
+    public function vehicleLockReason(int $vehicle_id): ?string
+    {
+        if ($this->isVehicleQueued($vehicle_id)) {
+            return 'This vehicle is currently in the queue and cannot be edited or deleted until it departs.';
+        }
+
+        if ($this->isVehiclePosted($vehicle_id)) {
+            return 'This vehicle is currently posted in the feed and cannot be edited or deleted until the post is taken down.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Guard used by editVehicle/updateVehicle/deleteVehicle so the check is
+     * enforced server-side even if the UI controls are bypassed.
+     */
+    protected function guardVehicleNotLocked(int $vehicle_id): bool
+    {
+        $reason = $this->vehicleLockReason($vehicle_id);
+
+        if ($reason !== null) {
+            Flux::toast(
+                variant: 'danger',
+                duration: 5000,
+                heading: 'Vehicle is locked.',
+                text: $reason,
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
+    #[Computed]
     public function getTerminal() {
         return RouteList::with('operatorTicketRate')
             ->when($this->create_vehicle_type, function($q) {
@@ -137,6 +213,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'engine_number'         => $vehicle->engine_number ?? '',
                 'body_number'           => $vehicle->body_number ?? '',
                 'chassis_number'        => $vehicle->chassis_number ?? '',
+                'driver_name'           => $vehicle->driver_name ?? '',
                 'has_franchise'         => (bool) $vehicle->has_franchise,
                 'franchise_expiry_date' => $vehicle->franchise_expiry_date ? $vehicle->franchise_expiry_date->format('Y-m-d') : '',
             ];
@@ -207,11 +284,13 @@ new #[Layout('layouts.admin-layout')] class extends Component
             return;
         }
 
+        $this->cardUid = strtoupper(trim($this->cardUid));
+
         $this->validate([
-            'cardUid' => 'required|string|min:4|unique:cards,uid',
+            'cardUid' => ['required', 'string', 'regex:/^[0-9A-F]{8}$/', 'unique:cards,uid'],
         ], [
             'cardUid.unique' => 'This card UID is already assigned to another user.',
-            'cardUid.min'    => 'The scanned UID looks too short — please scan again.',
+            'cardUid.regex'  => 'That doesn\'t look like a valid card tap — expected an 8-character UID. Please tap again.',
         ]);
 
         Card::create([
@@ -336,6 +415,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'create_engine_number',
                 'create_body_number',
                 'create_chassis_number',
+                'create_driver_name',
                 'create_has_franchise',
                 'create_franchise_expiry_date',
             ]);
@@ -363,6 +443,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'create_engine_number'         => 'required|string|min:2',
                 'create_body_number'           => 'required|string|min:2',
                 'create_chassis_number'        => 'required|string|min:2',
+                'create_driver_name'           => 'nullable|string|max:100',
                 'create_has_franchise'         => 'required|accepted',
                 'create_franchise_expiry_date' => 'required|date|after:today',
             ]);
@@ -382,6 +463,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'engine_number'         => $attributes['create_engine_number'] ?? '',
                 'body_number'           => $attributes['create_body_number'] ?? '',
                 'chassis_number'        => $attributes['create_chassis_number'] ?? '',
+                'driver_name'           => $attributes['create_driver_name'] ?: null,
                 'has_franchise'         => (bool) ($attributes['create_has_franchise'] ?? false),
                 'franchise_expiry_date' => $attributes['create_franchise_expiry_date'] ?? null,
             ]);
@@ -436,6 +518,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'create_engine_number',
             'create_body_number',
             'create_chassis_number',
+            'create_driver_name',
             'create_has_franchise',
             'create_franchise_expiry_date',
         ]);
@@ -447,6 +530,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function editVehicle(int $vehicle_id) {
+        if (!$this->guardVehicleNotLocked($vehicle_id)) {
+            $this->confirmingEditVehicle = null;
+            return;
+        }
+
         $vehicle = Vehicle::find($vehicle_id);
 
         if ($vehicle) {
@@ -458,6 +546,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'engine_number'         => $vehicle->engine_number ?? '',
                 'body_number'           => $vehicle->body_number ?? '',
                 'chassis_number'        => $vehicle->chassis_number ?? '',
+                'driver_name'           => $vehicle->driver_name ?? '',
                 'has_franchise'         => (bool) $vehicle->has_franchise,
                 'franchise_expiry_date' => $vehicle->franchise_expiry_date ? $vehicle->franchise_expiry_date->format('Y-m-d') : '',
             ];
@@ -479,6 +568,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 'engine_number'         => $vehicle->engine_number ?? '',
                 'body_number'           => $vehicle->body_number ?? '',
                 'chassis_number'        => $vehicle->chassis_number ?? '',
+                'driver_name'           => $vehicle->driver_name ?? '',
                 'has_franchise'         => (bool) $vehicle->has_franchise,
                 'franchise_expiry_date' => $vehicle->franchise_expiry_date ? $vehicle->franchise_expiry_date->format('Y-m-d') : '',
             ];
@@ -489,6 +579,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function updateVehicle(int $vehicle_id) {
+        if (!$this->guardVehicleNotLocked($vehicle_id)) {
+            $this->confirmingEditVehicle = null;
+            return;
+        }
+
         $vehicle = Vehicle::where('id', $vehicle_id)
             ->where('user_id', $this->user->id)
             ->firstOrFail();
@@ -509,6 +604,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             "editingVehicles.{$vehicle_id}.engine_number"         => 'required|string|min:2',
             "editingVehicles.{$vehicle_id}.body_number"           => 'required|string|min:2',
             "editingVehicles.{$vehicle_id}.chassis_number"        => 'required|string|min:2',
+            "editingVehicles.{$vehicle_id}.driver_name"           => 'nullable|string|max:100',
             "editingVehicles.{$vehicle_id}.has_franchise"         => 'required|accepted',
             "editingVehicles.{$vehicle_id}.franchise_expiry_date" => 'required|date|after:today',
         ];
@@ -525,6 +621,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'engine_number'         => $data['editingVehicles'][$vehicle_id]['engine_number'] ?? '',
             'body_number'           => $data['editingVehicles'][$vehicle_id]['body_number'] ?? '',
             'chassis_number'        => $data['editingVehicles'][$vehicle_id]['chassis_number'] ?? '',
+            'driver_name'           => $data['editingVehicles'][$vehicle_id]['driver_name'] ?: null,
             'has_franchise'         => (bool) ($data['editingVehicles'][$vehicle_id]['has_franchise'] ?? false),
             'franchise_expiry_date' => $data['editingVehicles'][$vehicle_id]['franchise_expiry_date'] ?? null,
         ]);
@@ -559,6 +656,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function deleteVehicle(int $vehicle_id) {
+        if (!$this->guardVehicleNotLocked($vehicle_id)) {
+            return;
+        }
+
         $vehicle = Vehicle::where('id', $vehicle_id)
             ->where('user_id', $this->user->id)
             ->first();
@@ -602,15 +703,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
-    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
-    <x-page-header class="mb-3" />
+    <x-page-header description="User Information" class="mb-3" />
 
     {{-- Breadcrumbs moved to the right, aligned with the heading --}}
     <div class="flex items-center justify-between mb-4">
         <x-heading
             size="xl"
             class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-            style="font-size: var(--text-page-title)"
+            style="font-size: var(--text-section-heading)"
         >
             Edit User Information
         </x-heading>
@@ -693,18 +793,54 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         <flux:icon name="credit-card" class="w-3.5 h-3.5" />
                         Card UID
                     </flux:label>
-                    <flux:input
-                        id="card-uid-input"
-                        wire:model.live="cardUid"
-                        placeholder="Tap the card on the reader..."
-                        autocomplete="off"
-                        class="font-mono tracking-widest"
-                        autofocus
-                    />
+
+                    <div class="relative mt-1">
+                        {{-- Real capture field: invisible but focused, so the RFID reader's
+                             keyboard-wedge input lands here instead of showing raw characters. --}}
+                        <input
+                            type="text"
+                            id="card-uid-input"
+                            wire:model.live.debounce.200ms="cardUid"
+                            autocomplete="off"
+                            autofocus
+                            maxlength="8"
+                            x-ref="cardUidInput"
+                            @keydown.enter.prevent
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-default"
+                        />
+
+                        <div
+                            class="pointer-events-none rounded-lg border-2 border-dashed p-4 flex items-center justify-center gap-2 transition-colors
+                                {{ $cardUid ? 'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' : 'border-light-bd-default dark:border-dark-bd-default' }}"
+                        >
+                            @if ($cardUid)
+                                <flux:icon name="check-circle" class="w-5 h-5 text-success dark:text-dark-success shrink-0" />
+                                <p class="font-mono text-base tracking-[0.3em] font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                                    {{ strtoupper($cardUid) }}
+                                </p>
+                            @else
+                                <flux:icon name="wifi" class="w-5 h-5 text-light-txt-muted dark:text-dark-txt-muted shrink-0 animate-pulse" />
+                                <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Waiting for your tap… please tap only once</p>
+                            @endif
+                        </div>
+                    </div>
+
                     <flux:error name="cardUid" />
-                    <flux:description class="font-secondary text-helper text-light-txt-muted dark:text-dark-txt-muted">
-                        The UID is captured automatically by the RFID reader. Do not type this manually.
-                    </flux:description>
+
+                    @if ($cardUid)
+                        <button
+                            type="button"
+                            wire:click="$set('cardUid', '')"
+                            x-on:click="$nextTick(() => $refs.cardUidInput.focus())"
+                            class="mt-2 font-secondary text-xs text-primary hover:underline"
+                        >
+                            Not this card? Tap again
+                        </button>
+                    @else
+                        <flux:description class="font-secondary text-helper text-light-txt-muted dark:text-dark-txt-muted">
+                            The UID is captured automatically by the RFID reader. Do not type this manually.
+                        </flux:description>
+                    @endif
                 </flux:field>
 
                 {{-- Assignment preview --}}
@@ -949,44 +1085,73 @@ new #[Layout('layouts.admin-layout')] class extends Component
     @endif
 
     {{-- Suspend-user confirmation modal --}}
-    <flux:modal name="suspend-user" class="md:w-96">
-        <div class="space-y-4">
-            <div>
-                <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
-                    Suspend user?
-                </flux:heading>
-                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                    <strong>{{ $user->name }}</strong> will be signed out immediately and won't be able to log in
-                    @if ($user->role === 'operator')
-                        or queue their vehicle
-                    @endif
-                    until this suspension is lifted. They'll need to visit the terminal office in person to have their account reviewed.
-                </flux:text>
+    <flux:modal
+        name="suspend-user"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-md mx-auto rounded-xl overflow-hidden"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5">
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Suspend user?
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        <strong>{{ $user->name }}</strong> will be signed out immediately and won't be able to log in
+                        @if ($user->role === 'operator')
+                            or queue their vehicle
+                        @endif
+                        until this suspension is lifted. They'll need to visit the terminal office in person to have their account reviewed.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
             </div>
 
-            <flux:textarea
-                wire:model="suspension_reason_input"
-                label="Reason for suspension"
-                placeholder="e.g. Expired franchise, reported misuse..."
-                rows="3"
-            />
+            <div>
+                <flux:textarea
+                    wire:model="suspension_reason_input"
+                    label="Reason for suspension"
+                    placeholder="e.g. Expired franchise, reported misuse..."
+                    rows="3"
+                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
+                />
+                <flux:error name="suspension_reason_input" />
+            </div>
 
-            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
-                <flux:modal.close>
-                    <flux:button type="button" variant="ghost" class="font-secondary w-full sm:w-auto">
+            @if (!empty($this->getSuspensionWarnings))
+                <flux:callout variant="warning" icon="exclamation-triangle">
+                    <flux:callout.heading>This account currently has activity in progress</flux:callout.heading>
+                    <flux:callout.text>
+                        <ul class="list-disc list-inside space-y-0.5">
+                            @foreach ($this->getSuspensionWarnings as $warning)
+                                <li>{{ $warning }}</li>
+                            @endforeach
+                        </ul>
+                        <p class="mt-1">You can still suspend the account — this is just so you're aware before confirming.</p>
+                    </flux:callout.text>
+                </flux:callout>
+            @endif
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close class="w-full sm:w-auto">
+                    <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
                         Cancel
                     </flux:button>
                 </flux:modal.close>
                 <flux:button
                     type="button"
                     variant="danger"
-                    icon="no-symbol"
                     wire:click="suspendUser"
                     wire:loading.attr="disabled"
                     wire:target="suspendUser"
-                    class="font-secondary w-full sm:w-auto"
+                    class="w-full sm:w-auto justify-center font-secondary"
                 >
-                    Yes, suspend user
+                    <span wire:loading.remove wire:target="suspendUser">Yes, suspend user</span>
+                    <span wire:loading wire:target="suspendUser">Suspending…</span>
                 </flux:button>
             </div>
         </div>
@@ -1127,6 +1292,15 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <flux:error name="create_chassis_number" />
                         </div>
 
+                        <div>
+                            <flux:label class="mb-2 font-secondary text-md text-light-txt-primary dark:text-dark-txt-muted">
+                                Driver name
+                                <span class="font-normal text-light-txt-muted dark:text-dark-txt-muted">(optional — default, editable per queue)</span>
+                            </flux:label>
+                            <flux:input wire:model="create_driver_name" placeholder="e.g. Juan Dela Cruz" />
+                            <flux:error name="create_driver_name" />
+                        </div>
+
                         {{-- NEW: Compliance documents (span full width) --}}
                         <div class="sm:col-span-2 border-t border-light-bd-default dark:border-dark-bd-default pt-3 space-y-3">
                             <p class="font-secondary text-xs font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Compliance documents</p>
@@ -1169,6 +1343,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
         @foreach ($this->getVehicle as $index => $vehicle)
             @php
                 $groupNumber = $this->getVehicleGroupNumber($vehicle->id);
+                $lockReason  = $this->vehicleLockReason($vehicle->id);
+                $isLocked    = $lockReason !== null;
+                $isQueued    = $this->isVehicleQueued($vehicle->id);
             @endphp
 
             <flux:card class="mb-3 sm:mb-4 !p-3 sm:!p-4" wire:key="vehicle-container-{{ $vehicle->id }}">
@@ -1188,6 +1365,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                                 @elseif ($docStatus === 'expiring')
                                     <flux:badge color="orange" size="sm" class="font-secondary text-badge text-xs">Docs Expiring</flux:badge>
                                 @endif
+                                @if ($isQueued)
+                                    <flux:badge color="blue" size="sm" icon="clock" class="font-secondary text-badge text-xs">In Queue</flux:badge>
+                                @elseif ($isLocked)
+                                    <flux:badge color="purple" size="sm" icon="megaphone" class="font-secondary text-badge text-xs">Posted</flux:badge>
+                                @endif
                             </p>
                             <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted truncate">
                                 {{ $vehicle->total_seats }} seats
@@ -1197,58 +1379,71 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted truncate">
                                 Engine: {{ $vehicle->engine_number ?? '—' }} · Body: {{ $vehicle->body_number ?? '—' }} · Chassis: {{ $vehicle->chassis_number ?? '—' }}
                             </p>
+                            @if ($isLocked)
+                                <p class="font-secondary text-xs text-warning dark:text-dark-warning truncate" title="{{ $lockReason }}">
+                                    {{ $lockReason }}
+                                </p>
+                            @endif
                         </div>
                     </div>
 
                     <div class="flex items-center gap-1 shrink-0">
-                        <flux:modal.trigger name="edit-vehicle-{{ $vehicle->id }}">
-                            <flux:button type="button" variant="ghost" size="sm" icon="pencil"
-                                wire:click="editVehicle({{ $vehicle->id }})" />
-                        </flux:modal.trigger>
-                        <flux:modal.trigger name="delete-vehicle-{{ $vehicle->id }}">
-                            <flux:button type="button" variant="ghost" size="sm" icon="trash"
-                                class="text-danger/70 dark:text-dark-danger/70 hover:text-danger dark:hover:text-dark-danger hover:bg-danger/10 dark:hover:bg-dark-danger/10"/>
-                        </flux:modal.trigger>
+                        @if ($isLocked)
+                            <flux:button type="button" variant="ghost" size="sm" icon="pencil" disabled title="{{ $lockReason }}" />
+                            <flux:button type="button" variant="ghost" size="sm" icon="trash" disabled title="{{ $lockReason }}" />
+                        @else
+                            <flux:modal.trigger name="edit-vehicle-{{ $vehicle->id }}">
+                                <flux:button type="button" variant="ghost" size="sm" icon="pencil"
+                                    wire:click="editVehicle({{ $vehicle->id }})" />
+                            </flux:modal.trigger>
+                            <flux:modal.trigger name="delete-vehicle-{{ $vehicle->id }}">
+                                <flux:button type="button" variant="ghost" size="sm" icon="trash"
+                                    class="text-danger/70 dark:text-dark-danger/70 hover:text-danger dark:hover:text-dark-danger hover:bg-danger/10 dark:hover:bg-dark-danger/10"/>
+                            </flux:modal.trigger>
+                        @endif
                     </div>
                 </div>
             </flux:card>
 
-            {{-- Delete-vehicle confirmation modal --}}
-            <flux:modal name="delete-vehicle-{{ $vehicle->id }}" class="md:w-96"
-                x-on:vehicle-deleted.window="if ($event.detail.id === {{ $vehicle->id }}) $flux.modal('delete-vehicle-{{ $vehicle->id }}').close()">
-                <div class="space-y-4">
-                    <div>
-                        <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
-                            Delete this vehicle?
-                        </flux:heading>
-                        <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                            <strong>{{ $vehicle->vehicle_type }}</strong> with plate
-                            <strong>{{ $vehicle->plate_number }}</strong> will be permanently removed. This cannot be undone.
-                        </flux:text>
-                    </div>
+            {{-- Delete-vehicle confirmation modal (only reachable when not locked) --}}
+            @unless ($isLocked)
+                <flux:modal name="delete-vehicle-{{ $vehicle->id }}" class="md:w-96"
+                    x-on:vehicle-deleted.window="if ($event.detail.id === {{ $vehicle->id }}) $flux.modal('delete-vehicle-{{ $vehicle->id }}').close()">
+                    <div class="space-y-4">
+                        <div>
+                            <flux:heading size="lg" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                                Delete this vehicle?
+                            </flux:heading>
+                            <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                                <strong>{{ $vehicle->vehicle_type }}</strong> with plate
+                                <strong>{{ $vehicle->plate_number }}</strong> will be permanently removed. This cannot be undone.
+                            </flux:text>
+                        </div>
 
-                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="font-secondary w-full sm:w-auto">
-                                Cancel
+                        <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                            <flux:modal.close>
+                                <flux:button type="button" variant="ghost" class="font-secondary w-full sm:w-auto">
+                                    Cancel
+                                </flux:button>
+                            </flux:modal.close>
+                            <flux:button
+                                type="button"
+                                variant="danger"
+                                icon="trash"
+                                wire:click="deleteVehicle({{ $vehicle->id }})"
+                                wire:loading.attr="disabled"
+                                wire:target="deleteVehicle({{ $vehicle->id }})"
+                                class="font-secondary w-full sm:w-auto"
+                            >
+                                Yes, delete
                             </flux:button>
-                        </flux:modal.close>
-                        <flux:button
-                            type="button"
-                            variant="danger"
-                            icon="trash"
-                            wire:click="deleteVehicle({{ $vehicle->id }})"
-                            wire:loading.attr="disabled"
-                            wire:target="deleteVehicle({{ $vehicle->id }})"
-                            class="font-secondary w-full sm:w-auto"
-                        >
-                            Yes, delete
-                        </flux:button>
+                        </div>
                     </div>
-                </div>
-            </flux:modal>
+                </flux:modal>
+            @endunless
 
-            {{-- Edit-vehicle modal (UPDATED with wire:key on date inputs) --}}
+            {{-- Edit-vehicle modal (UPDATED with wire:key on date inputs) — only reachable when not locked --}}
+            @unless ($isLocked)
             <flux:modal name="edit-vehicle-{{ $vehicle->id }}" class="md:w-[28rem]"
                 x-on:vehicle-updated.window="if ($event.detail.id === {{ $vehicle->id }}) $flux.modal('edit-vehicle-{{ $vehicle->id }}').close()">
                 <div class="space-y-4">
@@ -1318,6 +1513,15 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             <flux:error name="editingVehicles.{{ $vehicle->id }}.chassis_number" />
                         </div>
 
+                        <div>
+                            <flux:label class="mb-2 font-secondary text-md text-light-txt-primary dark:text-dark-txt-muted">
+                                Driver name
+                                <span class="font-normal text-light-txt-muted dark:text-dark-txt-muted">(optional — default, editable per queue)</span>
+                            </flux:label>
+                            <flux:input wire:model="editingVehicles.{{ $vehicle->id }}.driver_name" placeholder="e.g. Juan Dela Cruz" size="sm" />
+                            <flux:error name="editingVehicles.{{ $vehicle->id }}.driver_name" />
+                        </div>
+
                         <div class="sm:col-span-2 border-t border-light-bd-default dark:border-dark-bd-default pt-3 space-y-3">
                             <p class="font-secondary text-xs font-medium uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted">Compliance documents</p>
 
@@ -1361,6 +1565,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                     </div>
                 </div>
             </flux:modal>
+            @endunless
         @endforeach
     @endif
 

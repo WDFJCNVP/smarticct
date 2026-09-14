@@ -146,15 +146,11 @@ new class extends Component
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4 sm:mb-6">
         <div>
             <x-heading
-                size="xl"
                 class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                style="font-size: var(--text-page-title)"
+                style="font-size: var(--text-page-subtitle)"
             >
-                Trash
-            </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
                 Posts are kept here for 30 days. After that, they're automatically deleted forever.
-            </x-text>
+            </x-heading>
         </div>
 
         {{-- Navigation buttons — matches Feed --}}

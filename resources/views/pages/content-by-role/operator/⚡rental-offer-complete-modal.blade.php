@@ -5,6 +5,9 @@ use Illuminate\Support\Facades\DB;
 
 use App\Models\RentalOffer;
 use App\Models\RentTransaction;
+use App\Models\Notification;
+use App\Models\UserNotification;
+use App\Events\NotificationEvent;
 
 new class extends Component
 {
@@ -12,12 +15,35 @@ new class extends Component
     public RentalOffer $rentalOffer;
     public string $modalType;
 
-    // Either the offering operator or the post owner (commuter) may act
-    // on this record.
     protected function isAuthorized(): bool
     {
         return $this->rentalOffer->user_id === auth()->id()
             || optional($this->rentalOffer->post)->user_id === auth()->id();
+    }
+
+    protected function notifyCounterparty(RentalOffer $rentalOffer, string $title, string $message): void
+    {
+        $postOwnerId = optional($rentalOffer->post)->user_id;
+        $offeringUserId = $rentalOffer->user_id;
+
+        $recipientId = auth()->id() === $postOwnerId ? $offeringUserId : $postOwnerId;
+
+        if (!$recipientId) {
+            return;
+        }
+
+        $notification = Notification::create([
+            'type'    => 'Rental',
+            'title'   => $title,
+            'message' => $message,
+        ]);
+
+        UserNotification::create([
+            'notification_id' => $notification->id,
+            'user_id'         => $recipientId,
+        ]);
+
+        broadcast(new NotificationEvent());
     }
 
     public function cancelTrip() {
@@ -37,6 +63,12 @@ new class extends Component
                 ]);
 
             });
+
+            $this->notifyCounterparty(
+                $rentalOffer,
+                'Rental cancelled',
+                'A rental you were part of has been cancelled.',
+            );
 
             Flux::toast(
                 duration: 0,
@@ -67,8 +99,14 @@ new class extends Component
 
             });
 
+            $this->notifyCounterparty(
+                $rentalOffer,
+                'Rental completed',
+                'A rental you were part of has been marked as completed.',
+            );
+
             Flux::toast(
-                duration: 0,
+                duration: 4000,
                 variant: 'success',
                 heading: 'Rental completed',
                 text: 'This rental has been marked as completed.',

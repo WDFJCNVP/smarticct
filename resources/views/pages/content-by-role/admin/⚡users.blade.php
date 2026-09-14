@@ -162,9 +162,8 @@ new  #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
-    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
     <x-page-header
-        heading="Every commuter and operator registered in the system."
+        description="Registered Users"
         class="mb-4"
     >
         <flux:modal.trigger name="export-operators" wire:click="prepareExportModal">
@@ -178,14 +177,12 @@ new  #[Layout('layouts.admin-layout')] class extends Component
         </flux:modal.trigger>
     </x-page-header>
 
-    {{-- ====== PAGE ACTIONS (desktop only — mobile keeps its own copy below, inline with the heading) ====== --}}
     <div class="hidden sm:flex sm:items-center sm:justify-between gap-3 mb-6">
         <x-heading
-            size="xl"
             class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-            style="font-size: var(--text-page-title)"
+            style="font-size: var(--text-section-heading)"
         >
-            Registered Users
+            Every commuter and operator registered in the system.
         </x-heading>
 
         <flux:link href="{{ route('admin.register.user') }}" wire:navigate class="w-full sm:w-auto">
@@ -465,7 +462,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">ICCT Card</flux:table.column>
                     <flux:table.column align="center" class="hidden lg:table-cell px-2 md:px-4 py-2">Address</flux:table.column>
                     <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Joined</flux:table.column>
-                    <flux:table.column align="center" class="px-2! md:px-4! py-2">Actions</flux:table.column>
+                    <flux:table.column align="center" class="px-2! md:px-4! py-2">Details</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
@@ -524,7 +521,9 @@ new  #[Layout('layouts.admin-layout')] class extends Component
 
                             <flux:table.cell align="center" class="px-2! md:px-4! py-2.5">
                                 <flux:link href="/admin/edit/user/{{ $user->id }}" wire:navigate>
-                                    <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" inset="top bottom" class="scale-75 md:scale-100" />
+                                    <flux:button variant="ghost" size="sm" class="font-secondary text-xs md:text-table-row">
+                                        View
+                                    </flux:button>
                                 </flux:link>
                             </flux:table.cell>
                         </flux:table.row>

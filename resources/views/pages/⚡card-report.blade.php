@@ -120,16 +120,11 @@ new class extends Component
         </div>
     </div>
 
-    {{-- Back to My Card --}}
     <div class="mb-6">
-        <a
-            href="{{ route('user.card') }}"
-            wire:navigate
-            class="inline-flex items-center gap-1.5 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-primary dark:hover:text-dark-txt-primary transition"
-        >
-            <flux:icon name="arrow-left" class="w-4 h-4" />
-            Back to My Card
-        </a>
+        <flux:breadcrumbs>
+            <flux:breadcrumbs.item href="{{ route('user.card') }}" wire:navigate>Back to My Card</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>Card Reports</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
     </div>
 
     @if (!$this->userCard)

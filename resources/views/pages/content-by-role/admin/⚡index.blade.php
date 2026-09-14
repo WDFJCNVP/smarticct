@@ -15,6 +15,7 @@ use App\Models\Post;
 use App\Models\TripRequest;
 use App\Models\RentTransaction;
 use App\Models\AuditLog;
+use App\Models\TravelRecord;
 
 new #[Layout('layouts.admin-layout')] class extends Component
 {
@@ -57,49 +58,75 @@ public function totalRevenue()
         ->where('status', 'success')
         ->sum('amount');
 
-    // 2. Over-the-counter cash fees
+    // 2. Over-the-counter cash fees — queueing fees only ('CASH-' prefix).
+    // CashTransaction also holds cash *fare* payments ('FARECASH-' prefix,
+    // see App\Http\Controllers\Api\CardController::cashFarePayment()) which
+    // are pass-through commuter money credited straight to the operator's
+    // card, not terminal revenue. This mirrors how the card side above
+    // only counts 'queueing_fee' and deliberately excludes 'fare_earning'.
     $cashFees = CashTransaction::where('status', 'success')
+        ->where('reference_no', 'like', 'CASH-%')
         ->sum('amount');
 
-    // 3. Admin withdrawals (pending and completed)
     $totalWithdrawn = CardTransaction::where('transaction_type', 'admin_withdrawal')
         ->whereIn('status', ['pending', 'success'])
         ->sum('amount');
 
-    // Net remaining balance/revenue
     return max(0.0, ($cardFees + $cashFees) - $totalWithdrawn);
+}
+
+private function queueFeeRevenueForDate(\Carbon\Carbon $date): float
+{
+    $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
+        ->where('status', 'success')
+        ->whereDate('transaction_time', $date)
+        ->sum('amount');
+
+    $cashFees = CashTransaction::where('status', 'success')
+        ->where('reference_no', 'like', 'CASH-%')
+        ->whereDate('created_at', $date)
+        ->sum('amount');
+
+    return (float) ($cardFees + $cashFees);
+}
+
+private function dayOverDayTrend(float $today, float $yesterday): ?float
+{
+    if ($yesterday == 0.0) {
+        return $today > 0 ? 100.0 : null;
+    }
+
+    return round((($today - $yesterday) / $yesterday) * 100, 1);
 }
 
 #[Computed]
 public function todayRevenue()
 {
-    $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
-        ->where('status', 'success')
-        ->whereDate('transaction_time', today())
-        ->sum('amount');
-
-    $cashFees = CashTransaction::where('status', 'success')
-        ->whereDate('created_at', today())
-        ->sum('amount');
-
-    return $cardFees + $cashFees;
+    return $this->queueFeeRevenueForDate(today());
 }
 
     #[Computed]
     public function queueFeeRevenueToday()
     {
-        return Queue::whereDate('time_queued', today())
-            ->join('operator_ticket_rates', 'queues.vehicle_type', '=', 'operator_ticket_rates.vehicle_type')
-            ->sum('operator_ticket_rates.queueing_fee');
+        // Was: today's queue count x *today's current* configured rate —
+        // which silently misreports the past if a rate is changed mid-day.
+        // Now the same real, transaction-level figure as "Revenue Today".
+        return $this->todayRevenue;
     }
 
     #[Computed]
     public function cardAdoptionRate()
     {
         $totalUsers = $this->totalUsers ?: 1;
-        $totalCards = Card::count();
 
-        return round(($totalCards / $totalUsers) * 100, 1);
+        // Distinct cardholders, not raw card rows. A lost/damaged card
+        // replacement (admin/card-reports.blade.php -> approveReport())
+        // creates a brand-new Card row and only suspends the old one, so
+        // counting rows double-counts every replacement against the same
+        // user and lets this rate drift past 100% over time.
+        $cardHolders = Card::distinct('user_id')->count('user_id');
+
+        return round(($cardHolders / $totalUsers) * 100, 1);
     }
 
     #[Computed]
@@ -108,6 +135,31 @@ public function todayRevenue()
         return CardTransaction::whereIn('status', ['failed', 'insufficient_balance'])
             ->whereDate('created_at', today())
             ->count();
+    }
+
+    #[Computed]
+    public function totalWithdrawn()
+    {
+        return CardTransaction::where('transaction_type', 'admin_withdrawal')
+            ->whereIn('status', ['pending', 'success'])
+            ->sum('amount');
+    }
+
+    #[Computed]
+    public function pendingWithdrawals()
+    {
+        return CardTransaction::where('transaction_type', 'admin_withdrawal')
+            ->where('status', 'pending')
+            ->count();
+    }
+
+    #[Computed]
+    public function withdrawnToday()
+    {
+        return CardTransaction::where('transaction_type', 'admin_withdrawal')
+            ->whereIn('status', ['pending', 'success'])
+            ->whereDate('transaction_time', today())
+            ->sum('amount');
     }
 
     // ===================== CHARTS =====================
@@ -299,6 +351,110 @@ public function todayRevenue()
             ->get(['id', 'user_id', 'action', 'subject', 'channel', 'created_at']);
     }
 
+    private function fareRevenueForDate(\Carbon\Carbon $date): float
+    {
+        $cardFares = CardTransaction::where('transaction_type', 'fare_earning')
+            ->where('source', 'cashier')
+            ->where('status', 'success')
+            ->whereDate('transaction_time', $date)
+            ->sum('amount');
+
+        $cashFares = CashTransaction::where('status', 'success')
+            ->where('reference_no', 'like', 'FARECASH-%')
+            ->whereDate('created_at', $date)
+            ->sum('amount');
+
+        return (float) ($cardFares + $cashFares);
+    }
+
+    #[Computed]
+    public function tripsToday()
+    {
+        return TravelRecord::whereDate('created_at', today())->count();
+    }
+
+    #[Computed]
+    public function tripsTodayTrend()
+    {
+        $today = $this->tripsToday;
+        $yesterday = TravelRecord::whereDate('created_at', today()->subDay())->count();
+
+        if ($yesterday == 0) {
+            return $today > 0 ? 100.0 : null;
+        }
+
+        return round((($today - $yesterday) / $yesterday) * 100, 1);
+    }
+
+    #[Computed]
+    public function faresCollectedToday()
+    {
+        return $this->fareRevenueForDate(today());
+    }
+
+    #[Computed]
+    public function faresCollectedTrend()
+    {
+        return $this->dayOverDayTrend(
+            $this->faresCollectedToday,
+            $this->fareRevenueForDate(today()->subDay())
+        );
+    }
+
+    #[Computed]
+    public function farePaymentModeSplit()
+    {
+        $cardFares = CardTransaction::where('transaction_type', 'fare_earning')
+            ->where('source', 'cashier')
+            ->where('status', 'success')
+            ->whereDate('transaction_time', today())
+            ->sum('amount');
+
+        $cashFares = CashTransaction::where('status', 'success')
+            ->where('reference_no', 'like', 'FARECASH-%')
+            ->whereDate('created_at', today())
+            ->sum('amount');
+
+        $labels = [];
+        $data = [];
+
+        if ($cardFares > 0) {
+            $labels[] = 'Card';
+            $data[] = (float) $cardFares;
+        }
+
+        if ($cashFares > 0) {
+            $labels[] = 'Cash';
+            $data[] = (float) $cashFares;
+        }
+
+        return ['labels' => $labels, 'data' => $data];
+    }
+
+    #[Computed]
+    public function tripsByDestination()
+    {
+        $days = max(1, (int) $this->range);
+
+        $counts = TravelRecord::whereBetween('created_at', [today()->subDays($days - 1)->startOfDay(), today()->endOfDay()])
+            ->selectRaw('destination, count(*) as total')
+            ->groupBy('destination')
+            ->orderByDesc('total')
+            ->limit(8)
+            ->pluck('total', 'destination');
+
+        return [
+            'labels' => $counts->keys()->values()->toArray(),
+            'data' => $counts->values()->toArray(),
+        ];
+    }
+
+    #[Computed]
+    public function tripsByDestinationTrend()
+    {
+        return $this->trendPercent(TravelRecord::class, 'created_at');
+    }
+
     // ===================== NEW: QUEUE PAYMENT MODE SPLIT =====================
 
     #[Computed]
@@ -486,24 +642,20 @@ public function todayRevenue()
     #[Computed]
     public function revenueTodayTrend()
     {
-        return $this->trendPercent(TopUpTransaction::class, 'created_at', fn ($q) => $q->where('status', 'paid'), 'amount_paid', 1);
+        // Was: trendPercent() over TopUpTransaction (card top-ups) — an
+        // unrelated revenue stream from the queueing-fee figure this pill
+        // sits next to in the live status strip. Now compares the same
+        // queueing-fee metric, today vs yesterday.
+        return $this->dayOverDayTrend(
+            $this->todayRevenue,
+            $this->queueFeeRevenueForDate(today()->subDay())
+        );
     }
 
     #[Computed]
     public function queueFeeRevenueTrend()
     {
-        $today = Queue::whereDate('time_queued', today())
-            ->join('operator_ticket_rates', 'queues.vehicle_type', '=', 'operator_ticket_rates.vehicle_type')
-            ->sum('operator_ticket_rates.queueing_fee');
-        $yesterday = Queue::whereDate('time_queued', today()->subDay())
-            ->join('operator_ticket_rates', 'queues.vehicle_type', '=', 'operator_ticket_rates.vehicle_type')
-            ->sum('operator_ticket_rates.queueing_fee');
-
-        if ($yesterday == 0) {
-            return $today > 0 ? 100.0 : null;
-        }
-
-        return round((($today - $yesterday) / $yesterday) * 100, 1);
+        return $this->revenueTodayTrend;
     }
 
     #[Computed]
@@ -518,8 +670,8 @@ public function todayRevenue()
         $current = $this->cardAdoptionRate;
 
         $usersAWeekAgo = User::whereIn('role', ['operator', 'commuter'])->where('created_at', '<=', today()->subDays(7))->count() ?: 1;
-        $cardsAWeekAgo = Card::where('created_at', '<=', today()->subDays(7))->count();
-        $previous = round(($cardsAWeekAgo / $usersAWeekAgo) * 100, 1);
+        $cardHoldersAWeekAgo = Card::where('created_at', '<=', today()->subDays(7))->distinct('user_id')->count('user_id');
+        $previous = round(($cardHoldersAWeekAgo / $usersAWeekAgo) * 100, 1);
 
         if ($previous == 0) {
             return $current > 0 ? 100.0 : null;
@@ -562,7 +714,6 @@ public function todayRevenue()
         return $this->trendPercent(AuditLog::class, 'created_at');
     }
 
-    // ===================== FILTER UPDATES =====================
 
     public function updatedRange()
     {
@@ -573,9 +724,9 @@ public function todayRevenue()
         $this->dispatch('audit-action-chart-updated', chart: $this->auditActionVolume);
         $this->dispatch('queue-payment-mode-updated', chart: $this->queuePaymentModeSplit);
         $this->dispatch('peak-time-chart-updated', chart: $this->peakTimeByVehicleType);
+        $this->dispatch('trips-destination-chart-updated', chart: $this->tripsByDestination);
     }
 
-    // ===================== LIVE REFRESH =====================
 
     #[On('echo:user-info-updated,.UserInfoUpdated')]
     #[On('echo:vehicle-queue,.QueuedVehicleEvent')]
@@ -590,6 +741,9 @@ public function todayRevenue()
             $this->queueFeeRevenueToday,
             $this->cardAdoptionRate,
             $this->failedTransactionsCount,
+            $this->totalWithdrawn,
+            $this->pendingWithdrawals,
+            $this->withdrawnToday,
             $this->roleSplit,
             $this->commuterTypeSplit,
             $this->registrationsChart,
@@ -606,6 +760,13 @@ public function todayRevenue()
             $this->peakTimeByVehicleType,
             $this->peakHour,
             $this->expiringOperatorDocs,
+            $this->tripsToday,
+            $this->tripsTodayTrend,
+            $this->faresCollectedToday,
+            $this->faresCollectedTrend,
+            $this->farePaymentModeSplit,
+            $this->tripsByDestination,
+            $this->tripsByDestinationTrend,
             $this->totalUsersTrend,
             $this->totalVehiclesTrend,
             $this->registeredTodayTrend,
@@ -634,6 +795,8 @@ public function todayRevenue()
         $this->dispatch('cards-status-chart-updated', chart: $this->cardsByStatus);
         $this->dispatch('audit-action-chart-updated', chart: $this->auditActionVolume);
         $this->dispatch('queue-payment-mode-updated', chart: $this->queuePaymentModeSplit);
+        $this->dispatch('fare-payment-mode-updated', chart: $this->farePaymentModeSplit);
+        $this->dispatch('trips-destination-chart-updated', chart: $this->tripsByDestination);
         $this->dispatch('status-strip-updated', queueing: $this->vehiclesQueueingNow, revenue: $this->todayRevenue);
     }
 };
@@ -776,7 +939,7 @@ public function todayRevenue()
     </div>
     <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default">
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
         <flux:card class="p-3 sm:p-4">
             <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 dark:bg-primary/20 shrink-0">
@@ -813,6 +976,23 @@ public function todayRevenue()
             <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body block mt-2.5 sm:mt-3">Registered today</x-text>
             <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-success dark:text-dark-success block mt-0.5">
                 {{ $this->registeredToday }}
+            </x-text>
+        </flux:card>
+
+        <flux:card class="p-3 sm:p-4">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-warning/10 dark:bg-dark-warning/20 shrink-0">
+                    <flux:icon.arrow-up-tray class="w-4 h-4 sm:w-5 sm:h-5 text-warning dark:text-dark-warning" />
+                </div>
+                @if ($this->pendingWithdrawals > 0)
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-warning/10 text-warning dark:bg-dark-warning/20 dark:text-dark-warning">
+                        {{ $this->pendingWithdrawals }} pending
+                    </span>
+                @endif
+            </div>
+            <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body block mt-2.5 sm:mt-3">Total withdrawn</x-text>
+            <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-warning dark:text-dark-warning block mt-0.5">
+                ₱{{ number_format($this->totalWithdrawn, 2) }}
             </x-text>
         </flux:card>
     </div>
@@ -1030,11 +1210,13 @@ public function todayRevenue()
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8 items-start">
-        {{-- Revenue by payment method (span 2) --}}
+        {{-- Card top-ups by payment method (span 2) — this is TopUpTransaction
+             volume (balance loaded via GCash/PayMongo/cash), not queueing-fee
+             or fare revenue; see the Queue fees / Fares tiles for those. --}}
         <flux:card class="p-4 lg:col-span-2">
             <div class="flex items-center justify-between gap-2 mb-2">
                 <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
-                    Revenue by payment method
+                    Card top-ups by payment method
                 </x-text>
                 <x-dashboard.trend-pill :value="$this->revenueTrend" :suffix="$this->range . 'd'" />
             </div>
@@ -1111,6 +1293,86 @@ public function todayRevenue()
                 wire:ignore
                 x-data="barChart(@js($this->queueVolumeByVehicleType), { label: 'Vehicles queued', colorKey: 'primary' })"
                 @queue-volume-chart-updated.window="update($event.detail.chart)"
+            >
+                <div class="relative h-44 sm:h-56">
+                    <canvas x-ref="canvas" x-show="!empty"></canvas>
+                    <div x-show="empty" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center px-4">
+                        <flux:icon.chart-bar class="w-6 h-6 text-light-txt-muted dark:text-dark-txt-muted" />
+                        <span class="font-secondary text-xs sm:text-sm text-light-txt-muted dark:text-dark-txt-muted">No data yet</span>
+                    </div>
+                </div>
+            </div>
+        </flux:card>
+    </div>
+
+    <div class="flex items-center gap-2.5 text-light-txt-primary dark:text-dark-txt-primary">
+        <span class="zone-bar bg-danger dark:bg-dark-danger"></span>
+        <span class="font-secondary text-nav-label font-bold uppercase tracking-widest">Fares &amp; Trips</span>
+    </div>
+    <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-4">
+        <flux:card class="p-3 sm:p-4">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-danger/10 dark:bg-dark-danger/20 shrink-0">
+                    <flux:icon.users class="w-4 h-4 sm:w-5 sm:h-5 text-danger dark:text-dark-danger" />
+                </div>
+                <x-dashboard.trend-pill :value="$this->tripsTodayTrend" suffix="vs yday" />
+            </div>
+            <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body block mt-2.5 sm:mt-3">Trips boarded today</x-text>
+            <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-danger dark:text-dark-danger block mt-0.5">
+                {{ $this->tripsToday }}
+            </x-text>
+        </flux:card>
+
+        <flux:card class="p-3 sm:p-4">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-danger/10 dark:bg-dark-danger/20 shrink-0">
+                    <flux:icon.banknotes class="w-4 h-4 sm:w-5 sm:h-5 text-danger dark:text-dark-danger" />
+                </div>
+                <x-dashboard.trend-pill :value="$this->faresCollectedTrend" suffix="vs yday" />
+            </div>
+            <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body block mt-2.5 sm:mt-3">Fares collected today</x-text>
+            <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-danger dark:text-dark-danger block mt-0.5">
+                ₱{{ number_format($this->faresCollectedToday, 2) }}
+            </x-text>
+        </flux:card>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
+        <flux:card class="p-4">
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                    Fare payment mode
+                </x-text>
+                <span class="font-secondary text-xs font-medium text-light-txt-muted dark:text-dark-txt-muted">Today</span>
+            </div>
+            <div
+                wire:ignore
+                x-data="donutChart(@js($this->farePaymentModeSplit))"
+                @fare-payment-mode-updated.window="update($event.detail.chart)"
+            >
+                <div class="relative h-44 sm:h-56">
+                    <canvas x-ref="canvas" x-show="!empty"></canvas>
+                    <div x-show="empty" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center px-4">
+                        <flux:icon.chart-pie class="w-6 h-6 text-light-txt-muted dark:text-dark-txt-muted" />
+                        <span class="font-secondary text-xs sm:text-sm text-light-txt-muted dark:text-dark-txt-muted">No data yet</span>
+                    </div>
+                </div>
+            </div>
+        </flux:card>
+
+        <flux:card class="p-4 lg:col-span-2">
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                    Trips by destination
+                </x-text>
+                <x-dashboard.trend-pill :value="$this->tripsByDestinationTrend" :suffix="$this->range . 'd'" />
+            </div>
+            <div
+                wire:ignore
+                x-data="barChart(@js($this->tripsByDestination), { label: 'Trips', colorKey: 'danger' })"
+                @trips-destination-chart-updated.window="update($event.detail.chart)"
             >
                 <div class="relative h-44 sm:h-56">
                     <canvas x-ref="canvas" x-show="!empty"></canvas>

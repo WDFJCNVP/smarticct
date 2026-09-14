@@ -86,6 +86,10 @@
                     Dispatch Log
                 </x-dashboard.sidebar-menu.sidebar-item>
 
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('cashier.transactions') }}" icon="banknotes">
+                    Transactions
+                </x-dashboard.sidebar-menu.sidebar-item>
+
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('cashier.cards') }}" icon="credit-card">
                     Card Top-up
                 </x-dashboard.sidebar-menu.sidebar-item>

@@ -235,9 +235,8 @@ new #[Layout('layouts.commuter-layout')] class extends Component
         }
     </style>
 
-    {{-- ===================== MINI-NAVBAR ===================== --}}
     <x-page-header
-        heading="Your expenses, travel, and rental overview"
+        heading="My expenses, travel, and rental overview"
     >
         <flux:modal.trigger name="commuter-filters">
             <button

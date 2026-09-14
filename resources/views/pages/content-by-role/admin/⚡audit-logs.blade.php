@@ -129,7 +129,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             ->when($this->search, function ($query) {
                 $query->whereHas('user', function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('username', 'like', '%' . $this->search . '%');
+                      ->orWhere('name', 'like', '%' . $this->search . '%');
                 })->orWhere('subject', 'like', '%' . $this->search . '%');
             })
             ->when($this->filterAction, function ($query) {
@@ -145,10 +145,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
 ?>
 
 <div>
-    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
     <x-page-header
-        heading="Audit Logs"
-        description="Track all system events and user actions."
+        description="System's Audit Logs"
         class="mb-6"
     >
         <flux:modal.trigger name="export-audit-logs" wire:click="prepareExportModal">
@@ -187,7 +185,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
     <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
         <flux:input
             class="flex-1 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-            size="sm"
             icon="magnifying-glass"
             placeholder="Search logs here"
             wire:model.live.debounce.300ms="search"
@@ -195,7 +192,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         <flux:select
             wire:model.live="filterAction"
-            size="sm"
             placeholder="Action"
             class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
         >
@@ -207,7 +203,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         <flux:select
             wire:model.live="filterChannel"
-            size="sm"
             placeholder="Channel"
             class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
         >
@@ -377,7 +372,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         <div class="overflow-x-auto">
             <flux:table container:class="md:max-h-160">
                 <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
-                    <flux:table.column align="center" class="px-2 md:px-4 py-2">Actor</flux:table.column>
+                    <flux:table.column align="center" class="px-2! md:px-4! py-2!">Actor</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Action</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Date &amp; Time</flux:table.column>
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Subject</flux:table.column>
@@ -413,7 +408,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             };
                         @endphp
                         <flux:table.row :key="$log->id">
-                            <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2">
+                            <flux:table.cell align="center" class="!px-2 md:!px-4 !py-1.5 md:!py-2">
                                 <div class="flex flex-col items-center">
                                     <span class="font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-primary">
                                         {{ $log->user?->name ?? 'Unknown' }}
@@ -506,7 +501,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         <dt class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">Actor</dt>
                         <dd class="font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">
                             {{ $selectedLog->user?->name ?? 'Unknown' }}
-                            <span class="text-light-txt-muted dark:text-dark-txt-muted">({{ $selectedLog->user?->username ?? '-' }})</span>
+                            <span class="text-light-txt-muted dark:text-dark-txt-muted">({{ $selectedLog->user?->name ?? '-' }})</span>
                         </dd>
                     </div>
                     <div>

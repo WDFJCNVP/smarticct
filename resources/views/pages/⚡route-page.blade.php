@@ -19,7 +19,6 @@ new class extends Component
 {
     use WithPagination;
 
-    // ===================== DELETE CONFIRMATION =====================
     public bool $show_delete_route_modal = false;
     public ?int $pendingDeleteRouteId = null;
     public string $pendingDeleteRouteTerminal = '';
@@ -241,14 +240,9 @@ new class extends Component
             ->paginate(10);
     }
 
-    // TODO: replace with an `operators` table once Manila-bound bus lines
-    // need their own logos / destinations managed from the admin panel.
-    // Hardcoded for now so the page ships without over-building the schema.
     #[Computed]
     public function getManilaOperators()
     {
-        // Every Manila-bound operator runs buses only, so if the person filters
-        // by a non-bus vehicle type, this section has nothing to show.
         if ($this->vehicleFilter) {
             $selectedType = OperatorTicketRate::find($this->vehicleFilter);
 
@@ -325,9 +319,15 @@ new class extends Component
 
             {{-- ====== PAGE ACTIONS (desktop only, mirrors the mini-navbar's own visibility) ====== --}}
             @if ($isAdmin)
-                <div class="hidden sm:flex justify-end mb-6">
+                <div class="hidden sm:flex sm:items-center sm:justify-between gap-3 mb-6">
+                    <x-heading
+                        class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+                        style="font-size: var(--text-section-heading)"
+                    >
+                        Monitor terminal's route & fare information
+                    </x-heading>
                     <flux:modal.trigger name="route-form" class="block w-full sm:w-auto">
-                        <flux:button wire:click="resetForm" icon="plus" variant="primary" class="font-secondary w-full sm:w-auto justify-center">Add route</flux:button>
+                        <flux:button wire:click="resetForm" icon="plus" variant="primary" class="font-secondary w-full sm:w-auto justify-center bg-primary text-white hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover">Add route</flux:button>
                     </flux:modal.trigger>
                 </div>
             @endif
@@ -891,8 +891,14 @@ new class extends Component
                 <flux:modal.close>
                     <flux:button variant="ghost">Cancel</flux:button>
                 </flux:modal.close>
-                <flux:button wire:click="delete({{ $pendingDeleteRouteId }})" wire:loading.attr="disabled" variant="danger">
-                    Delete
+                <flux:button
+                    wire:click="delete({{ $pendingDeleteRouteId }})"
+                    wire:loading.attr="disabled"
+                    wire:target="delete({{ $pendingDeleteRouteId }})"
+                    variant="danger"
+                >
+                    <span wire:loading.remove wire:target="delete({{ $pendingDeleteRouteId }})">Delete</span>
+                    <span wire:loading wire:target="delete({{ $pendingDeleteRouteId }})">Deleting…</span>
                 </flux:button>
             </div>
         </div>

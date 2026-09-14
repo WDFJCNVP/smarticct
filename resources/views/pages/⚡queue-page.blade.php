@@ -15,7 +15,6 @@ new class extends Component {
     public string $search = '';
     public string $vehicleType = '';
 
-    // ===================== ACTION CONFIRMATIONS =====================
     public bool $show_depart_early_modal = false;
     public bool $show_cash_fare_modal = false;
     public bool $show_dispatch_modal = false;
@@ -269,7 +268,6 @@ new class extends Component {
     <div class="{{ auth()->guest() ? 'mx-auto max-w-5xl px-4 sm:px-6 py-8' : '' }}">
 
         @auth
-            {{-- ====== PAGE HEADER (desktop only) ====== --}}
             <x-page-header
                 heading="Live Queue"
                 class="mb-4"
@@ -277,28 +275,29 @@ new class extends Component {
                 {{-- Empty slot – no buttons inside the header --}}
             </x-page-header>
 
-            {{-- ====== ACTION BUTTONS (visible on all screens, pinned to the far right) ====== --}}
             @if (in_array(auth()->user()->role, ['cashier', 'admin']))
-                <div class="flex items-center justify-end gap-2 mb-6 w-full sm:w-auto">
-                    <flux:button
-                        size="sm"
-                        icon="plus"
-                        variant="primary"
-                        href="{{ route('cashier.queue.vehicle') }}"
-                        wire:navigate
-                        class="font-secondary flex-1 sm:flex-none justify-center"
-                    >
-                        Queue Vehicle
-                    </flux:button>
-                    <flux:button
-                        size="sm"
-                        href="{{ route('cashier.active-group') }}"
-                        wire:navigate
-                        class="font-secondary flex-1 sm:flex-none justify-center"
-                    >
-                        View Active Groups
-                    </flux:button>
+            <div class="hidden sm:flex sm:items-center sm:justify-between gap-3 mb-6">
+                <x-heading
+                    class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+                    style="font-size: var(--text-section-heading)"
+                >
+                    Monitor your vehicle's queueing
+                </x-heading>
+
+                <div class="flex items-center justify-end gap-2 w-full sm:w-auto">
+                    <flux:link href="{{ route('cashier.queue.vehicle') }}" wire:navigate class="w-full sm:w-auto">
+                        <flux:button variant="primary" icon="plus" size="sm" class="font-secondary w-full sm:w-auto justify-center bg-primary text-white hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover">
+                            Queue Vehicle
+                        </flux:button>
+                    </flux:link>
+
+                    <flux:link href="{{ route('cashier.active-group') }}" wire:navigate class="w-full sm:w-auto">
+                        <flux:button variant="primary" icon="plus" size="sm" class="font-secondary w-full sm:w-auto justify-center bg-primary text-white hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover">
+                            View Active Groups
+                        </flux:button>
+                    </flux:link>
                 </div>
+            </div>
             @endif
         @endauth
 

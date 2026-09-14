@@ -6,19 +6,44 @@ use Illuminate\Support\Facades\DB;
 
 use App\Models\TripRequest;
 use App\Models\RentTransaction;
+use App\Models\Notification;
+use App\Models\UserNotification;
+use App\Events\NotificationEvent;
 
 new class extends Component
 {
     public TripRequest $tripRequest;
     public string $modalType;
 
-    // This modal is shared by both the operator flow (acting on a trip
-    // request made against their own post) and the commuter flow (acting
-    // on their own trip request), so either party to the record is valid.
     protected function isAuthorized(): bool
     {
         return $this->tripRequest->user_id === auth()->id()
             || optional($this->tripRequest->post)->user_id === auth()->id();
+    }
+
+    protected function notifyCounterparty(TripRequest $tripRequest, string $title, string $message): void
+    {
+        $postOwnerId = optional($tripRequest->post)->user_id;
+        $requesterId = $tripRequest->user_id;
+
+        $recipientId = auth()->id() === $postOwnerId ? $requesterId : $postOwnerId;
+
+        if (!$recipientId) {
+            return;
+        }
+
+        $notification = Notification::create([
+            'type'    => 'Trip Request',
+            'title'   => $title,
+            'message' => $message,
+        ]);
+
+        UserNotification::create([
+            'notification_id' => $notification->id,
+            'user_id'         => $recipientId,
+        ]);
+
+        broadcast(new NotificationEvent());
     }
 
     public function cancelTrip() {
@@ -39,8 +64,14 @@ new class extends Component
 
             });
 
+            $this->notifyCounterparty(
+                $tripRequest,
+                'Trip cancelled',
+                'A trip you were part of has been cancelled.',
+            );
+
             Flux::toast(
-                duration: 0,
+                duration: 4000,
                 variant: 'success',
                 heading: 'Trip cancelled',
                 text: 'This trip has been cancelled.',
@@ -67,6 +98,12 @@ new class extends Component
                 ]);
 
             });
+
+            $this->notifyCounterparty(
+                $tripRequest,
+                'Trip completed',
+                'A trip you were part of has been marked as completed.',
+            );
 
             Flux::toast(
                 duration: 0,

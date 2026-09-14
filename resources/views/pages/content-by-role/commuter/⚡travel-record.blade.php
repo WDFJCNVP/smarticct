@@ -134,7 +134,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
 <div>
     {{-- ====== PAGE HEADER ====== --}}
     <x-page-header
-        heading="My Travels"
+        heading="My Travel History"
         class="mb-6"
     >
         <flux:modal.trigger name="commuter-travel-filters">

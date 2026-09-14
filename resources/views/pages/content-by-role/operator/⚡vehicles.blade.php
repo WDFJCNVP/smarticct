@@ -17,22 +17,24 @@ new #[Layout('layouts.operator-layout')]class extends Component
     public string $exportPaper = 'legal';
     public string $exportOrientation = 'portrait';
 
+    public string $search = '';
     public string $vehicleTypeFilter = '';
     public string $statusFilter = '';
 
+    public function updatedSearch() { unset($this->vehicles); }
     public function updatedVehicleTypeFilter() { unset($this->vehicles); }
     public function updatedStatusFilter() { unset($this->vehicles); }
 
     public function clearFilters()
     {
-        $this->reset(['vehicleTypeFilter', 'statusFilter']);
+        $this->reset(['search', 'vehicleTypeFilter', 'statusFilter']);
         unset($this->vehicles);
     }
 
     #[Computed]
     public function activeFilterCount()
     {
-        return collect([$this->vehicleTypeFilter, $this->statusFilter])
+        return collect([$this->search, $this->vehicleTypeFilter, $this->statusFilter])
             ->filter(fn ($v) => filled($v))
             ->count();
     }
@@ -64,12 +66,19 @@ new #[Layout('layouts.operator-layout')]class extends Component
             $q->latest();
         }])
         ->where('user_id', auth()->id())
+        ->when($this->search, function ($q) {
+            $q->where(function ($q2) {
+                $q2->where('plate_number', 'like', '%' . $this->search . '%')
+                    ->orWhere('vehicle_type', 'like', '%' . $this->search . '%')
+                    ->orWhere('engine_number', 'like', '%' . $this->search . '%');
+            });
+        })
         ->when($this->vehicleTypeFilter, fn ($q, $v) => $q->where('vehicle_type', $v))
         ->get()
         ->when($this->statusFilter, function ($vehicles) {
             return $vehicles->filter(function ($vehicle) {
                 if ($this->statusFilter === 'not_queue') {
-                    return !$vehicle->queue || !in_array($vehicle->queue->status, ['loading', 'staging', 'departed']);
+                    return !$vehicle->queue || !in_array($vehicle->queue->status, ['loading', 'staging', 'waiting']);
                 }
                 return $vehicle->queue?->status === $this->statusFilter;
             })->values();
@@ -84,7 +93,7 @@ new #[Layout('layouts.operator-layout')]class extends Component
             'loading'   => $vehicles->filter(fn($vehicle) => $vehicle->queue?->status === 'loading')->count(),
             'staging'   => $vehicles->filter(fn($vehicle) => $vehicle->queue?->status === 'staging')->count(),
             'departed'  => $vehicles->filter(fn($vehicle) => $vehicle->queue?->status === 'departed')->count(),
-            'not_queue' => $vehicles->filter(fn($vehicle) => !$vehicle->queue || !in_array($vehicle->queue->status, ['loading', 'staging', 'departed']))->count(),
+            'not_queue' => $vehicles->filter(fn($vehicle) => !$vehicle->queue || !in_array($vehicle->queue->status, ['loading', 'staging', 'waiting']))->count(),
         ];
     }
 
@@ -109,68 +118,89 @@ new #[Layout('layouts.operator-layout')]class extends Component
 ?>
 
 <div>
-    {{-- Header – consistent with other pages --}}
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-            <x-heading
-                size="xl"
-                class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-                style="font-size: var(--text-page-title)"
-            >
-                My Vehicles
-            </x-heading>
-            <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                Monitor your vehicles and their current queue status here.
-            </x-text>
-        </div>
-
+    <x-page-header
+        heading="My Vehicles"
+        class="mb-6"
+    >
         <flux:modal.trigger name="export-fleet">
             <button
                 type="button"
-                class="relative flex items-center gap-1.5 sm:gap-2 px-3.5 h-8 sm:h-9 rounded-lg bg-black text-white border-0 hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 transition font-secondary text-xs sm:text-table-row shrink-0 w-full lg:w-auto justify-center"
+                class="relative flex items-center gap-1.5 sm:gap-2 px-3.5 h-8 sm:h-9 rounded-lg bg-black text-white border-0 hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 transition font-secondary text-xs sm:text-table-row shrink-0 w-full sm:w-auto justify-center"
             >
                 <flux:icon.arrow-down-tray class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-black" />
                 <span>Export fleet PDF</span>
             </button>
         </flux:modal.trigger>
+    </x-page-header>
+
+    <div class="sm:hidden mb-4 pb-4 border-b border-light-bd-default dark:border-dark-bd-default">
+        <x-heading
+            size="xl"
+            class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
+            style="font-size: var(--text-page-title)"
+        >
+            My Vehicles
+        </x-heading>
     </div>
 
-    {{-- Filters --}}
-    <div class="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 w-full sm:w-auto mt-3">
-        <flux:select
-            wire:model.live="vehicleTypeFilter"
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+    <flux:modal.trigger name="export-fleet" class="block sm:hidden">
+        <flux:button
+            variant="primary"
+            icon="arrow-down-tray"
             size="sm"
-            placeholder="All vehicle types"
-            class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-        >
-            <flux:select.option value="">All vehicle types</flux:select.option>
-            @foreach ($this->vehicleTypes as $type)
-                <flux:select.option value="{{ $type }}">{{ $type }}</flux:select.option>
-            @endforeach
-        </flux:select>
-
-        <flux:select
-            wire:model.live="statusFilter"
-            size="sm"
-            placeholder="All statuses"
-            class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
-        >
-            <flux:select.option value="">All statuses</flux:select.option>
-            <flux:select.option value="loading">Loading</flux:select.option>
-            <flux:select.option value="staging">Staging</flux:select.option>
-            <flux:select.option value="departed">Departed</flux:select.option>
-            <flux:select.option value="not_queue">Not in queue</flux:select.option>
-        </flux:select>
-
-        @if ($this->activeFilterCount > 0)
-            <flux:button wire:click="clearFilters" size="sm" variant="ghost" icon="x-mark" class="font-secondary shrink-0">
-                Clear
+            class="font-secondary w-full justify-center"
+            >
+                Export fleet PDF
             </flux:button>
-        @endif
+        </flux:modal.trigger>
+
+        <div class="flex-1">
+            <flux:input
+                wire:model.live.debounce.300ms="search"
+                placeholder="Search plate number, type, or engine no..."
+                class="w-full font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+                icon="magnifying-glass"
+            />
+        </div>
+
+        {{-- Filters + Clear --}}
+        <div class="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <flux:select
+                wire:model.live="vehicleTypeFilter"
+                size="sm"
+                placeholder="All vehicle types"
+                class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+            >
+                <flux:select.option value="">All vehicle types</flux:select.option>
+                @foreach ($this->vehicleTypes as $type)
+                    <flux:select.option value="{{ $type }}">{{ $type }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select
+                wire:model.live="statusFilter"
+                size="sm"
+                placeholder="All statuses"
+                class="w-full sm:w-40 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+            >
+                <flux:select.option value="">All statuses</flux:select.option>
+                <flux:select.option value="loading">Loading</flux:select.option>
+                <flux:select.option value="staging">Staging</flux:select.option>
+                <flux:select.option value="departed">Departed</flux:select.option>
+                <flux:select.option value="not_queue">Not in queue</flux:select.option>
+            </flux:select>
+
+            @if ($this->activeFilterCount > 0)
+                <flux:button wire:click="clearFilters" size="sm" variant="ghost" icon="x-mark" class="font-secondary shrink-0">
+                    Clear
+                </flux:button>
+            @endif
+        </div>
     </div>
 
     {{-- Stats cards – same pattern as other pages --}}
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 mb-5">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <flux:card class="p-3 sm:p-4">
             <div class="flex items-center gap-1.5 sm:gap-2 mb-1.5">
                 <div class="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/10 dark:bg-primary/20 shrink-0">
@@ -229,34 +259,25 @@ new #[Layout('layouts.operator-layout')]class extends Component
     </div>
 
     {{-- Table – standard card with p-0 and sticky headers --}}
-    {{-- Mobile keeps only #, Plate no., Type, Queue status, and Actions.
-         Route reveals at sm, franchise validity + engine no. at md,
-         body/chassis no. and registered date at lg — so the 11-column
-         table rarely needs horizontal scrolling on small screens. --}}
+    {{-- Trimmed to the columns operators actually scan day-to-day: plate,
+         type, route, queue status, and a quick action. Engine/body/chassis
+         numbers, franchise validity, and registered date are still on the
+         vehicle detail page (and in the fleet PDF export) — just not needed
+         for a glance at the list. --}}
     <flux:card class="mb-4 p-0! overflow-hidden">
         <div class="overflow-x-auto">
             <flux:table container:class="md:max-h-160">
                 <flux:table.columns sticky class="bg-light-secondary/50 items-center bg-light-subtle/50 dark:bg-dark-secondary/50 font-secondary text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
-                    <flux:table.column align="center" class="px-2! md:px-4! py-2">#</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Plate no.</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Type</flux:table.column>
-                    <flux:table.column align="center" class="hidden md:table-cell px-4 py-2">Engine no.</flux:table.column>
-                    <flux:table.column align="center" class="hidden lg:table-cell px-4 py-2">Body no.</flux:table.column>
-                    <flux:table.column align="center" class="hidden lg:table-cell px-4 py-2">Chassis no.</flux:table.column>
                     <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Route</flux:table.column>
-                    <flux:table.column align="center" class="hidden md:table-cell px-4 py-2">Validity date of franchise</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Queue status</flux:table.column>
-                    <flux:table.column align="center" class="hidden lg:table-cell px-4 py-2">Registered</flux:table.column>
                     <flux:table.column align="center" class="px-2! md:px-4! py-2">Actions</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
                     @forelse ($this->vehicles as $index => $vehicle)
                         <flux:table.row :key="$vehicle->id">
-                            <flux:table.cell align="center" class="px-2! md:px-4! py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ $index + 1 }}
-                            </flux:table.cell>
-
                             <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2 font-mono font-medium text-xs md:text-table-row text-light-txt-primary dark:text-dark-txt-primary">
                                 {{ $vehicle->plate_number }}
                             </flux:table.cell>
@@ -265,35 +286,8 @@ new #[Layout('layouts.operator-layout')]class extends Component
                                 {{ $vehicle->vehicle_type }}
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="hidden md:table-cell px-4 py-1.5 md:py-2 font-mono text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
-                                {{ $vehicle->engine_number ?? '—' }}
-                            </flux:table.cell>
-
-                            <flux:table.cell align="center" class="hidden lg:table-cell px-4 py-1.5 md:py-2 font-mono text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
-                                {{ $vehicle->body_number ?? '—' }}
-                            </flux:table.cell>
-
-                            <flux:table.cell align="center" class="hidden lg:table-cell px-4 py-1.5 md:py-2 font-mono text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
-                                {{ $vehicle->chassis_number ?? '—' }}
-                            </flux:table.cell>
-
                             <flux:table.cell align="center" class="hidden sm:table-cell px-2 md:px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
                                 Iriga → {{ $vehicle->route_list->terminal }}
-                            </flux:table.cell>
-
-                            <flux:table.cell align="center" class="hidden md:table-cell px-4 py-1.5 md:py-2">
-                                @if($vehicle->has_franchise && $vehicle->franchise_expiry_date)
-                                    <flux:tooltip content="Franchise verified">
-                                        <span class="inline-flex items-center gap-1 font-secondary text-xs md:text-table-row text-light-txt-body dark:text-dark-txt-body">
-                                            <flux:icon.check-circle class="w-4 h-4 text-success dark:text-dark-success" />
-                                            {{ $vehicle->franchise_expiry_date->format('M d, Y') }}
-                                        </span>
-                                    </flux:tooltip>
-                                @else
-                                    <flux:tooltip content="Franchise not verified">
-                                        <flux:icon.x-circle class="w-4 h-4 text-danger dark:text-dark-danger inline" />
-                                    </flux:tooltip>
-                                @endif
                             </flux:table.cell>
 
                             <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2">
@@ -310,10 +304,6 @@ new #[Layout('layouts.operator-layout')]class extends Component
                                 @endif
                             </flux:table.cell>
 
-                            <flux:table.cell align="center" class="hidden lg:table-cell px-4 py-1.5 md:py-2 font-secondary text-xs md:text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
-                                {{ $vehicle->created_at->format('M d, Y') }}
-                            </flux:table.cell>
-
                             <flux:table.cell align="center" class="px-2! md:px-4! py-1.5 md:py-2">
                                 <flux:link href="/operator/vehicles/{{ $vehicle->id }}" variant="subtle" wire:navigate>
                                     <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" inset="top bottom" class="scale-75 md:scale-100" />
@@ -322,7 +312,7 @@ new #[Layout('layouts.operator-layout')]class extends Component
                         </flux:table.row>
                     @empty
                         <flux:table.row>
-                            <flux:table.cell colspan="11" class="px-2 md:px-4 py-4">
+                            <flux:table.cell colspan="5" class="px-2 md:px-4 py-4">
                                 <div class="flex flex-col items-center justify-center py-6 md:py-12 gap-2">
                                     <flux:icon.truck class="w-6 h-6 md:w-8 md:h-8 text-light-txt-muted dark:text-dark-txt-muted" />
                                     <x-text class="font-secondary text-sm md:text-table-row text-light-txt-muted dark:text-dark-txt-muted">

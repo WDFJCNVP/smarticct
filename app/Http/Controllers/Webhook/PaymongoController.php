@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 use App\Models\CardTransaction;
 use App\Models\TopUpTransaction;
 use App\Models\Card;
+use App\Models\Notification;
+use App\Models\UserNotification;
+use App\Events\NotificationEvent;
 class PaymongoController extends Controller
 {
     public function handleWebhook(Request $request)
@@ -60,7 +63,32 @@ class PaymongoController extends Controller
                             $card->increment('balance', $transaction->points_credited);
                             Log::info("Credited PHP {$transaction->points_credited} to Card ID {$card->id}");
                         }
+
+                        if ($transaction->user_id) {
+                            $notification = Notification::create([
+                                'type'    => 'TopUp',
+                                'title'   => 'Top-up successful',
+                                'message' => "₱" . number_format($transaction->points_credited, 2) . " has been added to your card.",
+                                'metadata' => [
+                                    'amount'               => $transaction->points_credited,
+                                    'checkout_session_id'  => $checkoutSessionId,
+                                ],
+                            ]);
+
+                            UserNotification::create([
+                                'notification_id' => $notification->id,
+                                'user_id'         => $transaction->user_id,
+                            ]);
+                        }
                     });
+
+                    try {
+                        broadcast(new NotificationEvent());
+                    } catch (\Exception $e) {
+                        // The top-up already succeeded above — a broadcast/websocket
+                        // hiccup should only cost real-time UI refresh.
+                        Log::warning('Top-up succeeded but notification broadcast failed', ['error' => $e->getMessage()]);
+                    }
                 }
             } elseif (in_array($type, [
                 'checkout_session.payment.failed',
@@ -81,7 +109,33 @@ class PaymongoController extends Controller
 
                         $transaction->update(['status' => 'failed']);
                         Log::info("TopUpTransaction {$transaction->id} marked failed ({$type}).");
+
+                        if ($transaction->user_id) {
+                            $reason = $type === 'checkout_session.payment.expired' ? 'expired' : 'failed';
+
+                            $notification = Notification::create([
+                                'type'    => 'TopUp',
+                                'title'   => 'Top-up ' . $reason,
+                                'message' => "Your ₱" . number_format($transaction->points_credited, 2) . " top-up did not go through. No balance was added.",
+                                'metadata' => [
+                                    'amount'              => $transaction->points_credited,
+                                    'checkout_session_id' => $checkoutSessionId,
+                                    'reason'              => $reason,
+                                ],
+                            ]);
+
+                            UserNotification::create([
+                                'notification_id' => $notification->id,
+                                'user_id'         => $transaction->user_id,
+                            ]);
+                        }
                     });
+
+                    try {
+                        broadcast(new NotificationEvent());
+                    } catch (\Exception $e) {
+                        Log::warning('Top-up failure processed but notification broadcast failed', ['error' => $e->getMessage()]);
+                    }
                 }
             } else {
                 Log::info('WEBHOOK: Unhandled event type received.', ['type' => $type]);
@@ -172,6 +226,23 @@ class PaymongoController extends Controller
 
                 if ($type === 'transfer.outward.successful') {
                     $transaction->update(['status' => 'success']);
+
+                    if ($transaction->processed_by) {
+                        $notification = Notification::create([
+                            'type'    => 'Withdrawal',
+                            'title'   => 'Withdrawal completed',
+                            'message' => "Your ₱" . number_format($transaction->amount, 2) . " withdrawal has been sent.",
+                            'metadata' => [
+                                'amount'       => $transaction->amount,
+                                'reference_no' => $transaction->reference_no,
+                            ],
+                        ]);
+
+                        UserNotification::create([
+                            'notification_id' => $notification->id,
+                            'user_id'         => $transaction->processed_by,
+                        ]);
+                    }
                 } elseif ($type === 'transfer.outward.failed') {
                     $attrs = $event['data']['attributes']['data']['attributes'] ?? [];
 
@@ -181,10 +252,43 @@ class PaymongoController extends Controller
                             . " | Failed: {$attrs['provider_error']} ({$attrs['provider_error_code']})",
                     ]);
 
-                    $card = $transaction->card()->lockForUpdate()->first();
-                    $card->increment('balance', $transaction->amount); // refund since it never left
+                    // Only operator withdrawals are backed by a real card balance
+                    // (card_id is null for admin withdrawals, whose balance is
+                    // computed on the fly from successful/pending withdrawals) —
+                    // so only refund when there's an actual card to credit.
+                    $card = $transaction->card_id
+                        ? $transaction->card()->lockForUpdate()->first()
+                        : null;
+
+                    if ($card) {
+                        $card->increment('balance', $transaction->amount); // refund since it never left
+                    }
+
+                    if ($transaction->processed_by) {
+                        $notification = Notification::create([
+                            'type'    => 'Withdrawal',
+                            'title'   => 'Withdrawal failed',
+                            'message' => "Your ₱" . number_format($transaction->amount, 2) . " withdrawal failed"
+                                . ($card ? " and was refunded to your card." : "."),
+                            'metadata' => [
+                                'amount'       => $transaction->amount,
+                                'reference_no' => $transaction->reference_no,
+                            ],
+                        ]);
+
+                        UserNotification::create([
+                            'notification_id' => $notification->id,
+                            'user_id'         => $transaction->processed_by,
+                        ]);
+                    }
                 }
             });
+
+            try {
+                broadcast(new NotificationEvent());
+            } catch (\Exception $e) {
+                Log::warning('Disbursement processed but notification broadcast failed', ['error' => $e->getMessage()]);
+            }
         } catch (\Throwable $e) {
             Log::error('DISBURSEMENT WEBHOOK: Processing failed after signature passed.', [
                 'error' => $e->getMessage(),

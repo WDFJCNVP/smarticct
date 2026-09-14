@@ -8,8 +8,10 @@ use App\Models\Vehicle;
 use App\Models\Queue;
 use App\Models\Card;
 use App\Models\CardTransaction;
+use App\Models\CashTransaction;
 use App\Models\PostInterest;
 use App\Models\OperatorTicketRate;
+use App\Models\TravelRecord;
 use Illuminate\Support\Facades\Auth;
 
 use App\Services\OperatorDisbursementService;
@@ -22,7 +24,6 @@ new #[Layout('layouts.operator-layout')] class extends Component
     public string $range = '7'; // days: 7, 14, 30
     public string $vehicleTypeFilter = '';
     public string $routeFilter = '';
-    public string $paymentMethodFilter = '';
 
     public bool $showWithdrawModal = false;
     public string $withdrawAmount = '';
@@ -122,7 +123,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
             ]);
 
             if (!$result['successful']) {
-                $card->increment('balance', $totalDeduction); // roll back
+                $card->increment('balance', $totalDeduction); 
             }
 
             return $result['successful'];
@@ -130,7 +131,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
 
         if (!$succeeded) {
             $this->addError('withdrawAmount', 'Withdrawal request failed. Please check your details and try again.');
-            return; // don't reset the form or close the modal
+            return;
         }
 
         $this->reset(['withdrawAmount', 'accountNumber', 'accountName', 'bic']);
@@ -168,7 +169,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
     #[Computed]
     public function activeFilterCount()
     {
-        return collect([$this->vehicleTypeFilter, $this->routeFilter, $this->paymentMethodFilter])
+        return collect([$this->vehicleTypeFilter, $this->routeFilter])
             ->filter(fn ($v) => filled($v))
             ->count();
     }
@@ -223,11 +224,30 @@ new #[Layout('layouts.operator-layout')] class extends Component
     #[Computed]
     public function queueFeePaidToday()
     {
-        return $this->applyQueueFilters(
-            Queue::where('queues.user_id', Auth::id())->whereDate('time_queued', today())
-        )
-            ->join('operator_ticket_rates', 'queues.vehicle_type', '=', 'operator_ticket_rates.vehicle_type')
-            ->sum('operator_ticket_rates.queueing_fee');
+        // Was: today's queue count x the *current* configured rate — drifts
+        // from reality if a rate is changed mid-day, same class of bug
+        // fixed on the admin dashboard's "Queue fees today" tile. This now
+        // sums what was actually deducted today, scoped to the same filters.
+        $todaysQueueIds = $this->applyQueueFilters(
+            Queue::where('user_id', Auth::id())->whereDate('time_queued', today())
+        )->pluck('id');
+
+        $card = $this->userCard;
+
+        $cardFees = CardTransaction::where('card_id', $card?->id)
+            ->where('transaction_type', 'queueing_fee')
+            ->where('status', 'success')
+            ->where('reference_type', Queue::class)
+            ->whereIn('reference_id', $todaysQueueIds)
+            ->sum('amount');
+
+        $cashFees = CashTransaction::where('operator_id', Auth::id())
+            ->where('status', 'success')
+            ->where('reference_no', 'like', 'CASH-%')
+            ->whereIn('queue_id', $todaysQueueIds)
+            ->sum('amount');
+
+        return $cardFees + $cashFees;
     }
 
     #[Computed]
@@ -235,6 +255,24 @@ new #[Layout('layouts.operator-layout')] class extends Component
     {
         $card = Card::where('user_id', Auth::id())->first();
         return $card ? $card->balance : null;
+    }
+
+    #[Computed]
+    public function totalWithdrawn()
+    {
+        return CardTransaction::whereHas('card', fn ($q) => $q->where('user_id', Auth::id()))
+            ->where('transaction_type', 'withdrawal')
+            ->whereIn('status', ['pending', 'success'])
+            ->sum('amount');
+    }
+
+    #[Computed]
+    public function pendingWithdrawals()
+    {
+        return CardTransaction::whereHas('card', fn ($q) => $q->where('user_id', Auth::id()))
+            ->where('transaction_type', 'withdrawal')
+            ->where('status', 'pending')
+            ->count();
     }
 
     #[Computed]
@@ -364,6 +402,27 @@ new #[Layout('layouts.operator-layout')] class extends Component
     }
 
     #[Computed]
+    public function driverEarnings()
+    {
+        // There's no separate driver role/account in this system — drivers
+        // aren't system users, only a driver_name string captured per trip
+        // (queues.driver_name -> travel_records.driver_name at boarding).
+        // This is the operator's own view into what each of their drivers
+        // has actually earned in fares, card or cash, so it can be split
+        // and paid out to them directly.
+        $days = max(1, (int) $this->range);
+        $start = today()->subDays($days - 1)->startOfDay();
+        $end = today()->endOfDay();
+
+        return TravelRecord::whereHas('queue', fn ($q) => $q->where('user_id', Auth::id()))
+            ->whereBetween('travel_records.created_at', [$start, $end])
+            ->selectRaw('COALESCE(NULLIF(driver_name, \'\'), \'Unassigned\') as driver, COUNT(*) as trips, SUM(amount) as total')
+            ->groupBy('driver')
+            ->orderByDesc('total')
+            ->get();
+    }
+
+    #[Computed]
     public function recentQueueEntries()
     {
         return $this->applyQueueFilters(Queue::where('user_id', Auth::id()))
@@ -371,19 +430,6 @@ new #[Layout('layouts.operator-layout')] class extends Component
             ->limit(5)
             ->get(['id', 'vehicle_type', 'destination', 'status', 'time_queued', 'time_departed']);
     }
-
-    // #[Computed]
-    // public function recentCardTransactions()
-    // {
-    //     $card = Card::where('user_id', Auth::id())->first();
-    //     if (!$card) return collect();
-
-    //     return CardTransaction::where('card_id', $card->id)
-    //         ->when($this->paymentMethodFilter, fn ($q, $v) => $q->where('payment_method', $v))
-    //         ->latest()
-    //         ->limit(5)
-    //         ->get(['id', 'transaction_type', 'amount', 'payment_method', 'created_at']);
-    // }
 
     #[Computed]
     public function recentRentalInquiries()
@@ -439,14 +485,9 @@ new #[Layout('layouts.operator-layout')] class extends Component
         $this->pushChartUpdates();
     }
 
-    public function updatedPaymentMethodFilter()
-    {
-        $this->pushChartUpdates();
-    }
-
     public function resetFilters()
     {
-        $this->reset(['range', 'vehicleTypeFilter', 'routeFilter', 'paymentMethodFilter']);
+        $this->reset(['range', 'vehicleTypeFilter', 'routeFilter']);
         $this->range = '7';
         $this->pushChartUpdates();
     }
@@ -470,6 +511,8 @@ new #[Layout('layouts.operator-layout')] class extends Component
             $this->queuesThisWeek,
             $this->queueFeePaidToday,
             $this->cardBalance,
+            $this->totalWithdrawn,
+            $this->pendingWithdrawals,
             $this->rentalEngagement,
             $this->queuesOverTime,
             $this->vehicleCountByType,
@@ -477,10 +520,12 @@ new #[Layout('layouts.operator-layout')] class extends Component
             $this->vehicleDocumentExpiry,
             $this->vehicleRoster,
             $this->myQueueFeeRates,
+            $this->driverEarnings,
             $this->recentQueueEntries,
             // $this->recentCardTransactions,  // ← commented out (property not defined)
             $this->recentRentalInquiries,
             $this->queuesTrend,
+            $this->todayEarnings,
         );
 
         $this->dispatch('queues-chart-updated', chart: $this->queuesOverTime);
@@ -513,7 +558,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
 
     {{-- ===================== MINI-NAVBAR ===================== --}}
     <x-page-header
-        heading="Your vehicle, queueing, and rental overview"
+        heading="My vehicles, queueing, and rental overview"
     >
         <flux:modal.trigger name="dashboard-filters">
             <button
@@ -569,14 +614,6 @@ new #[Layout('layouts.operator-layout')] class extends Component
                     @foreach ($this->availableRoutes as $route)
                         <flux:select.option value="{{ $route }}">{{ $route }}</flux:select.option>
                     @endforeach
-                </flux:select>
-
-                <flux:select wire:model.live="paymentMethodFilter" label="Payment method">
-                    <flux:select.option value="">All methods</flux:select.option>
-                    <flux:select.option value="cash">Cash</flux:select.option>
-                    <flux:select.option value="gcash">GCash</flux:select.option>
-                    <flux:select.option value="paymaya">PayMaya</flux:select.option>
-                    <flux:select.option value="card">Smart card</flux:select.option>
                 </flux:select>
             </div>
 
@@ -650,7 +687,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
     </div>
     <hr class="zone-rule border-light-bd-default dark:border-dark-bd-default">
 
-    <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 mb-4">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
 
         <flux:card class="p-3 sm:p-4">
             <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 dark:bg-primary/20 shrink-0">
@@ -679,7 +716,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
             </x-text>
         </flux:card>
 
-        <flux:card class="p-3 sm:p-4 col-span-2 lg:col-span-1">
+        <flux:card class="p-3 sm:p-4">
             <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-success/10 dark:bg-dark-success/20 shrink-0">
                 <flux:icon.ticket class="w-4 h-4 sm:w-5 sm:h-5 text-success dark:text-dark-success" />
             </div>
@@ -688,6 +725,25 @@ new #[Layout('layouts.operator-layout')] class extends Component
             </x-text>
             <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-success dark:text-dark-success block mt-0.5">
                 ₱{{ number_format($this->queueFeePaidToday, 2) }}
+            </x-text>
+        </flux:card>
+
+        <flux:card class="p-3 sm:p-4">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-warning/10 dark:bg-dark-warning/20 shrink-0">
+                    <flux:icon.arrow-up-tray class="w-4 h-4 sm:w-5 sm:h-5 text-warning dark:text-dark-warning" />
+                </div>
+                @if ($this->pendingWithdrawals > 0)
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-warning/10 text-warning dark:bg-dark-warning/20 dark:text-dark-warning">
+                        {{ $this->pendingWithdrawals }} pending
+                    </span>
+                @endif
+            </div>
+            <x-text class="font-secondary text-xs sm:text-stat-label font-medium text-light-txt-body dark:text-dark-txt-body block mt-2.5 sm:mt-3">
+                Total withdrawn
+            </x-text>
+            <x-text class="font-primary text-xl sm:text-stat-value font-bold tabular-nums text-warning dark:text-dark-warning block mt-0.5">
+                ₱{{ number_format($this->totalWithdrawn, 2) }}
             </x-text>
         </flux:card>
 
@@ -715,6 +771,58 @@ new #[Layout('layouts.operator-layout')] class extends Component
             </div>
         </flux:card>
     @endif
+
+    {{-- ===================== DRIVER EARNINGS =====================
+         There's no separate driver role in this system — drivers aren't
+         system users, just a name captured per queue/trip — so this is the
+         operator's own record of what to pay each driver out of fares
+         collected on their behalf. --}}
+    <flux:card class="p-4 mb-8">
+        <div class="flex items-center justify-between gap-2 mb-3">
+            <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                Driver earnings
+            </x-text>
+            <span class="font-secondary text-xs font-medium text-light-txt-muted dark:text-dark-txt-muted">Last {{ $this->range }} days</span>
+        </div>
+        @if ($this->driverEarnings->isEmpty())
+            <div class="flex flex-col items-center justify-center gap-1.5 text-center py-8">
+                <flux:icon.users class="w-6 h-6 text-light-txt-muted dark:text-dark-txt-muted" />
+                <span class="font-secondary text-xs sm:text-sm text-light-txt-muted dark:text-dark-txt-muted">No fares recorded for this period yet</span>
+            </div>
+        @else
+            <div class="overflow-x-auto -mx-4 px-4">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-light-bd-default dark:border-dark-bd-default">
+                            <th class="font-secondary text-xs font-semibold uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted py-2 pr-3">Driver</th>
+                            <th class="font-secondary text-xs font-semibold uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted py-2 pr-3 text-right">Trips</th>
+                            <th class="font-secondary text-xs font-semibold uppercase tracking-wide text-light-txt-muted dark:text-dark-txt-muted py-2 text-right">Fares collected</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($this->driverEarnings as $row)
+                            <tr class="border-b border-light-bd-default/60 dark:border-dark-bd-default/60 last:border-0">
+                                <td class="font-secondary text-sm py-2.5 pr-3 {{ $row->driver === 'Unassigned' ? 'text-light-txt-muted dark:text-dark-txt-muted italic' : 'text-light-txt-primary dark:text-dark-txt-primary' }}">
+                                    {{ $row->driver }}
+                                </td>
+                                <td class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body py-2.5 pr-3 text-right tabular-nums">
+                                    {{ $row->trips }}
+                                </td>
+                                <td class="font-primary text-sm font-bold text-light-txt-primary dark:text-dark-txt-primary py-2.5 text-right tabular-nums">
+                                    ₱{{ number_format($row->total, 2) }}
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @if ($this->driverEarnings->contains('driver', 'Unassigned'))
+                <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-3">
+                    "Unassigned" trips have no driver name on file — this shouldn't grow going forward now that driver name is required when queueing a vehicle.
+                </p>
+            @endif
+        @endif
+    </flux:card>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
         <flux:card class="p-4 lg:col-span-2">

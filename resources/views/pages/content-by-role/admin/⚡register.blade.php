@@ -100,10 +100,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
         if (str_starts_with($property, 'vehicles.')) {
             $this->resetValidation($property);
 
-            // If a vehicle drops from complete -> incomplete while its modal
-            // is open (e.g. clearing seat capacity), close that modal so the
-            // page falls back to the inline open-form branch cleanly instead
-            // of leaving stale modal DOM behind.
             if (preg_match('/^vehicles\.(\d+)\./', $property, $m)) {
                 $idx = (int) $m[1];
                 if (isset($this->vehicles[$idx]) && !$this->vehicleIsComplete($this->vehicles[$idx])) {
@@ -124,7 +120,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     #[On('echo:registration-tap-card,.RegistrationTapCardEvent')]
     public function getUid($event): void
     {
-        $this->card_number = $event['uid'];
+        $this->card_number = strtoupper(trim($event['uid']));
         $this->new_card_id = $event['id'];
         $this->card_state  = 'success';
     }
@@ -243,12 +239,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 try {
                     $this->validate($rules);
                 } catch (\Illuminate\Validation\ValidationException $e) {
-                    // Only vehicles rendered as a collapsed card + modal (i.e.
-                    // "complete" by our basic check) can hide an error from
-                    // view — e.g. a duplicate plate number even though every
-                    // required field is filled. Open that vehicle's modal so
-                    // the error is visible. Incomplete vehicles already show
-                    // their fields inline, so no action needed there.
                     foreach ($e->validator->errors()->keys() as $key) {
                         if (preg_match('/^vehicles\.(\d+)\./', $key, $m)) {
                             $idx = (int) $m[1];
@@ -265,8 +255,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
         if ($this->step === 4) {
             if (!$this->skipped) {
+                $this->card_number = strtoupper(trim($this->card_number));
+
                 $this->validate([
-                    'card_number' => 'required|unique:cards,uid',
+                    'card_number' => ['required', 'string', 'regex:/^[0-9A-F]{8}$/', 'unique:cards,uid'],
+                ], [
+                    'card_number.regex' => 'That doesn\'t look like a valid card tap — expected an 8-character UID. Please tap again.',
                 ]);
             }
         }
@@ -409,9 +403,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
         <x-heading
             size="xl"
             class="order-2 sm:order-1 !font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-            style="font-size: var(--text-page-title)"
+            style="font-size: var(--text-section-heading)"
         >
-            {{ $this->role ? 'Registration for ' . ucfirst($this->role) : 'Register New User' }}
+            Add a user
         </x-heading>
     </div>
 
@@ -871,19 +865,38 @@ new #[Layout('layouts.admin-layout')] class extends Component
 
             <div class="p-4">
                 <flux:field>
-                    <x-input
-                        id="rfid-input"
-                        wire:model="card_number"
-                        label="Card UID"
-                        name="card_number"
-                        wire:keydown.enter="cardScanned"
-                        wire:focus="cardFocused"
-                        wire:blur="cardBlurred"
-                        placeholder="Tap your card on the reader..."
-                        autocomplete="off"
-                        class="font-mono tracking-widest"
-                        autofocus
-                    />
+                    <flux:label class="font-secondary">Card UID</flux:label>
+                    <div class="relative">
+                        {{-- Real capture field: invisible but focused. Also fed directly by the
+                             RegistrationTapCardEvent broadcast above when a physical reader is
+                             wired in, so typing here is just the keyboard-wedge fallback path. --}}
+                        <x-input
+                            id="rfid-input"
+                            wire:model.live.debounce.200ms="card_number"
+                            name="card_number"
+                            wire:keydown.enter="cardScanned"
+                            wire:focus="cardFocused"
+                            wire:blur="cardBlurred"
+                            autocomplete="off"
+                            maxlength="8"
+                            autofocus
+                            class="opacity-0 absolute inset-0 w-full h-full cursor-default"
+                        />
+                        <div
+                            class="pointer-events-none rounded-lg border-2 border-dashed p-4 flex items-center justify-center gap-2 transition-colors
+                                {{ $card_state === 'success' ? 'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' : 'border-light-bd-default dark:border-dark-bd-default' }}"
+                        >
+                            @if ($card_state === 'success')
+                                <flux:icon name="check-circle" class="w-5 h-5 text-success dark:text-dark-success shrink-0" />
+                                <p class="font-mono text-base tracking-[0.3em] font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                                    {{ $card_number }}
+                                </p>
+                            @else
+                                <flux:icon name="wifi" class="w-5 h-5 text-light-txt-muted dark:text-dark-txt-muted shrink-0 animate-pulse" />
+                                <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Waiting for your tap… please tap only once</p>
+                            @endif
+                        </div>
+                    </div>
                     <flux:error name="card_number" />
                 </flux:field>
             </div>

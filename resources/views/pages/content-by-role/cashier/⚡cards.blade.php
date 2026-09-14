@@ -126,12 +126,21 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
     public function updatedCardUid(): void
     {
+        $this->card_uid = strtoupper(trim($this->card_uid));
+
         $this->selectedAmount  = null;
         $this->customAmount    = null;
         $this->amount_received = null;
         $this->selectedUserId  = null;
 
         if (empty($this->card_uid)) {
+            $this->card_state = 'ready';
+            return;
+        }
+
+        // A real tap always produces the full 8-character UID in one burst —
+        // don't attempt a lookup on a partial scan.
+        if (!preg_match('/^[0-9A-F]{8}$/', $this->card_uid)) {
             $this->card_state = 'ready';
             return;
         }
@@ -343,23 +352,18 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 ?>
 
 <div>
-    {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
     <x-page-header
-        heading="Card Top-Up"
-        description="Load balance onto a commuter or operator card via cash payment."
+        description="Card Top-up"
         class="mb-4"
     >
-        {{-- No extra controls – action button moved below, pinned to the far right --}}
     </x-page-header>
 
-    {{-- ====== PAGE ACTIONS (desktop only — mobile gets it inline with the heading below) ====== --}}
     <div class="hidden sm:flex sm:items-center sm:justify-between gap-3 mb-6">
         <x-heading
-            size="xl"
             class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
-            style="font-size: var(--text-page-title)"
+            style="font-size: var(--text-section-heading)"
         >
-            Card Top-Up
+            Load balance onto a commuter or operator card via cash payment.
         </x-heading>
 
         <flux:button
@@ -541,14 +545,28 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                                 <flux:icon name="credit-card" class="w-3.5 h-3.5" />
                                 Card UID
                             </flux:label>
-                            <x-input
-                                id="topup-rfid-input"
-                                wire:model.live.debounce.300ms="card_uid"
-                                placeholder="Tap card on reader…"
-                                autocomplete="off"
-                                class="font-mono tracking-widest mt-1"
-                                autofocus
-                            />
+                            <div class="relative mt-1">
+                                <input
+                                    type="text"
+                                    id="topup-rfid-input"
+                                    wire:model.live.debounce.200ms="card_uid"
+                                    autocomplete="off"
+                                    autofocus
+                                    maxlength="8"
+                                    @keydown.enter.prevent
+                                    class="absolute inset-0 w-full h-full opacity-0 cursor-default"
+                                />
+                                <div
+                                    class="pointer-events-none rounded-lg border-2 border-dashed p-2.5 flex items-center justify-center gap-2 transition-colors
+                                        {{ $card_uid ? 'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' : 'border-light-bd-default dark:border-dark-bd-default' }}"
+                                >
+                                    @if ($card_uid)
+                                        <span class="font-mono text-sm tracking-[0.2em] font-semibold text-light-txt-primary dark:text-dark-txt-primary">{{ $card_uid }}</span>
+                                    @else
+                                        <span class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Tap card on reader…</span>
+                                    @endif
+                                </div>
+                            </div>
                         </flux:field>
                     </div>
                 @endif
