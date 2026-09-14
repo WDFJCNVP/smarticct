@@ -530,7 +530,6 @@ new class extends Component
             <div class="mt-8">
                 <h2 class="text-section-heading">Local Routes</h2>
 
-                {{-- Table container updated to flux:card with p-0! and dark borders --}}
                 <flux:card class="mt-3 p-0! overflow-hidden border border-light-bd-default dark:border-dark-bd-default">
                     <div class="overflow-x-auto">
                         <flux:table container:class="md:max-h-160">
