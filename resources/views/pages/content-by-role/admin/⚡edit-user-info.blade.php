@@ -287,7 +287,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->cardUid = strtoupper(trim($this->cardUid));
 
         $this->validate([
-            'cardUid' => ['required', 'string', 'regex:/^[0-9A-F]{8}$/', 'unique:cards,uid'],
+            'cardUid' => ['required', 'string', 'unique:cards,uid'],
         ], [
             'cardUid.unique' => 'This card UID is already assigned to another user.',
             'cardUid.regex'  => 'That doesn\'t look like a valid card tap — expected an 8-character UID. Please tap again.',
@@ -803,7 +803,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             wire:model.live.debounce.200ms="cardUid"
                             autocomplete="off"
                             autofocus
-                            maxlength="8"
                             x-ref="cardUidInput"
                             @keydown.enter.prevent
                             class="absolute inset-0 w-full h-full opacity-0 cursor-default"

@@ -537,7 +537,7 @@ class CardController extends Controller
     {
         try {
             $validated = $request->validate([
-                'uid'              => ['required', 'string', 'regex:/^[0-9A-Fa-f]{8}$/'],
+                'uid'              => ['required'],
                 'vehicle_id'       => 'nullable|numeric',
                 'name'             => 'nullable|string|max:50',
                 'driver_name'      => 'required_if:transaction_type,operator_payment|nullable|string|max:100',

@@ -258,9 +258,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 $this->card_number = strtoupper(trim($this->card_number));
 
                 $this->validate([
-                    'card_number' => ['required', 'string', 'regex:/^[0-9A-F]{8}$/', 'unique:cards,uid'],
-                ], [
-                    'card_number.regex' => 'That doesn\'t look like a valid card tap — expected an 8-character UID. Please tap again.',
+                    'card_number' => ['required', 'string', 'unique:cards,uid'],
                 ]);
             }
         }

@@ -73,7 +73,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         $this->issueCardUid = strtoupper(trim($this->issueCardUid));
 
         $this->validate([
-            'issueCardUid' => ['required', 'string', 'regex:/^[0-9A-F]{8}$/', 'unique:cards,uid'],
+            'issueCardUid' => ['required', 'string', 'unique:cards,uid'],
             'issueUserId'  => 'required|integer|exists:users,id',
         ], [
             'issueCardUid.unique'  => 'This card UID is already assigned to another user.',
@@ -192,7 +192,6 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                                 wire:model.live.debounce.200ms="issueCardUid"
                                 autocomplete="off"
                                 autofocus
-                                maxlength="8"
                                 x-ref="cardUidInput"
                                 @keydown.enter.prevent
                                 class="absolute inset-0 w-full h-full opacity-0 cursor-default"

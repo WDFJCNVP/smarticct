@@ -534,7 +534,6 @@ new class extends Component
                                     wire:focus="cardFocused"
                                     wire:blur="cardBlurred"
                                     autocomplete="off"
-                                    maxlength="8"
                                     autofocus
                                     :disabled="$cashMode"
                                     @keydown.enter.prevent
