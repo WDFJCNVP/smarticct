@@ -120,7 +120,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     #[On('echo:registration-tap-card,.RegistrationTapCardEvent')]
     public function getUid($event): void
     {
-        $this->card_number = strtoupper(trim($event['uid']));
+        $this->card_number = trim($event['uid']);
         $this->new_card_id = $event['id'];
         $this->card_state  = 'success';
     }
@@ -878,7 +878,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             wire:focus="cardFocused"
                             wire:blur="cardBlurred"
                             autocomplete="off"
-                            maxlength="8"
                             autofocus
                             class="opacity-0 absolute inset-0 w-full h-full cursor-default"
                         />
