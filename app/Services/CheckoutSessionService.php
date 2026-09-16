@@ -48,13 +48,12 @@ class CheckoutSessionService
 
         $sessionData = $response->json('data');
 
-        // Log the intent attached to the specific card
         TopUpTransaction::create([
             'user_id' => $user->id,
-            'card_id' => $card->id, // Store the card being topped up
+            'card_id' => $card->id,
             'checkout_session_id' => $sessionData['id'],
             'amount_paid' => $amountInPesos,
-            'points_credited' => $amountInPesos, // 1 PHP = 1 Point
+            'points_credited' => $amountInPesos,
             'status' => 'pending',
         ]);
 

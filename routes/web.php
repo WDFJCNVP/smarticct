@@ -241,6 +241,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->name('security.vehicle.type')
         ->middleware('role:admin');
 
+    Route::livewire('/setting/card/pricing', 'pages::settings.card-pricing-page')
+        ->name('security.card.pricing')
+        ->middleware('role:admin');
+
     Route::livewire('/feed/create', 'pages::create-post')->name('post.create');
     Route::livewire('/feed/archived', 'pages::archived-post')->name('post.archived');
     Route::livewire('/feed/my/posts', 'pages::my-posts')->name('post.my-posts');
