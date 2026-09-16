@@ -2,6 +2,7 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\WithPagination;
 
 use App\Models\Queue;
@@ -231,6 +232,22 @@ new class extends Component
     public function routes()
     {
         return Queue::query()->distinct()->pluck('destination');
+    }
+
+    // Vehicles get queued and seats get filled from the kiosk (both fare
+    // taps and operator queueing taps) as well as the cashier counter — so
+    // this dispatch log needs to refresh itself whenever either happens,
+    // not just when the dispatcher manually reloads/refilters.
+    #[On('echo:vehicle-queue,.QueuedVehicleEvent')]
+    public function refreshDispatchLog(): void
+    {
+        unset(
+            $this->baseQuery,
+            $this->travelRecords,
+            $this->stats,
+            $this->vehicleTypes,
+            $this->routes,
+        );
     }
 
     public function render(): mixed

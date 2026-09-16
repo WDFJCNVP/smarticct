@@ -37,8 +37,7 @@ new class extends Component
     public function currentBalance(): float
     {
         if (auth()->user()->role === 'admin') {
-            // Admin balance is digital queuing fees collected minus previous admin withdrawals
-            $totalQueuingEarnings = (float) CardTransaction::whereIn('transaction_type', ['queueing_fee', 'operator_payment'])
+            $totalQueuingEarnings = (float) CardTransaction::where('transaction_type', 'queueing_fee')
                 ->where('status', 'success')
                 ->sum('amount');
 

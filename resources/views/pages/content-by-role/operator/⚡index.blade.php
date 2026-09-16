@@ -143,12 +143,23 @@ new #[Layout('layouts.operator-layout')] class extends Component
     #[Computed]
     public function todayEarnings()
     {
-        return $this->userCard
+        // Display-only total for the dashboard stat: card fares (withdrawable,
+        // from CardTransaction) + cash fares (non-withdrawable, tracked only in
+        // CashTransaction since cash fares no longer touch the card balance).
+        $cardEarnings = $this->userCard
             ?->cardTransactions()
             ->where('transaction_type', 'fare_earning')
             ->where('status', 'success')
             ->whereDate('transaction_time', today())
             ->sum('amount') ?? 0;
+
+        $cashEarnings = \App\Models\CashTransaction::where('operator_id', auth()->id())
+            ->where('reference_no', 'like', 'FARECASH-%')
+            ->where('status', 'success')
+            ->whereDate('created_at', today())
+            ->sum('amount');
+
+        return $cardEarnings + $cashEarnings;
     }
 
     #[Computed]
@@ -432,6 +443,18 @@ new #[Layout('layouts.operator-layout')] class extends Component
     }
 
     #[Computed]
+    public function recentCardTransactions()
+    {
+        $card = Card::where('user_id', Auth::id())->first();
+        if (!$card) return collect();
+
+        return CardTransaction::where('card_id', $card->id)
+            ->latest()
+            ->limit(5)
+            ->get(['id', 'transaction_type', 'amount', 'created_at']);
+    }
+
+    #[Computed]
     public function recentRentalInquiries()
     {
         return PostInterest::whereHas('post', function ($q) {
@@ -522,7 +545,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
             $this->myQueueFeeRates,
             $this->driverEarnings,
             $this->recentQueueEntries,
-            // $this->recentCardTransactions,  // ← commented out (property not defined)
+            $this->recentCardTransactions,
             $this->recentRentalInquiries,
             $this->queuesTrend,
             $this->todayEarnings,
@@ -1017,6 +1040,34 @@ new #[Layout('layouts.operator-layout')] class extends Component
                     </div>
                 @empty
                     <p class="text-light-txt-muted dark:text-dark-txt-muted py-4 text-center">No queue entries yet.</p>
+                @endforelse
+            </div>
+        </flux:card>
+
+        <flux:card class="p-4">
+            <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary block mb-2">
+                Recent card activity
+            </x-text>
+            <div class="mt-2 space-y-2">
+                @forelse ($this->recentCardTransactions as $txn)
+                    <div class="flex justify-between items-center gap-2 border-b border-light-bd-default/50 dark:border-dark-bd-default/50 pb-2">
+                        <div class="min-w-0">
+                            <span class="font-secondary text-sm text-light-txt-body dark:text-dark-txt-body capitalize break-words">
+                                {{ str_replace('_', ' ', $txn->transaction_type) }}
+                            </span>
+                            <span class="block font-secondary text-timestamp text-light-txt-muted dark:text-dark-txt-muted">
+                                {{ $txn->created_at->diffForHumans() }}
+                            </span>
+                        </div>
+                        <span class="font-primary text-stat-value font-semibold shrink-0
+                            @if(in_array($txn->transaction_type, ['fare_earning', 'top_up'])) text-success dark:text-dark-success
+                            @else text-light-txt-primary dark:text-dark-txt-primary
+                            @endif">
+                            {{ in_array($txn->transaction_type, ['fare_earning', 'top_up']) ? '+' : '-' }}{{ number_format($txn->amount, 0) }}
+                        </span>
+                    </div>
+                @empty
+                    <p class="text-light-txt-muted dark:text-dark-txt-muted py-4 text-center">No card transactions.</p>
                 @endforelse
             </div>
         </flux:card>
