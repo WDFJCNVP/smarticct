@@ -17,9 +17,6 @@ class PaymongoDisbursementService
             ->asJson();
     }
 
-    /**
-     * GET /v2/transfers/receiving_institutions?provider=instapay|pesonet
-     */
     public function listReceivingInstitutions(string $provider = 'instapay'): array
     {
         $response = $this->client()->get("https://api.paymongo.com/v1/wallets/receiving_institutions", [
@@ -33,9 +30,6 @@ class PaymongoDisbursementService
         return $response->json('data', []);
     }
 
-    /**
-     * Create a single transfer (wrapped in a batch of one, per PayMongo V2).
-     */
     public function createTransfer(array $data): array
     {
         $referenceNumber = $data['reference_number'] ?? (string) Str::uuid();
@@ -72,9 +66,6 @@ class PaymongoDisbursementService
         return $response->json('data');
     }
 
-    /**
-     * Poll fallback: GET /v2/transfers/{id}
-     */
     public function retrieveTransfer(string $transferId): array
     {
         $response = $this->client()->get("{$this->baseUrl}/transfers/{$transferId}");

@@ -2,6 +2,7 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use App\Models\Card;
 use App\Models\CardTransaction;
 use App\Models\Notification;
@@ -11,6 +12,8 @@ use App\Services\OperatorDisbursementService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Flux\Flux;
+
+use App\Events\PaymongoMoneyTransferEvent;
 
 new class extends Component
 {
@@ -49,7 +52,17 @@ new class extends Component
             return max(0.0, $totalQueuingEarnings - $totalWithdrawn);
         }
 
-        return (float) ($this->userCard->balance ?? 0.0);
+        $card = $this->userCard;
+        if (!$card) {
+            return 0.0;
+        }
+
+        $pendingWithdrawals = (float) CardTransaction::where('card_id', $card->id)
+            ->where('transaction_type', 'withdrawal')
+            ->where('status', 'pending')
+            ->sum('amount');
+
+        return max(0.0, (float) $card->balance - $pendingWithdrawals);
     }
 
     #[Computed]
@@ -143,11 +156,6 @@ new class extends Component
 
         try {
             $succeeded = DB::transaction(function () use ($card, $validated, $totalDeduction, $balanceBefore, $isAdmin, $institutionName) {
-                // Deduct card balance only if operator
-                if (!$isAdmin && $card) {
-                    $card->decrement('balance', $totalDeduction);
-                    $card->refresh();
-                }
 
                 $result = app(OperatorDisbursementService::class)->createWithdrawal([
                     'provider'       => $validated['provider'],
@@ -162,10 +170,10 @@ new class extends Component
                     'card_id'          => $isAdmin ? null : $card->id,
                     'processed_by'     => auth()->id(),
                     'transaction_type' => $isAdmin ? 'admin_withdrawal' : 'withdrawal',
-                    'reference_no'     => $result['reference_number'],
+                    'reference_no'     => $result['reference_number'], // now populated correctly again
                     'amount'           => $totalDeduction,
                     'balance_before'   => $balanceBefore,
-                    'balance_after'    => $balanceBefore - $totalDeduction,
+                    'balance_after'    => $balanceBefore, // unchanged — no deduction here anymore
                     'status'           => $result['successful'] ? 'pending' : 'failed',
                     'transaction_time' => now(),
                     'source'           => $isAdmin ? 'admin_withdraw_page' : 'operator_withdraw_page',
@@ -173,31 +181,8 @@ new class extends Component
                     'metadata'         => (array) $result['response'],
                 ]);
 
-                if (!$result['successful'] && !$isAdmin && $card) {
-                    $card->increment('balance', $totalDeduction);
-                }
-
-                if ($result['successful']) {
-                    // Persistent, in-app notification so the withdrawal shows up
-                    // in the bell/notification center, not just as a toast.
-                    $notification = Notification::create([
-                        'type'    => 'Withdrawal',
-                        'title'   => 'Withdrawal submitted',
-                        'message' => "Your ₱" . number_format($totalDeduction, 2) . " withdrawal to {$institutionName} is being processed.",
-                        'metadata' => [
-                            'amount'       => $totalDeduction,
-                            'reference_no' => $transaction->reference_no,
-                            'provider'     => $validated['provider'],
-                        ],
-                    ]);
-
-                    UserNotification::create([
-                        'notification_id' => $notification->id,
-                        'user_id'         => auth()->id(),
-                    ]);
-                }
-
                 return $result['successful'];
+
             });
         } catch (\Exception $e) {
             Log::error('Withdrawal failed', ['error' => $e->getMessage(), 'user_id' => auth()->id()]);
@@ -215,22 +200,33 @@ new class extends Component
         try {
             broadcast(new NotificationEvent());
         } catch (\Exception $e) {
-            // The withdrawal already succeeded above — a broadcast/websocket
-            // hiccup (e.g. Reverb not running) should only cost real-time
-            // UI refresh, not the transaction itself.
             Log::warning('Withdrawal succeeded but notification broadcast failed', ['error' => $e->getMessage()]);
         }
 
-        Flux::toast(
-            variant: 'success',
-            duration: 4000,
-            heading: 'Withdrawal submitted!',
-            text: "₱" . number_format($totalDeduction, 2) . " is on its way to {$institutionName}.",
-        );
+        // Flux::toast(
+        //     variant: 'success',
+        //     duration: 4000,
+        //     heading: 'Withdrawal submitted!',
+        //     text: "₱" . number_format($totalDeduction, 2) . " is on its way to {$institutionName}.",
+        // );
 
+        // session()->flash('withdrawal_submitted', true);
+
+        // $redirectRoute = $isAdmin ? route('admin.dashboard') : route('operator.dashboard');
+        // $this->redirect($redirectRoute, navigate: true);
+    }
+
+    #[On('echo:paymongo-money-transfer-event,.PaymongoMoneyTransferEvent')]
+    public function onMoneyTransferEventSuccess() {
+        Flux::toast(
+            variant: 'danger', 
+            duration: 4000, 
+            heading: 'Withdrawal failed.', 
+            text: 'Please check your details and try again.');
+        
         session()->flash('withdrawal_submitted', true);
 
-        $redirectRoute = $isAdmin ? route('admin.dashboard') : route('operator.dashboard');
+        $redirectRoute = auth()->user()->role === 'admin' ? route('admin.dashboard') : route('operator.dashboard');
         $this->redirect($redirectRoute, navigate: true);
     }
 

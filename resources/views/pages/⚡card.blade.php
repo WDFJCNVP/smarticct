@@ -20,6 +20,10 @@ new class extends Component
     public string $activityTypeFilter = 'all';
     public string $activitySort = 'desc';
 
+    // public function mount() {
+    //     dd($this->cardActivityHistory);
+    // }
+
     public function updatedActivityTypeFilter()
     {
         $this->resetPage();
@@ -71,11 +75,18 @@ new class extends Component
                 DB::raw("CONCAT('tu-', id) as activity_id"),
                 DB::raw("'top_up' as category"),
                 DB::raw("CONCAT('Top-up via ', COALESCE(payment_method, 'online payment')) as description"),
-                'points_credited as amount',
+                // points_credited is only set once a top-up actually
+                // succeeds; for a failed/expired row it's null, so fall
+                // back to what the commuter was actually charged/attempted.
+                DB::raw('COALESCE(points_credited, amount_paid) as amount'),
                 'status',
                 'created_at as activity_date',
             ])
-            ->where('card_id', $cardId);
+            ->where('card_id', $cardId)
+            // A pending row means the checkout session was created but
+            // never reached PayMongo (misclick, abandoned before paying) —
+            // nothing happened yet, so there's nothing to show the commuter.
+            ->where('status', '!=', 'pending');
 
         $reports = DB::table('card_reports')
             ->select([
@@ -89,7 +100,9 @@ new class extends Component
             ->where('card_id', $cardId);
 
         // Only union in the sources the current filter actually needs
+
         $sources = [];
+        
         if (in_array($this->activityTypeFilter, ['all', 'fare_activity'])) {
             $sources[] = $fareActivity;
         }
@@ -317,7 +330,7 @@ new class extends Component
             <div class="space-y-2">
                 @forelse ($this->cardActivityHistory as $activity)
                     @php
-                        $isCredit = $activity->category === 'top_up';
+                        $isCredit = $activity->category === 'top_up' && $activity->status === 'paid';
                         $isReport = $activity->category === 'report';
                     @endphp
                     <flux:card size="sm" class="flex items-center gap-3 justify-between !p-3 dark:bg-dark-secondary dark:border-dark-bd-default">

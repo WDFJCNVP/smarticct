@@ -66,80 +66,6 @@ new #[Layout('layouts.operator-layout')] class extends Component
         
     }
 
-    public function submitWithdrawal()
-    {
-        $validated = $this->validate([
-            'withdrawAmount' => 'required|numeric|min:1',
-            'provider'       => 'required|in:instapay,pesonet',
-            'accountNumber'  => 'required|string',
-            'accountName'    => 'required|string',
-            'selectedBic'    => 'required|string',
-        ]);
-
-        $card = $this->userCard;
-
-        if (!$card) {
-            $this->addError('withdrawAmount', 'No card found.');
-            return;
-        }
-
-        $fee = $validated['provider'] === 'instapay' ? 10.00 : 0.00;
-        $totalDeduction = $validated['withdrawAmount'] + $fee;
-
-        if ($totalDeduction > $card->balance) {
-            $this->addError('withdrawAmount', 'Insufficient balance to cover this withdrawal plus the transfer fee.');
-            return;
-        }
-
-        $succeeded = DB::transaction(function () use ($card, $validated, $totalDeduction) {
-            $balanceBefore = $card->balance;
-
-            $card->decrement('balance', $totalDeduction);
-            $card->refresh();
-
-            $result = app(OperatorDisbursementService::class)->createWithdrawal([
-                'provider'       => $validated['provider'],
-                'amount'         => $validated['withdrawAmount'],
-                'account_number' => $validated['accountNumber'],
-                'account_name'   => $validated['accountName'],
-                'bic'            => $validated['selectedBic'],
-                'operator_id'    => auth()->id(),
-            ]);
-
-            \Log::info('PayMongo disbursement response', $result['response']); // TEMP — remove after debugging
-
-            CardTransaction::create([
-                'card_id'          => $card->id,
-                'transaction_type' => 'withdrawal',
-                'reference_no'     => $result['reference_number'],
-                'amount'           => $totalDeduction,
-                'balance_before'   => $balanceBefore,
-                'balance_after'    => $card->balance,
-                'status'           => $result['successful'] ? 'pending' : 'failed',
-                'transaction_time' => now(),
-                'source'           => 'operator_dashboard',
-                'message'          => "Withdrawal via {$validated['provider']} to {$validated['accountNumber']}",
-                'metadata'         => $result['response'],
-            ]);
-
-            if (!$result['successful']) {
-                $card->increment('balance', $totalDeduction); 
-            }
-
-            return $result['successful'];
-        });
-
-        if (!$succeeded) {
-            $this->addError('withdrawAmount', 'Withdrawal request failed. Please check your details and try again.');
-            return;
-        }
-
-        $this->reset(['withdrawAmount', 'accountNumber', 'accountName', 'bic']);
-        $this->showWithdrawModal = false;
-        unset($this->cardBalance);
-        $this->dispatch('status-strip-updated', queueing: $this->currentlyQueueing, balance: $this->cardBalance);
-    }
-
     #[Computed]
     public function todayEarnings()
     {
@@ -772,11 +698,6 @@ new #[Layout('layouts.operator-layout')] class extends Component
         </flux:card>
     @endif
 
-    {{-- ===================== DRIVER EARNINGS =====================
-         There's no separate driver role in this system — drivers aren't
-         system users, just a name captured per queue/trip — so this is the
-         operator's own record of what to pay each driver out of fares
-         collected on their behalf. --}}
     <flux:card class="p-4 mb-8">
         <div class="flex items-center justify-between gap-2 mb-3">
             <x-text class="font-secondary text-sm sm:text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
@@ -1062,57 +983,4 @@ new #[Layout('layouts.operator-layout')] class extends Component
             <div class="h-1"></div>
         </flux:card>
     </div>
-
-    <flux:modal name="withdraw-modal" class="max-w-md">
-        <form wire:submit="submitWithdrawal" class="space-y-4">
-            <div>
-                <flux:heading size="lg">Withdraw balance</flux:heading>
-                <flux:subheading>Send your card balance to a bank account or e-wallet.</flux:subheading>
-            </div>
-
-            <flux:input wire:model="withdrawAmount" label="Amount (₱)" type="number" step="0.01" />
-
-            <flux:select wire:model.live="provider" label="Send via">
-                <flux:select.option value="instapay">InstaPay (instant, ₱10 fee)</flux:select.option>
-                <flux:select.option value="pesonet">PESONet (free, next banking day)</flux:select.option>
-            </flux:select>
-
-            <flux:input wire:model="accountName" label="Account name" />
-            <flux:input wire:model="accountNumber" label="Account number" />
-
-            <div>
-                <flux:text size="sm" class="mb-1.5">Send to</flux:text>
-                <div class="grid grid-cols-2 gap-2">
-                    <flux:button
-                        type="button"
-                        wire:click="setInstitutionCategory('ewallet')"
-                        variant="{{ $institutionCategory === 'ewallet' ? 'primary' : 'outline' }}"
-                        class="w-full"
-                    >
-                        📱 E-Wallet
-                    </flux:button>
-                    <flux:button
-                        type="button"
-                        wire:click="setInstitutionCategory('bank')"
-                        variant="{{ $institutionCategory === 'bank' ? 'primary' : 'outline' }}"
-                        class="w-full"
-                    >
-                        🏦 Bank
-                    </flux:button>
-                </div>
-            </div>
-
-            <flux:select wire:model="selectedBic" label="{{ $institutionCategory === 'ewallet' ? 'Choose your e-wallet' : 'Choose your bank' }}">
-                <flux:select.option value="">Select one</flux:select.option>
-                @foreach ($this->categorizedInstitutions as $institution)
-                    <flux:select.option value="{{ $institution['attributes']['provider_code'] }}">
-                        {{ $institution['attributes']['name'] }}
-                    </flux:select.option>
-                @endforeach
-            </flux:select>
-
-            <flux:button type="submit" variant="primary" class="w-full">Confirm Withdrawal</flux:button>
-        </form>
-    </flux:modal>
-
 </div>

@@ -18,13 +18,13 @@ class OperatorDisbursementService
         try {
             $response = $this->paymongo->createTransfer([
                 'provider'                   => $data['provider'],
-                'amount'                     => (int) round($data['amount'] * 100), // pesos → centavos
+                'amount'                     => (int) round($data['amount'] * 100), 
                 'purpose'                    => 'Disbursement',
                 'description'                => 'Operator card withdrawal',
                 'reference_number'           => $referenceNumber,
                 'destination_account_number' => $data['account_number'],
                 'destination_account_name'   => $data['account_name'],
-                'destination_bic'            => $data['bic'], // the operator's dropdown selection, used correctly now
+                'destination_bic'            => $data['bic'], 
                 'metadata'                   => ['operator_id' => $data['operator_id']],
             ]);
 

@@ -10,6 +10,8 @@ use App\Models\Card;
 use App\Models\Notification;
 use App\Models\UserNotification;
 use App\Events\NotificationEvent;
+use App\Events\PaymongoMoneyTransferEvent;
+
 class PaymongoController extends Controller
 {
     public function handleWebhook(Request $request)
@@ -18,34 +20,38 @@ class PaymongoController extends Controller
         $webhookSecret = config('services.paymongo.webhook_secret');
         $payload = $request->getContent();
 
-        if (empty($payload)) {
-            Log::error('WEBHOOK DEBUG: Payload is EMPTY! XAMPP is dropping the body.');
-        } else {
-            Log::info('WEBHOOK DEBUG: Payload received successfully. Length: ' . strlen($payload));
-        }
-
         // 1. Verify Signature
         if (!$this->isValidSignature($payload, $signatureHeader, $webhookSecret)) {
             Log::warning('WEBHOOK: Invalid signature, rejecting.');
             abort(403, 'Invalid signature.');
         }
 
-        // 2. Process the Event — wrapped so a bug here can't trigger PayMongo's retry/auto-disable
         try {
             $event = json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
+            $eventId = $event['data']['id'] ?? null;
             $type = $event['data']['attributes']['type'] ?? '';
 
             if ($type === 'checkout_session.payment.paid') {
-                $checkoutSessionId = $event['data']['attributes']['data']['id'] ?? null;
+                $checkoutSession = $event['data']['attributes']['data'] ?? null;
+                $checkoutSessionId = $checkoutSession['id'] ?? null;
 
                 if (!$checkoutSessionId) {
                     Log::error('WEBHOOK: payment.paid event missing checkout session id.', ['event' => $event]);
                 } else {
+
                     // The payment method the customer actually used to pay (gcash, paymaya, card, qrph)
                     $paymentMethod = $event['data']['attributes']['data']['attributes']['payment_method_used'] ?? null;
 
-                    // 3. Atomic Database Crediting
-                    DB::transaction(function () use ($checkoutSessionId, $paymentMethod) {
+
+                    $confirmedPayment = $checkoutSession['attributes']['payments'][0]['attributes'] ?? null;
+                    $confirmedAmountCentavos = $confirmedPayment['amount'] ?? null;
+                    $confirmedAmountPesos = $confirmedAmountCentavos !== null
+                        ? round($confirmedAmountCentavos / 100, 2)
+                        : null;
+
+                    //Database Crediting
+                    DB::transaction(function () use ($checkoutSessionId, $paymentMethod, $eventId, $confirmedAmountPesos) {
+
                         $transaction = TopUpTransaction::where('checkout_session_id', $checkoutSessionId)
                             ->lockForUpdate()
                             ->first();
@@ -54,13 +60,41 @@ class PaymongoController extends Controller
                             return; // Stop if already paid or unknown session
                         }
 
+                        if ($confirmedAmountPesos === null) {
+                
+                            $transaction->update([
+                                'status' => 'failed',
+                                'failure_reason' => 'Paid webhook received but payload had no confirmable payment amount — needs manual review.',
+                                'paymongo_event_id' => $eventId,
+                            ]);
+ 
+                            Log::error('WEBHOOK: paid event missing a confirmable payment amount.', [
+                                'transaction_id' => $transaction->id,
+                                'checkout_session_id' => $checkoutSessionId,
+                            ]);
+ 
+                            return;
+                        }
+ 
+                        if ((float) $transaction->amount_paid !== $confirmedAmountPesos) {
+
+                            Log::warning('WEBHOOK: confirmed payment amount does not match quoted amount_paid.', [
+                                'transaction_id' => $transaction->id,
+                                'quoted' => $transaction->amount_paid,
+                                'confirmed' => $confirmedAmountPesos,
+                            ]);
+                        }
+
                         $transaction->update([
                             'status' => 'paid',
                             'payment_method' => $paymentMethod,
+                            'points_credited' => $confirmedAmountPesos,
+                            'paymongo_event_id' => $eventId,
                         ]);
+
                         $card = Card::where('id', $transaction->card_id)->lockForUpdate()->first();
                         if ($card) {
-                            $card->increment('balance', $transaction->points_credited);
+                            $card->increment('balance', $confirmedAmountPesos);
                             Log::info("Credited PHP {$transaction->points_credited} to Card ID {$card->id}");
                         }
 
@@ -68,9 +102,9 @@ class PaymongoController extends Controller
                             $notification = Notification::create([
                                 'type'    => 'TopUp',
                                 'title'   => 'Top-up successful',
-                                'message' => "₱" . number_format($transaction->points_credited, 2) . " has been added to your card.",
+                                'message' => "₱" . number_format($confirmedAmountPesos, 2) . " has been added to your card.",
                                 'metadata' => [
-                                    'amount'               => $transaction->points_credited,
+                                    'amount'               => $confirmedAmountPesos,
                                     'checkout_session_id'  => $checkoutSessionId,
                                 ],
                             ]);
@@ -98,7 +132,7 @@ class PaymongoController extends Controller
                 $checkoutSessionId = $event['data']['attributes']['data']['id'] ?? null;
 
                 if ($checkoutSessionId) {
-                    DB::transaction(function () use ($checkoutSessionId, $type) {
+                    DB::transaction(function () use ($checkoutSessionId, $type, $eventId) {
                         $transaction = TopUpTransaction::where('checkout_session_id', $checkoutSessionId)
                             ->lockForUpdate()
                             ->first();
@@ -107,20 +141,26 @@ class PaymongoController extends Controller
                             return; // Don't downgrade a transaction that already succeeded
                         }
 
-                        $transaction->update(['status' => 'failed']);
-                        Log::info("TopUpTransaction {$transaction->id} marked failed ({$type}).");
+                        $reason = $type === 'checkout_session.payment.expired'
+                            ? 'Checkout session expired unpaid.'
+                            : 'Payment failed at PayMongo.';
+
+                        $transaction->update([
+                            'status' => $type === 'checkout_session.payment.expired' ? 'expired' : 'failed',
+                            'failure_reason' => $reason,
+                            'paymongo_event_id' => $eventId,
+                        ]);
+                        Log::info("TopUpTransaction {$transaction->id} marked {$transaction->status} ({$type}).");
 
                         if ($transaction->user_id) {
-                            $reason = $type === 'checkout_session.payment.expired' ? 'expired' : 'failed';
-
                             $notification = Notification::create([
                                 'type'    => 'TopUp',
-                                'title'   => 'Top-up ' . $reason,
-                                'message' => "Your ₱" . number_format($transaction->points_credited, 2) . " top-up did not go through. No balance was added.",
+                                'title'   => 'Top-up ' . $transaction->status,
+                                'message' => "Your ₱" . number_format($transaction->amount_paid, 2) . " top-up did not go through. No balance was added.",
                                 'metadata' => [
-                                    'amount'              => $transaction->points_credited,
+                                    'amount'              => $transaction->amount_paid,
                                     'checkout_session_id' => $checkoutSessionId,
-                                    'reason'              => $reason,
+                                    'reason'              => $transaction->status,
                                 ],
                             ]);
 
@@ -151,22 +191,6 @@ class PaymongoController extends Controller
         return response()->json(['status' => 'success']);
     }
 
-    // private function isValidSignature(string $payload, ?string $sigHeader, ?string $secret): bool
-    // {
-    //     if (!$sigHeader || !$secret) return false;
-    //     $parts = [];
-    //     foreach (explode(',', $sigHeader) as $part) {
-    //         $data = explode('=', $part, 2);
-    //         if (count($data) === 2) {
-    //             $parts[trim($data[0])] = trim($data[1]);
-    //         }
-    //     }
-    //     $timestamp = $parts['t'] ?? '';
-    //     $received  = $parts['te'] ?? ($parts['li'] ?? '');
-    //     $expected  = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret);
-    //     return hash_equals($expected, $received);
-    // }
-
     private function isValidSignature(string $payload, ?string $sigHeader, ?string $secret): bool
     {
         if (!$sigHeader || !$secret) return false;
@@ -179,17 +203,19 @@ class PaymongoController extends Controller
             }
         }
         $timestamp = $parts['t'] ?? '';
-        $received  = $parts['li'] ?? ($parts['te'] ?? '');
+        $received = !empty($parts['li']) ? $parts['li'] : ($parts['te'] ?? '');
         $expected  = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret);
 
-        Log::warning('SIG DEBUG', [
-            'raw_header' => $sigHeader,
-            'timestamp'  => $timestamp,
-            'expected'   => $expected,
-            'received'   => $received,
-            'payload_len'=> strlen($payload),
-            'payload_first_50' => substr($payload, 0, 50),
-        ]);
+        if (config('app.debug')) {
+            Log::debug('SIG DEBUG', [
+                'raw_header' => $sigHeader,
+                'timestamp'  => $timestamp,
+                'expected'   => $expected,
+                'received'   => $received,
+                'payload_len'=> strlen($payload),
+                'payload_first_50' => substr($payload, 0, 50),
+            ]);
+        }
 
         return hash_equals($expected, $received);
     }
@@ -227,6 +253,13 @@ class PaymongoController extends Controller
                 if ($type === 'transfer.outward.successful') {
                     $transaction->update(['status' => 'success']);
 
+                    if ($transaction->card_id) {
+                        $card = $transaction->card()->lockForUpdate()->first();
+                        if ($card) {
+                            $card->decrement('balance', $transaction->amount); // deduct only now, on confirmed success
+                        }
+                    }
+
                     if ($transaction->processed_by) {
                         $notification = Notification::create([
                             'type'    => 'Withdrawal',
@@ -242,7 +275,9 @@ class PaymongoController extends Controller
                             'notification_id' => $notification->id,
                             'user_id'         => $transaction->processed_by,
                         ]);
+
                     }
+
                 } elseif ($type === 'transfer.outward.failed') {
                     $attrs = $event['data']['attributes']['data']['attributes'] ?? [];
 
@@ -252,24 +287,11 @@ class PaymongoController extends Controller
                             . " | Failed: {$attrs['provider_error']} ({$attrs['provider_error_code']})",
                     ]);
 
-                    // Only operator withdrawals are backed by a real card balance
-                    // (card_id is null for admin withdrawals, whose balance is
-                    // computed on the fly from successful/pending withdrawals) —
-                    // so only refund when there's an actual card to credit.
-                    $card = $transaction->card_id
-                        ? $transaction->card()->lockForUpdate()->first()
-                        : null;
-
-                    if ($card) {
-                        $card->increment('balance', $transaction->amount); // refund since it never left
-                    }
-
                     if ($transaction->processed_by) {
                         $notification = Notification::create([
                             'type'    => 'Withdrawal',
                             'title'   => 'Withdrawal failed',
-                            'message' => "Your ₱" . number_format($transaction->amount, 2) . " withdrawal failed"
-                                . ($card ? " and was refunded to your card." : "."),
+                            'message' => "Your ₱" . number_format($transaction->amount, 2) . " withdrawal failed",
                             'metadata' => [
                                 'amount'       => $transaction->amount,
                                 'reference_no' => $transaction->reference_no,
@@ -286,6 +308,8 @@ class PaymongoController extends Controller
 
             try {
                 broadcast(new NotificationEvent());
+                broadcast(new PaymongoMoneyTransferEvent());
+
             } catch (\Exception $e) {
                 Log::warning('Disbursement processed but notification broadcast failed', ['error' => $e->getMessage()]);
             }
