@@ -532,11 +532,14 @@ public function todayRevenue()
         for ($hour = 0; $hour < 24; $hour++) {
             $labels[] = \Carbon\Carbon::createFromTime($hour)->format('g A');
             $data[] = (int) ($counts[(int) $hour] ?? 0);
+        }
+
+        return compact('labels', 'data');
     }
 
-    return compact('labels', 'data');
-}
-
+    /**
+     * Get the peak hour of the day.
+     */
     #[Computed]
     public function peakHour()
     {
