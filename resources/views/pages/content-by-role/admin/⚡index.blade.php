@@ -503,15 +503,26 @@ public function todayRevenue()
     }
 
     #[Computed]
+    public function peakVehicleType()
+    {
+        return $this->peakVehicleType ?? 'all';
+    }
+
+    #[Computed]
     public function peakTimeByVehicleType()
     {
         $days = max(1, (int) $this->range);
         $start = today()->subDays($days - 1)->startOfDay();
         $end = today()->endOfDay();
 
+        $hourExpr = match (\Illuminate\Support\Facades\DB::connection()->getDriverName()) {
+            'pgsql' => 'EXTRACT(HOUR FROM time_queued)',
+            default => 'HOUR(time_queued)',
+        };
+
         $counts = Queue::whereBetween('time_queued', [$start, $end])
             ->when($this->peakVehicleType !== 'all', fn ($q) => $q->where('vehicle_type', $this->peakVehicleType))
-            ->selectRaw('HOUR(time_queued) as hour, count(*) as total')
+            ->selectRaw("{$hourExpr} as hour, count(*) as total")
             ->groupBy('hour')
             ->pluck('total', 'hour');
 
@@ -520,11 +531,11 @@ public function todayRevenue()
 
         for ($hour = 0; $hour < 24; $hour++) {
             $labels[] = \Carbon\Carbon::createFromTime($hour)->format('g A');
-            $data[] = (int) ($counts[$hour] ?? 0);
-        }
-
-        return compact('labels', 'data');
+            $data[] = (int) ($counts[(int) $hour] ?? 0);
     }
+
+    return compact('labels', 'data');
+}
 
     #[Computed]
     public function peakHour()
