@@ -287,7 +287,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->cardUid = strtoupper(trim($this->cardUid));
 
         $this->validate([
-            'cardUid' => ['required', 'string', 'regex:/^[0-9A-F]{8}$/', 'unique:cards,uid'],
+            'cardUid' => ['required', 'string', 'unique:cards,uid'],
         ], [
             'cardUid.unique' => 'This card UID is already assigned to another user.',
             'cardUid.regex'  => 'That doesn\'t look like a valid card tap — expected an 8-character UID. Please tap again.',

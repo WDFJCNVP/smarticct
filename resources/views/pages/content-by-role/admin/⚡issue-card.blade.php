@@ -61,7 +61,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->issueCardUid = strtoupper(trim($this->issueCardUid));
 
         $this->validate([
-            'issueCardUid' => ['required', 'string', 'regex:/^[0-9A-F]{8}$/', 'unique:cards,uid'],
+            'issueCardUid' => ['required', 'string', 'unique:cards,uid'],
             'issueUserId'  => 'required|integer|exists:users,id',
         ], [
             'issueCardUid.unique'  => 'This card UID is already assigned to another user.',
