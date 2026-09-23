@@ -15,7 +15,7 @@ namespace App\Services;
  * later (e.g. pdf-bg-a4-landscape.jpg) and it will be picked up
  * automatically, no code changes required.
  */
-class PdfLetterhead
+class PdfLetterHead
 {
     public const PAPERS = ['letter', 'legal', 'a4'];
     public const ORIENTATIONS = ['portrait', 'landscape'];

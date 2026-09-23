@@ -22,12 +22,12 @@
     Legal artwork until Letter/A4 art is added — see that class).
 --}}
 @php
-    use App\Services\PdfLetterhead;
+    use App\Services\PdfLetterHead;
 
-    $paper = PdfLetterhead::normalizePaper($paper ?? null);
-    $orientation = PdfLetterhead::normalizeOrientation($orientation ?? null);
-    [$pageWidth, $pageHeight] = PdfLetterhead::pageSize($paper, $orientation);
-    $letterheadBg = PdfLetterhead::background($paper, $orientation);
+    $paper = PdfLetterHead::normalizePaper($paper ?? null);
+    $orientation = PdfLetterHead::normalizeOrientation($orientation ?? null);
+    [$pageWidth, $pageHeight] = PdfLetterHead::pageSize($paper, $orientation);
+    $letterheadBg = PdfLetterHead::background($paper, $orientation);
 @endphp
 @page {
     size: {{ $paper }} {{ $orientation }};
