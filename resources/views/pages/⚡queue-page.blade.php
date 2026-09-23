@@ -158,7 +158,7 @@ new class extends Component {
         $orderedIds = Queue::where('vehicle_type', $queue->vehicle_type)
             ->where('destination', $queue->destination)
             ->whereIn('status', ['staging', 'loading'])
-            ->orderByRaw("FIELD(status, 'loading', 'staging')")
+            ->orderByRaw("CASE status WHEN 'loading' THEN 1 WHEN 'staging' THEN 2 ELSE 3 END")
             ->orderBy('slot_position')
             ->orderBy('time_queued')
             ->pluck('id');
@@ -186,7 +186,7 @@ new class extends Component {
                 })
             )
 
-            ->orderByRaw("FIELD(status, 'loading', 'staging')")
+            ->orderByRaw("CASE status WHEN 'loading' THEN 1 WHEN 'staging' THEN 2 ELSE 3 END")
             ->orderBy('slot_position')
             ->orderBy('time_queued')
             ->get()
