@@ -192,7 +192,6 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                                 wire:model.live.debounce.200ms="issueCardUid"
                                 autocomplete="off"
                                 autofocus
-                                maxlength="8"
                                 x-ref="cardUidInput"
                                 @keydown.enter.prevent
                                 class="absolute inset-0 w-full h-full opacity-0 cursor-default"
