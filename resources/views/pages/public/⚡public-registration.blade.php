@@ -114,6 +114,10 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                 'role'          => 'commuter',
             ]);
         } catch (QueryException $e) {
+            \Log::error('Registration failed', [
+                'email' => $this->email_address,
+                'message' => $e->getMessage(),
+            ]);
             $this->addError('email_address', 'An account with this email already exists.');
             $this->otpSent = false;
             return;
