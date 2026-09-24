@@ -77,7 +77,7 @@ class UserService
                         'franchise_expiry_date'  => $vehicle['franchise_expiry_date'] ?? null,
                     ]);
 
-                    if ($vehicle['group_number'] !== null) {
+                    if (!empty($vehicle['group_number'])) {
                         $order_number = VehicleGroup::where('group_number', $vehicle['group_number'])
                             ->whereHas('vehicle', function($query) use ($created_vehicle) {
 
