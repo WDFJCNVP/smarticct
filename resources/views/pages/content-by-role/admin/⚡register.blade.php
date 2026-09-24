@@ -36,7 +36,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $phone_number;
 
     public string $date_of_birth = '';
-    public string $commuter_type = 'Regular';
+    public string $commuter_type = 'regular';
     public string $address = '';
     public string $card_number = '';
     public string $new_card_id = '';
@@ -325,14 +325,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $rawPassword = Str::password(10, true, true, true, false);
 
         $userBasicInformation = [
-            'name'         => $this->first_name . ' ' . $this->last_name,
-            'age'          => $this->age,
-            'commuter_type'=> $this->commuter_type,
-            'phone_number' => $this->phone_number,
-            'address'      => $this->address,
+            'name'          => $this->first_name . ' ' . $this->last_name,
+            'age'           => $this->age,
+            'commuter_type' => $this->role === 'commuter' ? strtolower($this->commuter_type) : null,
+            'phone_number'  => $this->phone_number,
+            'address'       => $this->address,
             'email_address' => $this->email_address,
-            'password' => $rawPassword,
-            'role'         => $this->role,
+            'password'      => $rawPassword,
+            'role'          => $this->role,
         ];
 
         if($this->card_number) {
