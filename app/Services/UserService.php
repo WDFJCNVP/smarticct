@@ -36,6 +36,11 @@ class UserService
             $user = User::create($userBasicInformation);
 
             if ($cardInformation) {
+
+                if(!empty($cardInformation['pin'])) {
+                    $cardInformation['pin'] = Hash::make($cardInformation['pin']);
+                }
+
                 $user->card()->create($cardInformation);
             }
 

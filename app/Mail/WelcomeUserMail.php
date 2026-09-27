@@ -15,12 +15,14 @@ class WelcomeUserMail extends Mailable
     public $name;
     public $email;
     public $password;
+    public $raw_pin;
 
-    public function __construct($name, $email, $password)
+    public function __construct($name, $email, $password, $raw_pin = null)
     {
         $this->name = $name;
         $this->email = $email;
         $this->password = $password;
+        $this->raw_pin = $raw_pin 
     }
 
     public function envelope(): Envelope
@@ -41,6 +43,11 @@ class WelcomeUserMail extends Mailable
                 <div style='background: #f3f4f6; padding: 15px; border-radius: 8px; margin-top: 15px;'>
                     <p style='margin: 0 0 10px 0;'><strong>Email:</strong> {$this->email}</p>
                     <p style='margin: 0;'><strong>Temporary Password:</strong> <span style='font-family: monospace; font-size: 16px; letter-spacing: 1px;'>{$this->password}</span></p>
+
+                    @if($rawPin)
+                        <p>Your card PIN: <strong>{{ $rawPin }}</strong></p>
+                        <p>Keep this PIN private — anyone with your card and PIN can access your account at the kiosk.</p>
+                    @endif
                 </div>
 
                 <p style='margin-top: 20px; color: #dc2626;'><em>⚠️ For your security, please log in and change your password immediately.</em></p>

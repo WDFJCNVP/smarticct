@@ -19,6 +19,9 @@ class Card extends Model
         'suspension_reason',
         'suspended_at',
         'suspended_by',
+        'pin',
+        'pin_attempts',
+        'pin_locked_at',
     ];
 
     protected $casts = [

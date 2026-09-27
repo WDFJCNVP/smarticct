@@ -336,8 +336,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
         ];
 
         if($this->card_number) {
+
+            $rawPin = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
             $cardInformation = [
                 'uid'    => $this->card_number,
+                'pin'    => $rawPin,
                 'status' => 'active',
             ];
         } else {
@@ -355,7 +359,8 @@ new #[Layout('layouts.admin-layout')] class extends Component
             Mail::to($user->email_address)->send(new WelcomeUserMail(
                 $user->name,
                 $user->email_address,
-                $rawPassword
+                $rawPassword,
+                $rawPin
             ));
 
             Flux::toast(
