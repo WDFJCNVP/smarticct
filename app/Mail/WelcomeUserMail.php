@@ -22,7 +22,7 @@ class WelcomeUserMail extends Mailable
         $this->name = $name;
         $this->email = $email;
         $this->password = $password;
-        $this->raw_pin = $raw_pin 
+        $this->raw_pin = $raw_pin; 
     }
 
     public function envelope(): Envelope
