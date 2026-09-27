@@ -83,6 +83,38 @@ class UserController extends Controller
         ], 200);
     }
 
+    public function verifyPin(Request $request): JsonResponse 
+    {
+
+        $validated = $request->validate([
+            'pin'       => 'required|string',
+            'user_id'   => 'required' 
+        ]);
+
+        $user = User::with('card')->findOrFail($validated['user_id']);
+
+        if (!$user->card || !Hash::check($validated['pin'], $user->card->pin)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'PIN number is incorrect. Please try again!',
+            ], 401);
+        }
+
+        if ($user->card->pin_attempts >= 5 && $user->card->pin_locked_at) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Your accout has been blocked. Please consult to your doctor!',
+            ], 422);
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Authentication successful',
+            'data'    => $user,
+        ], 200);
+
+    }
+
     public function getRouteList() {
 
         $data = RouteList::with('operatorTicketRate')->get();

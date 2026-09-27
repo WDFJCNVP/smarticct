@@ -27,7 +27,9 @@ Route::post('/webhooks/paymongo', [PaymongoController::class, 'handleWebhook']);
 Route::post('/webhooks/paymongo/disbursement', [PaymongoController::class, 'handleDisbursementWebhook'])
     ->name('webhooks.paymongo.disbursement');
 
-//Kiosk endpoint
+//Kiosk endpoints
 Route::get('/card/{uid}', [UserController::class, 'getUser']);  
+Route::post('/card/verify', [UserController::class, 'verifyPin']);
 Route::post('/kiosk/login', [UserController::class, 'login']);
 Route::get('/queued/routes', [KioskQueueController::class, 'getAvailableRides']);
+
