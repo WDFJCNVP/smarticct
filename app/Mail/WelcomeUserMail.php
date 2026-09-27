@@ -15,14 +15,14 @@ class WelcomeUserMail extends Mailable
     public $name;
     public $email;
     public $password;
-    public $raw_pin;
+    public $rawPin;
 
-    public function __construct($name, $email, $password, $raw_pin = null)
+    public function __construct($name, $email, $password, $rawPin = null)
     {
         $this->name = $name;
         $this->email = $email;
         $this->password = $password;
-        $this->raw_pin = $raw_pin; 
+        $this->rawPin = $rawPin; 
     }
 
     public function envelope(): Envelope
