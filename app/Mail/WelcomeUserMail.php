@@ -44,8 +44,8 @@ class WelcomeUserMail extends Mailable
                     <p style='margin: 0 0 10px 0;'><strong>Email:</strong> {$this->email}</p>
                     <p style='margin: 0;'><strong>Temporary Password:</strong> <span style='font-family: monospace; font-size: 16px; letter-spacing: 1px;'>{$this->password}</span></p>
 
-                    @if($rawPin)
-                        <p>Your card PIN: <strong>{{ $rawPin }}</strong></p>
+                    @if($this->rawPin)
+                        <p>Your card PIN: <strong>{{ $this->rawPin }}</strong></p>
                         <p>Keep this PIN private — anyone with your card and PIN can access your account at the kiosk.</p>
                     @endif
                 </div>
