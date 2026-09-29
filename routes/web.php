@@ -236,6 +236,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->name('appearance.edit');
     Route::livewire('/setting/security', 'pages::settings.security')
         ->name('security.edit');
+        
+    Route::livewire('/setting/pin/security', 'pages::settings.pin-security')
+        ->name('pin.security');
 
     Route::livewire('/setting/vehicle/type', 'pages::settings.vehicle-type-page')
         ->name('security.vehicle.type')

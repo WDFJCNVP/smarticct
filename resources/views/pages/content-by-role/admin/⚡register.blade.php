@@ -323,6 +323,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     {
 
         $rawPassword = Str::password(10, true, true, true, false);
+        $rawPin = null;
 
         $userBasicInformation = [
             'name'          => $this->first_name . ' ' . $this->last_name,

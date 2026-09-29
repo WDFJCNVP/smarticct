@@ -10,9 +10,15 @@
             <flux:navlist.item 
                 :href="route('security.edit')" 
                 wire:navigate
-                >{{ __('Security') }}
+                >{{ __('Change Password') }}
             </flux:navlist.item>
-
+            @if(auth()->check() && (auth()->user()->role === 'commuter' || auth()->check() && auth()->user()->role === 'operator'))
+            <flux:navlist.item 
+                :href="route('pin.security')" 
+                wire:navigate
+                >{{ __('Change Card PIN Number') }}
+            </flux:navlist.item>
+            @endif
             <flux:navlist.item 
                 :href="route('appearance.edit')" 
                 wire:navigate
