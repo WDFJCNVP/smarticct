@@ -26,6 +26,7 @@ class Card extends Model
 
     protected $casts = [
         'suspended_at' => 'datetime',
+        'pin' => 'hashed',
     ];
 
     public function user() {
