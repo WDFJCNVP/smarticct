@@ -44,8 +44,12 @@ new #[Layout('layouts.commuter-layout')] class extends Component
         $card = Card::where('user_id', Auth::id())->first();
         if (!$card) return 0;
 
+        // 'fare_payment' is the kiosk's request parameter name, not a stored
+        // value — the commuter-side deduction is persisted as
+        // 'queue_deduction' (see CardController::tap()). Filtering on
+        // 'fare_payment' meant this always summed to 0.
         return CardTransaction::where('card_id', $card->id)
-            ->where('transaction_type', 'fare_payment')
+            ->where('transaction_type', 'queue_deduction')
             ->sum('amount');
     }
 

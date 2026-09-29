@@ -379,8 +379,7 @@ new class extends Component
                                     type="text"
                                     wire:model.live.debounce.200ms="card_uid"
                                     autocomplete="off"
-                                    autofocus
-                      
+                                    autofocus          
                                     @keydown.enter.prevent
                                     class="absolute inset-0 w-full h-full opacity-0 cursor-default"
                                 />

@@ -24,6 +24,8 @@ use App\Jobs\ProcessAfterDepart;
 use App\Events\QueuedVehicleEvent;
 use App\Events\TriggerDepartingEvent;
 use App\Events\NotificationEvent;
+use App\Events\CardTransactionCreated;
+use App\Events\CashTransactionCreated;
 
 use App\Services\AuditLogsService;
 
@@ -68,7 +70,32 @@ class CardController extends Controller
             'user_id'         => $user_id,
         ]);
 
-        broadcast(new NotificationEvent());
+        try {
+            broadcast(new NotificationEvent());
+        } catch (\Exception $e) {
+            Log::warning('Queue-joined notification created but broadcast failed', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Notify a commuter that a fare was deducted from their card. Mirrors
+     * the notification pattern already used for top-ups/withdrawals — the
+     * fare_payment flow previously created CardTransaction rows silently,
+     * so nothing ever reached the commuter's notification bell.
+     */
+    private function notifyFareDeducted(int $user_id, float $amount, string $destination, float $balanceAfter): void
+    {
+        $notification = Notification::create([
+            'type'    => 'FarePayment',
+            'title'   => 'Fare paid',
+            'message' => "₱" . number_format($amount, 2) . " was deducted for your trip to {$destination}. Remaining balance: ₱" . number_format($balanceAfter, 2) . ".",
+            'metadata' => json_encode(['amount' => $amount, 'destination' => $destination, 'balance_after' => $balanceAfter]),
+        ]);
+
+        UserNotification::create([
+            'notification_id' => $notification->id,
+            'user_id'         => $user_id,
+        ]);
     }
 
     private function deductUserCard(Card $card, float $amount, float $balanceBefore): array
@@ -312,9 +339,6 @@ class CardController extends Controller
                 $queue->increment('seat_count');
                 $queue->refresh();
 
-                $operatorCard = $queue->user->card;
-                $operatorBalanceBefore = $operatorCard->balance;
-
                 $rider = !empty($validated['user_id']) ? \App\Models\User::find($validated['user_id']) : null;
 
                 $travelRecord = TravelRecord::create([
@@ -329,24 +353,11 @@ class CardController extends Controller
                     'departed_at'  => $queue->departs_at,
                 ]);
 
-                $operatorCard->increment('balance', $amount);
-                $operatorCard->refresh();
-
-                CardTransaction::create([
-                    'card_id'          => $operatorCard->id,
-                    'processed_by'     => auth()->id(),
-                    'transaction_type' => 'fare_earning',
-                    'reference_no'     => 'FARECASH-' . $travelRecord->id,
-                    'reference_id'     => $travelRecord->id,
-                    'reference_type'   => TravelRecord::class,
-                    'amount'           => $amount,
-                    'balance_before'   => $operatorBalanceBefore,
-                    'balance_after'    => $operatorCard->balance,
-                    'status'           => 'success',
-                    'transaction_time' => now(),
-                    'source'           => 'cashier_cash',
-                    'message'          => "Fare earning (cash): {$queue->destination} trip, plate {$queue->plate_number}",
-                ]);
+                // Cash fare: the operator already holds this money physically —
+                // it is a separate, non-withdrawable earning that must never touch
+                // the operator's digital card balance. No CardTransaction is
+                // created here; the CashTransaction below is the sole record
+                // (used by the operator dashboard's todayEarnings() cash-side query).
 
                 $vehicleId = $queue->vehicle_id
                     ?? Vehicle::where('plate_number', $queue->plate_number)->value('id');
@@ -391,6 +402,13 @@ class CardController extends Controller
 
             if ($result['success']) {
                 broadcast(new QueuedVehicleEvent());
+
+                try {
+                    broadcast(new CardTransactionCreated(transactionType: 'fare_earning'));
+                    broadcast(new CashTransactionCreated());
+                } catch (\Exception $e) {
+                    Log::warning('Cash fare payment succeeded but broadcast failed', ['error' => $e->getMessage()]);
+                }
             }
 
             return response()->json($result);
@@ -511,6 +529,12 @@ class CardController extends Controller
 
             if ($result['success']) {
                 broadcast(new QueuedVehicleEvent());
+
+                try {
+                    broadcast(new CashTransactionCreated());
+                } catch (\Exception $e) {
+                    Log::warning('Operator cash fare succeeded but broadcast failed', ['error' => $e->getMessage()]);
+                }
             }
 
             return response()->json($result);
@@ -563,46 +587,52 @@ class CardController extends Controller
 
             $card = $this->getCard($validated['uid']);
 
-            app(AuditLogsService::class)->create([
-                'user_id' => auth()->id(),
-                'action'  => 'Tap Card',
-                'subject' => 'User tapped card',
-                'channel' => 'Web',
-                'metadata' => [
-                    'ip_address' => request()->ip(),
-                    'message'    => "Card was successfully tapped (Card ID: {$card->card_number} User No.: {$card->user->user_code}).",
-                ],
-            ]);
+            // Kiosk hits this endpoint unauthenticated, so auth()->id() is
+            // always null for kiosk-originated taps — 'channel' reflects
+            // that this request never goes through an authenticated web
+            // session, unlike the cashier-facing endpoints.
+            $auditChannel = auth()->id() ? 'Web' : 'Kiosk';
 
             if (!$card) {
-                return response()->json(['success' => false, 'message' => 'Card not recognized. Please contact an administrator if the problem persists.'], 404);
-
                 app(AuditLogsService::class)->create([
                     'user_id' => auth()->id(),
                     'action'  => 'Tap Card',
                     'subject' => 'Tapped Card Not Recognized',
-                    'channel' => 'Web',
+                    'channel' => $auditChannel,
                     'metadata' => [
                         'ip_address' => request()->ip(),
                         'message'    => "Card was not recognized (Card ID: {$validated['uid']}).",
                     ],
                 ]);
+
+                return response()->json(['success' => false, 'message' => 'Card not recognized. Please contact an administrator if the problem persists.'], 404);
             }
 
             if ($card->status !== 'active') {
-                return response()->json(['success' => false, 'message' => 'Card is ' . $card->status], 403);
-
                 app(AuditLogsService::class)->create([
                     'user_id' => auth()->id(),
                     'action'  => 'Tap Card',
                     'subject' => 'Tapped Card Inactive',
-                    'channel' => 'Web',
+                    'channel' => $auditChannel,
                     'metadata' => [
                         'ip_address' => request()->ip(),
                         'message'    => "Card is inactive (Card Number: {$card->card_number}). Card status: {$card->status} (User No.: {$card->user->user_code}).",
                     ],
                 ]);
+
+                return response()->json(['success' => false, 'message' => 'Card is ' . $card->status], 403);
             }
+
+            app(AuditLogsService::class)->create([
+                'user_id' => auth()->id(),
+                'action'  => 'Tap Card',
+                'subject' => 'User tapped card',
+                'channel' => $auditChannel,
+                'metadata' => [
+                    'ip_address' => request()->ip(),
+                    'message'    => "Card was successfully tapped (Card ID: {$card->card_number} User No.: {$card->user->user_code}).",
+                ],
+            ]);
 
             $balanceBefore    = (float) $card->balance;
             $balanceAfter     = $balanceBefore;
@@ -679,7 +709,7 @@ class CardController extends Controller
                             'balance_after'    => $operatorCard->balance,
                             'status'           => 'success',
                             'transaction_time' => now(),
-                            'source'           => 'cashier',
+                            'source'           => 'kiosk_tap_in',
                             'message'          => "Fare earning: {$queue->destination} trip, plate {$queue->plate_number}",
                         ]);
 
@@ -698,6 +728,10 @@ class CardController extends Controller
                             'source'           => 'kiosk_tap_in',
                             'message'          => "Fare paid: {$queue->destination} trip, plate {$queue->plate_number}",
                         ]);
+
+                        // Let the commuter's notification bell / dashboard know
+                        // a fare was just deducted — previously silent.
+                        $this->notifyFareDeducted($card->user_id, $amount, $queue->destination, $deduction['balanceAfter']);
 
                         if ($queue->vehicle_type === 'UV-express' && $queue->seat_count >= 9 && $queue->departs_at === null) {
                             $departsAt = Carbon::now()->addMinutes(30);
@@ -718,7 +752,17 @@ class CardController extends Controller
                 $status       = $result['success'] ? 'success' : 'failed';
                 $balanceAfter = $result['balanceAfter'];
                 $message      = $result['message'];
-                broadcast(new QueuedVehicleEvent());
+
+                if ($status === 'success') {
+                    broadcast(new QueuedVehicleEvent());
+
+                    try {
+                        broadcast(new NotificationEvent());
+                        broadcast(new CardTransactionCreated(cardId: $card->id, transactionType: 'queue_deduction'));
+                    } catch (\Exception $e) {
+                        Log::warning('Fare payment succeeded but broadcast failed', ['error' => $e->getMessage()]);
+                    }
+                }
             }
 
             if ($transaction_type === 'operator_payment') {
@@ -771,7 +815,7 @@ class CardController extends Controller
                             'balance_after'    => $deduction['balanceAfter'],
                             'status'           => 'success',
                             'transaction_time' => now(),
-                            'source'           => 'cashier_rfid',
+                            'source'           => 'kiosk_tap_in',
                             'message'          => "Queueing fee for {$vehicle->vehicle_type}, plate {$vehicle->plate_number}",
                         ]);
 
@@ -816,7 +860,7 @@ class CardController extends Controller
                                 'balance_after'    => $deduction['balanceAfter'],
                                 'status'           => 'success',
                                 'transaction_time' => now(),
-                                'source'           => 'cashier_rfid',
+                                'source'           => 'kiosk_tap_in',
                                 'message'          => "Queueing fee for {$vehicle->vehicle_type}, plate {$vehicle->plate_number}",
                             ]);
                         }
@@ -829,26 +873,16 @@ class CardController extends Controller
                     $message      = $result['message'];
                 }
 
-                broadcast(new QueuedVehicleEvent());
+                if ($status === 'success') {
+                    broadcast(new QueuedVehicleEvent());
+
+                    try {
+                        broadcast(new CardTransactionCreated(cardId: $card->id, transactionType: 'queueing_fee'));
+                    } catch (\Exception $e) {
+                        Log::warning('Operator queueing fee succeeded but broadcast failed', ['error' => $e->getMessage()]);
+                    }
+                }
             }
-
-            // $transaction = CardTransaction::create([
-            //     'card_id'          => $card->id,
-            //     'processed_by'     => $card->user->id,
-            //     'source'           => 'rfid',
-            //     'reference_no'     => 'TXN-' . now()->format('YmdHis') . '-' . Str::random(6),
-            //     'metadata'         =>  $validated,
-            //     'points_deducted'  => $amount,
-            //     'transaction_type' => 'Purchase',
-            //     'amount'           => $amount,
-            //     'balance_before'   => $balanceBefore,
-            //     'balance_after'    => $balanceAfter,
-            //     'status'           => $status,
-            //     'message'          => $message,
-            //     'transaction_time' => now(),
-            // ]);
-
-            // $this->travel_record?->update(['card_transaction_id' => $transaction->id]);
 
             return response()->json([
                 'success'          => $status === 'success',
@@ -858,8 +892,6 @@ class CardController extends Controller
                 'card_type'        => $card->user->role,
                 'balance_before'   => $balanceBefore,
                 'balance_after'    => (float) $balanceAfter,
-                // 'transaction_id'   => $transaction->id,
-                // 'timestamp'        => $transaction->transaction_time->toIso8601String(),
             ]);
 
         } catch (ValidationException $e) {

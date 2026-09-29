@@ -533,8 +533,7 @@ new class extends Component
                                     wire:model.live.debounce.200ms="card_number"
                                     wire:focus="cardFocused"
                                     wire:blur="cardBlurred"
-                                    autocomplete="off"
-                               
+                                    autocomplete="off"                   
                                     autofocus
                                     :disabled="$cashMode"
                                     @keydown.enter.prevent

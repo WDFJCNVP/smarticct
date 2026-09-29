@@ -5,25 +5,13 @@ namespace App\Services;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Builds the unified "all money-in" transaction ledger — top-ups, queue fee
- * payments, fare payments, and card issuance — as a single normalized list,
- * shared by the admin Transactions tab and its PDF export so both always
- * agree on exactly what counts and how it's categorized.
- *
- * Column shape every subquery must produce, in this order:
- *   row_id, occurred_at, category, mode, channel, user_name, reference,
- *   amount, status, processed_by_name
- */
 class TransactionLedgerService
 {
     public const CATEGORIES = ['topup', 'queue_fee', 'fare_payment', 'card_issuance'];
     public const MODES = ['cash', 'card', 'online'];
     public const STATUSES = ['completed', 'pending', 'failed'];
 
-    /**
-     * The unfiltered unified ledger as a UNION ALL query builder.
-     */
+
     public function baseQuery(): Builder
     {
         // Top-ups — cash (cashier window) or online (PayMongo: gcash/card/paymaya/qrph).
@@ -124,22 +112,25 @@ class TransactionLedgerService
                 DB::raw("COALESCE(p3.name, 'Kiosk') as processed_by_name"),
             ]);
 
-        // Card issuance — no fee decided yet, so amount is always 0. Kept in
-        // the ledger for visibility/audit; will carry real revenue once a
-        // price is configured.
-        $cardIssuance = DB::table('cards as ci')
-            ->join('users as u3', 'ci.user_id', '=', 'u3.id')
+        // Card issuance — new cards and replacements, priced via the
+        // admin-configurable Card Pricing setting. Always cash (paid at the
+        // counter before the card exists to tap). See
+        // App\Models\CardPricingSetting and CardIssuanceTransaction.
+        $cardIssuance = DB::table('card_issuance_transactions as cit')
+            ->join('cards as ci', 'cit.card_id', '=', 'ci.id')
+            ->join('users as u3', 'cit.user_id', '=', 'u3.id')
+            ->leftJoin('users as p4', 'cit.processed_by', '=', 'p4.id')
             ->select([
-                DB::raw("CONCAT('cardissue-', ci.id) as row_id"),
-                'ci.created_at as occurred_at',
+                DB::raw("CONCAT('cardissue-', cit.id) as row_id"),
+                'cit.created_at as occurred_at',
                 DB::raw("'card_issuance' as category"),
-                DB::raw("'n/a' as mode"),
-                DB::raw("'n/a' as channel"),
+                DB::raw("'cash' as mode"),
+                DB::raw("'Counter' as channel"),
                 'u3.name as user_name',
-                DB::raw("CONCAT('Card **** ', RIGHT(COALESCE(ci.card_number, '0000'), 4)) as reference"),
-                DB::raw('0 as amount'),
-                DB::raw("'completed' as status"),
-                DB::raw("'-' as processed_by_name"),
+                DB::raw("CONCAT(UPPER(LEFT(cit.issuance_type, 1)), SUBSTRING(cit.issuance_type, 2), ' — Card **** ', RIGHT(COALESCE(ci.card_number, '0000'), 4)) as reference"),
+                'cit.amount as amount',
+                DB::raw("CASE WHEN cit.status = 'success' THEN 'completed' ELSE 'failed' END as status"),
+                DB::raw("COALESCE(p4.name, 'Counter') as processed_by_name"),
             ]);
 
         return $topups

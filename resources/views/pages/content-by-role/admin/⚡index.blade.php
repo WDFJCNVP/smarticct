@@ -53,26 +53,26 @@ new #[Layout('layouts.admin-layout')] class extends Component
 #[Computed]
 public function totalRevenue()
 {
-    // 1. Digital card fee earnings
-    $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
+    $queueFeeCard = CardTransaction::where('transaction_type', 'queueing_fee')
         ->where('status', 'success')
         ->sum('amount');
 
-    // 2. Over-the-counter cash fees — queueing fees only ('CASH-' prefix).
-    // CashTransaction also holds cash *fare* payments ('FARECASH-' prefix,
-    // see App\Http\Controllers\Api\CardController::cashFarePayment()) which
-    // are pass-through commuter money credited straight to the operator's
-    // card, not terminal revenue. This mirrors how the card side above
-    // only counts 'queueing_fee' and deliberately excludes 'fare_earning'.
-    $cashFees = CashTransaction::where('status', 'success')
+    $queueFeeCash = CashTransaction::where('status', 'success')
         ->where('reference_no', 'like', 'CASH-%')
         ->sum('amount');
 
-    $totalWithdrawn = CardTransaction::where('transaction_type', 'admin_withdrawal')
-        ->whereIn('status', ['pending', 'success'])
+    $topUps = TopUpTransaction::where('status', 'paid')->sum('amount_paid');
+
+    $fareCard = CardTransaction::where('transaction_type', 'queue_deduction')
+        ->where('source', 'kiosk_tap_in')
+        ->where('status', 'success')
         ->sum('amount');
 
-    return max(0.0, ($cardFees + $cashFees) - $totalWithdrawn);
+    $fareCash = CashTransaction::where('status', 'success')
+        ->where('reference_no', 'like', 'FARECASH-%')
+        ->sum('amount');
+
+    return $queueFeeCard + $queueFeeCash + $topUps + $fareCard + $fareCash;
 }
 
 private function queueFeeRevenueForDate(\Carbon\Carbon $date): float

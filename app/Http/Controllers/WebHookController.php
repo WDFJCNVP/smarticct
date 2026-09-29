@@ -18,7 +18,6 @@ class WebHookController extends Controller
 
         Log::info('Webhook hit', ['body' => $request->getContent()]);
 
-        // 1. Verify Signature
         $signature = $request->header('Paymongo-Signature');
 
         $secret    = config('services.paymongo.webhook_secret');

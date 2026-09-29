@@ -115,20 +115,6 @@ new #[Layout('layouts.admin-layout')] class extends Component
         ]));
     }
 
-    /**
-     * Revenue summary. Computed with direct, per-source aggregate queries
-     * (rather than off the unioned ledger below) — cheaper, and mirrors the
-     * pattern already used on the Top-Ups page.
-     *
-     * A note on what counts as "revenue" here: top-ups, queueing fees, and
-     * card issuance are money the terminal actually keeps. Fare payments —
-     * whether paid in cash or by tapping a card — are always credited
-     * onward to the operator's own card as withdrawable points, so they're
-     * never the terminal's money and are deliberately excluded from every
-     * revenue figure below. They're still tracked (fare_payment_total) so
-     * the table/breakdown can show them for visibility, just not counted
-     * as revenue.
-     */
     #[Computed]
     public function stats(): array
     {
@@ -138,37 +124,30 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $topupOnlineTotal = $topupTotal - $topupCashTotal;
         $topupTotalToday = (clone $topupPaid)->whereDate('created_at', today())->sum('amount_paid');
 
-        // Queue fees — currently always paid by RFID card tap and kept
-        // permanently by the terminal.
-        $queueFeeQuery = CardTransaction::where('transaction_type', 'queueing_fee')->where('status', 'success');
-        $queueFeeTotal = (clone $queueFeeQuery)->sum('amount');
-        $queueFeeTotalToday = (clone $queueFeeQuery)->whereDate('transaction_time', today())->sum('amount');
+        $queueFeeCardQuery = CardTransaction::where('transaction_type', 'queueing_fee')->where('status', 'success');
+        $queueFeeCardTotal = (clone $queueFeeCardQuery)->sum('amount');
+        $queueFeeCardTotalToday = (clone $queueFeeCardQuery)->whereDate('transaction_time', today())->sum('amount');
 
-        // Fare payments — tracked for the table/breakdown only. Excluded
-        // from revenue: this money is credited onward to the operator's
-        // card as withdrawable points, never kept by the terminal.
+        $queueFeeCashQuery = CashTransaction::where('reference_no', 'like', 'CASH-%')->where('status', 'success');
+        $queueFeeCashTotal = (clone $queueFeeCashQuery)->sum('amount');
+        $queueFeeCashTotalToday = (clone $queueFeeCashQuery)->whereDate('created_at', today())->sum('amount');
+
+        $queueFeeTotal = $queueFeeCardTotal + $queueFeeCashTotal;
+        $queueFeeTotalToday = $queueFeeCardTotalToday + $queueFeeCashTotalToday;
+
         $fareCashTotal = CashTransaction::where('reference_no', 'like', 'FARECASH-%')->where('status', 'success')->sum('amount');
-
-        // Card-tap fare payments (kiosk). The rider's card is the one
-        // actually deducted — that's the real payment event; the matching
-        // "fare_earning" credit to the operator's card is just the internal
-        // settlement leg, so it's excluded here to avoid double-counting.
         $fareCardTotal = CardTransaction::where('transaction_type', 'queue_deduction')->where('source', 'kiosk_tap_in')->where('status', 'success')->sum('amount');
 
         $farePaymentTotal = $fareCashTotal + $fareCardTotal;
 
-        // Card issuance has no fee configured yet — tracked here (count) so
-        // it's ready to carry real revenue the moment pricing is decided.
         $cardIssuanceCount = Card::count();
         $cardIssuanceTotal = 0.0;
 
-        // Cash/card split reflects terminal-kept revenue only — fare
-        // payments are deliberately left out of both.
-        $cashTotal   = $topupCashTotal;
-        $cardTotal   = $queueFeeTotal;
+        $cashTotal   = $topupCashTotal + $queueFeeCashTotal + $fareCashTotal;
+        $cardTotal   = $queueFeeCardTotal + $fareCardTotal;
         $onlineTotal = $topupOnlineTotal;
 
-        $totalRevenue      = $topupTotal + $queueFeeTotal + $cardIssuanceTotal;
+        $totalRevenue      = $topupTotal + $queueFeeTotal + $farePaymentTotal;
         $totalRevenueToday = $topupTotalToday + $queueFeeTotalToday;
 
         return [

@@ -802,8 +802,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             id="card-uid-input"
                             wire:model.live.debounce.200ms="cardUid"
                             autocomplete="off"
-                            autofocus
-                        
+                            autofocus            
                             x-ref="cardUidInput"
                             @keydown.enter.prevent
                             class="absolute inset-0 w-full h-full opacity-0 cursor-default"

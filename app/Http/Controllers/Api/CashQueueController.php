@@ -18,6 +18,7 @@ use App\Models\UserNotification;
 use App\Jobs\ProcessAfterDepart;
 use App\Events\QueuedVehicleEvent;
 use App\Events\NotificationEvent;
+use App\Events\CashTransactionCreated;
 use App\Services\AuditLogsService;
 
 class CashQueueController extends Controller
@@ -357,6 +358,12 @@ class CashQueueController extends Controller
             }
 
             broadcast(new QueuedVehicleEvent());
+
+            try {
+                broadcast(new CashTransactionCreated());
+            } catch (\Exception $e) {
+                Log::warning('Cash queueing succeeded but broadcast failed', ['error' => $e->getMessage()]);
+            }
 
             return response()->json([
                 'success' => true,
