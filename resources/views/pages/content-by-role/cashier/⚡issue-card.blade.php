@@ -4,6 +4,12 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
+
+use App\Mail\IssueCardMail;
 use App\Models\Card;
 use App\Models\User;
 use App\Services\AuditLogsService;
@@ -74,11 +80,12 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
         $this->validate([
             'issueCardUid' => ['required', 'string', 'unique:cards,uid'],
-            'issueUserId'  => 'required|integer|exists:users,id',
+            'issueUserId'  => ['required', 'integer', Rule::exists('users', 'id')->whereIn('role', ['operator', 'commuter'])],
         ], [
             'issueCardUid.unique'  => 'This card UID is already assigned to another user.',
             'issueCardUid.regex'   => 'That doesn\'t look like a valid card tap — expected an 8-character UID. Please tap again.',
             'issueUserId.required' => 'Please select who this card is for.',
+            'issueUserId.exists'   => 'The selected user is not eligible for a card.',
         ]);
 
         $user = User::findOrFail($this->issueUserId);
@@ -93,11 +100,45 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             return;
         }
 
-        Card::create([
-            'user_id' => $user->id,
-            'uid'     => $this->issueCardUid,
-            'balance' => 0,
-        ]);
+        // The raw PIN can't be recovered once hashed, so don't issue a card with nowhere to send it.
+        if (blank($user->email_address)) {
+            Flux::toast(
+                variant: 'danger',
+                duration: 5000,
+                heading: 'No email address on file.',
+                text: $user->name . ' needs an email address before a card can be issued.',
+            );
+            return;
+        }
+
+        $rawPin = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        try {
+            // If the email fails, the exception rolls the card insert back too.
+            DB::transaction(function () use ($user, $rawPin) {
+                Card::create([
+                    'user_id' => $user->id,
+                    'uid'     => $this->issueCardUid,
+                    'balance' => 0,
+                    'pin'     => Hash::make($rawPin),
+                ]);
+
+                Mail::to($user->email_address)->send(new IssueCardMail($user->name, $rawPin));
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            Flux::toast(
+                variant: 'danger',
+                duration: 8000,
+                heading: 'Card was not issued.',
+                // Shows while APP_DEBUG=true
+                text: config('app.debug')
+                    ? class_basename($e) . ': ' . \Illuminate\Support\Str::limit($e->getMessage(), 180)
+                    : 'The card could not be issued. Please try again or contact the system administrator.',
+            );
+            return;
+        }
 
         app(AuditLogsService::class)->create([
             'user_id'  => auth()->id(),
@@ -119,7 +160,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
             variant: 'success',
             duration: 4000,
             heading: 'Card issued.',
-            text: 'A new card has been assigned to ' . $issuedTo . '.',
+            text: 'A new card has been assigned to ' . $issuedTo . ' and the PIN was sent to their email.',
         );
     }
 
@@ -329,7 +370,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                             <div class="min-w-0 flex-1">
                                 <p class="font-secondary text-sm font-medium text-light-txt-body dark:text-dark-txt-body truncate">{{ $card->user?->name ?? 'Unknown' }}</p>
                                 <p class="font-secondary font-mono text-xs text-light-txt-muted dark:text-dark-txt-muted tracking-widest">
-                                    **** {{ substr($card->card_number ?? '----', -4) }}
+                                    **** {{ substr($card->uid ?? '----', -4) }}
                                 </p>
                                 <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted tabular-nums">
                                     {{ $card->created_at->format('M d, Y g:i a') }}
