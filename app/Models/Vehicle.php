@@ -20,6 +20,7 @@ class Vehicle extends Model
         'chassis_number',
         'has_franchise',
         'franchise_expiry_date',
+        'last_notified_status',
     ];
 
     /**

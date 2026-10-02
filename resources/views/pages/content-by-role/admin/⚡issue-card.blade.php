@@ -3,9 +3,13 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
-
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\IssueCardMail;
 use App\Models\Card;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
+
 
 new #[Layout('layouts.admin-layout')] class extends Component
 {
@@ -59,18 +63,19 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public function issueNewCard(): void
     {
         $this->issueCardUid = strtoupper(trim($this->issueCardUid));
-
+ 
         $this->validate([
             'issueCardUid' => ['required', 'string', 'unique:cards,uid'],
-            'issueUserId'  => 'required|integer|exists:users,id',
+            'issueUserId'  => ['required', 'integer', Rule::exists('users', 'id')->whereIn('role', ['operator', 'commuter'])],
         ], [
             'issueCardUid.unique'  => 'This card UID is already assigned to another user.',
-            'issueCardUid.regex'   => 'That doesn\'t look like a valid card tap — expected an 8-character UID. Please scan again.',
+            'issueCardUid.regex'   => 'That doesn\'t look like a valid card tap — expected an 10-character UID. Please scan again.',
             'issueUserId.required' => 'Please select who this card is for.',
+            'issueUserId.exists'   => 'The selected user is not eligible for a card.',
         ]);
-
+ 
         $user = User::findOrFail($this->issueUserId);
-
+ 
         if ($user->card) {
             Flux::toast(
                 variant: 'danger',
@@ -80,22 +85,52 @@ new #[Layout('layouts.admin-layout')] class extends Component
             );
             return;
         }
-
-        Card::create([
-            'user_id' => $user->id,
-            'uid'     => $this->issueCardUid,
-            'balance' => 0,
-        ]);
-
+ 
+        if (empty($user->email_address)) {
+            Flux::toast(
+                variant: 'danger',
+                duration: 5000,
+                heading: 'No email address on file.',
+                text: $user->name . ' needs an email address before a card can be issued.',
+            );
+            return;
+        }
+ 
+        $rawPin = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+ 
+        try {
+            
+            DB::transaction(function () use ($user, $rawPin) {
+                Card::create([
+                    'user_id' => $user->id,
+                    'uid'     => $this->issueCardUid,
+                    'balance' => 0,
+                    'pin'     => Hash::make($rawPin),
+                ]);
+ 
+                Mail::to($user->email_address)->send(new IssueCardMail($user->name, $rawPin));
+            });
+        } catch (\Throwable $e) {
+            report($e);
+ 
+            Flux::toast(
+                variant: 'danger',
+                duration: 6000,
+                heading: 'Card was not issued.',
+                text: 'The PIN email could not be sent. Please check the email address and try again.',
+            );
+            return;
+        }
+ 
         $issuedTo = $user->name;
-
+ 
         $this->resetIssueCardForm();
-
+ 
         Flux::toast(
             variant: 'success',
             duration: 4000,
             heading: 'Card issued.',
-            text: 'A new card has been assigned to ' . $issuedTo . '.',
+            text: 'A new card has been assigned to ' . $issuedTo . ' and the PIN was sent to their email.',
         );
     }
 

@@ -52,7 +52,7 @@ class WelcomeUserMail extends Mailable
                     {$pinBlock}
                 </div>
 
-                <p style='margin-top: 20px; color: #dc2626;'><em>⚠️ For your security, please log in and change your password immediately.</em></p>
+                <p style='margin-top: 20px; color: #dc2626;'><em> For your security, please log in and change your password immediately.</em></p>
             </div>"
         );
     }
