@@ -117,9 +117,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
  
             Flux::toast(
                 variant: 'danger',
-                duration: 6000,
+                duration: 8000,
                 heading: 'Card was not issued.',
-                text: 'The PIN email could not be sent. Please check the email address and try again.',
+                // Shows the real cause while APP_DEBUG=true; generic message in production.
+                text: config('app.debug')
+                    ? class_basename($e) . ': ' . \Illuminate\Support\Str::limit($e->getMessage(), 180)
+                    : 'The card could not be issued. Please try again or contact the system administrator.',
             );
             return;
         }
