@@ -3,6 +3,7 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -22,8 +23,10 @@ new #[Layout('layouts.cashier-layout')] class extends Component
     public bool $show_topup_modal = false;
 
     // --- Card tap / search state ---
+    #[Locked]
     public string $card_uid    = '';
     public string $card_state  = 'ready'; // ready | success | warn
+    public string $card_message = '';     // reason shown when state is 'warn' (never contains the UID)
     public string $userSearch  = '';
     public bool   $searchMode  = false;
 
@@ -124,40 +127,53 @@ new #[Layout('layouts.cashier-layout')] class extends Component
 
     // ─── Actions ─────────────────────────────────────────────────────────────
 
-    public function updatedCardUid(): void
+    /**
+     * Called by the window-level tap listener. The UID is kept server-side only
+     * and is never rendered back to the page.
+     */
+    public function tapCard(string $uid): void
     {
-        $this->card_uid = strtoupper(trim($this->card_uid));
+        // Ignore taps in search mode, or once a card is recognised
+        // (the cashier must press × to scan a different card).
+        if ($this->searchMode || $this->card_state === 'success') {
+            return;
+        }
+
+        $uid = strtoupper(trim($uid));
 
         $this->selectedAmount  = null;
         $this->customAmount    = null;
         $this->amount_received = null;
         $this->selectedUserId  = null;
+        $this->card_message    = '';
 
-        if (empty($this->card_uid)) {
-            $this->card_state = 'ready';
+        // A real tap always produces the full 10-character UID in one burst.
+        if (!preg_match('/^[0-9A-F]{10}$/', $uid)) {
+            $this->card_uid     = '';
+            $this->card_state   = 'warn';
+            $this->card_message = strlen($uid) !== 10
+                ? 'Unreadable tap: received ' . strlen($uid) . ' characters, expected 10. Please tap again.'
+                : 'Unreadable tap: unexpected characters in the card data. Please tap again.';
             return;
         }
 
-        // A real tap always produces the full 8-character UID in one burst —
-        // don't attempt a lookup on a partial scan.
-        if (!preg_match('/^[0-9A-F]{8}$/', $this->card_uid)) {
-            $this->card_state = 'ready';
-            return;
-        }
+        $this->card_uid = $uid;
 
         $card = $this->cardRecord;
 
         if (!$card) {
-            $this->card_state = 'warn';
+            $this->card_state   = 'warn';
+            $this->card_message = 'This card is not registered in the system.';
             return;
         }
 
         if ($card->status !== 'active') {
-            $this->card_state = 'warn';
+            $this->card_state   = 'warn';
+            $this->card_message = 'This card is ' . $card->status . ' and cannot be topped up.';
             return;
         }
 
-        $this->card_state    = 'success';
+        $this->card_state     = 'success';
         $this->selectedUserId = $card->user_id;
     }
 
@@ -166,6 +182,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         $this->searchMode      = true;
         $this->card_uid        = '';
         $this->card_state      = 'ready';
+        $this->card_message = '';
         $this->selectedUserId  = null;
         $this->selectedAmount  = null;
         $this->customAmount    = null;
@@ -199,6 +216,7 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         $this->userSearch      = '';
         $this->card_uid        = '';
         $this->card_state      = 'ready';
+        $this->card_message = '';
         $this->selectedAmount  = null;
         $this->customAmount    = null;
         $this->amount_received = null;
@@ -508,9 +526,9 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                         'text-success/80 dark:text-dark-success/80'     => $card_state === 'success',
                         'text-danger/80 dark:text-dark-danger/80'       => $card_state === 'warn',
                     ])>
-                        @if ($card_state === 'ready') Hold the card near the reader — the field fills automatically
-                        @elseif ($card_state === 'success') UID {{ $card_uid }} · {{ $this->resolvedUser?->name }}
-                        @else Unregistered card or card is suspended/terminated
+                        @if ($card_state === 'ready') Hold the card near the reader — it is captured automatically
+                        @elseif ($card_state === 'success') {{ $this->resolvedUser?->name }}
+                        @else {{ $card_message ?: 'Unregistered card or card is suspended/terminated' }}
                         @endif
                     </p>
                 </div>
@@ -519,9 +537,9 @@ new #[Layout('layouts.cashier-layout')] class extends Component
                         class="text-light-txt-muted hover:text-light-txt-primary dark:text-dark-txt-muted dark:hover:text-dark-txt-primary transition shrink-0">
                         <flux:icon name="x-mark" class="w-5 h-5" />
                     </button>
-                @elseif ($card_state === 'warn' && !$this->cardRecord)
+                @elseif ($card_state === 'warn' && $card_uid !== '' && !$this->cardRecord)
                     <flux:button
-                        href="{{ route('cashier.cards.issue', ['uid' => $card_uid]) }}"
+                        href="{{ route('cashier.cards.issue') }}"
                         wire:navigate
                         variant="danger"
                         size="sm"
@@ -537,30 +555,62 @@ new #[Layout('layouts.cashier-layout')] class extends Component
         <div class="p-5 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-end gap-4">
 
-                {{-- Card UID input --}}
+                {{-- Card tap capture --}}
                 @if (!$searchMode)
-                    <div class="flex-1">
+                    {{-- Window-level tap listener (same approach as the kiosk tap.blade.php): nothing has to be
+                         focused for the RFID reader's keyboard-wedge input to be caught. Exists only while
+                         card-tap mode is shown. The UID is kept server-side and is never rendered. --}}
+                    <div
+                        class="flex-1"
+                        x-data="{
+                            buffer: '',
+                            lastKeyTime: 0,
+                            busy: false,
+                            onKeydown(e) {
+                                // Ignore normal typing in real form fields (custom amount, amount received, ...)
+                                const t = e.target;
+                                if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
+
+                                // The reader types very fast; a pause means a new scan, so reset the buffer
+                                const now = Date.now();
+                                if (now - this.lastKeyTime > 100) this.buffer = '';
+                                this.lastKeyTime = now;
+
+                                if (e.key === 'Enter') {
+                                    const uid = this.buffer.trim().toUpperCase();
+                                    this.buffer = '';
+                                    if (/^[0-9A-Z]{4,}$/.test(uid)) {
+                                        // Stop the reader's trailing Enter from 'clicking' a focused preset/amount button
+                                        e.preventDefault();
+                                        if (this.busy || $wire.card_state === 'success') return;
+                                        this.busy = true;
+                                        $wire.tapCard(uid).finally(() => { this.busy = false; });
+                                    }
+                                } else if (e.key.length === 1) {
+                                    this.buffer += e.key;
+                                }
+                            }
+                        }"
+                        x-on:keydown.window="onKeydown($event)"
+                    >
                         <flux:field>
                             <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary flex items-center gap-1.5">
                                 <flux:icon name="credit-card" class="w-3.5 h-3.5" />
-                                Card UID
+                                Card
                             </flux:label>
-                            <div class="relative mt-1">
-                                <input
-                                    type="text"
-                                    id="topup-rfid-input"
-                                    wire:model.live.debounce.200ms="card_uid"
-                                    autocomplete="off"
-                                    autofocus             
-                                    @keydown.enter.prevent
-                                    class="absolute inset-0 w-full h-full opacity-0 cursor-default"
-                                />
-                                <div
-                                    class="pointer-events-none rounded-lg border-2 border-dashed p-2.5 flex items-center justify-center gap-2 transition-colors
-                                        {{ $card_uid ? 'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' : 'border-light-bd-default dark:border-dark-bd-default' }}"
-                                >
-                                    @if ($card_uid)
-                                        <span class="font-mono text-sm tracking-[0.2em] font-semibold text-light-txt-primary dark:text-dark-txt-primary">{{ $card_uid }}</span>
+                            <div class="mt-1" role="status" aria-live="polite">
+                                <div @class([
+                                    'rounded-lg border-2 border-dashed p-2.5 flex items-center justify-center gap-2 transition-colors',
+                                    'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' => $card_state === 'success',
+                                    'border-danger dark:border-dark-danger bg-danger/5 dark:bg-dark-danger/10'     => $card_state === 'warn',
+                                    'border-light-bd-default dark:border-dark-bd-default'                          => $card_state === 'ready',
+                                ])>
+                                    @if ($card_state === 'success')
+                                        <flux:icon name="check-circle" class="w-4 h-4 text-success dark:text-dark-success shrink-0" />
+                                        <span class="font-secondary text-sm font-semibold text-light-txt-primary dark:text-dark-txt-primary">Card captured</span>
+                                    @elseif ($card_state === 'warn')
+                                        <flux:icon name="exclamation-triangle" class="w-4 h-4 text-danger dark:text-dark-danger shrink-0" />
+                                        <span class="font-secondary text-sm text-danger dark:text-dark-danger">Tap the card again…</span>
                                     @else
                                         <span class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Tap card on reader…</span>
                                     @endif

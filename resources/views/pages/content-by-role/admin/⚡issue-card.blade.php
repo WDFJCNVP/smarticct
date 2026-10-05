@@ -3,6 +3,7 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
@@ -15,7 +16,9 @@ use Illuminate\Support\Facades\DB;
 
 new #[Layout('layouts.admin-layout')] class extends Component
 {
+    #[Locked]
     public string $issueCardUid = '';
+    public ?string $cardError = null;
     public string $issueUserSearch = '';
     public ?int $issueUserId = null;
 
@@ -45,9 +48,45 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public function resetIssueCardForm(): void
     {
         $this->issueCardUid = '';
+        $this->cardError = null;
         $this->issueUserSearch = '';
         $this->issueUserId = null;
         $this->resetValidation();
+    }
+
+    /**
+     * Called by the window-level tap listener. The UID is stored server-side only
+     * and is never rendered back to the page.
+     */
+    public function captureCard(string $uid): void
+    {
+        // A card is already captured: the admin must clear it before scanning another.
+        if ($this->issueCardUid !== '') {
+            return;
+        }
+
+        $uid = strtoupper(trim($uid));
+
+        if (! preg_match('/^[0-9A-Z]{4,32}$/', $uid)) {
+            $this->cardError = 'The card could not be read.';
+            return;
+        }
+
+        if (Card::where('uid', $uid)->exists()) {
+            $this->cardError = 'This card is already assigned to another user.';
+            return;
+        }
+
+        $this->issueCardUid = $uid;
+        $this->cardError = null;
+        $this->resetValidation('issueCardUid');
+    }
+
+    public function clearCard(): void
+    {
+        $this->issueCardUid = '';
+        $this->cardError = null;
+        $this->resetValidation('issueCardUid');
     }
 
     public function selectIssueUser(int $userId): void
@@ -193,61 +232,90 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 </div>
 
                 <div class="p-4 sm:p-6 space-y-5">
-                    <flux:field>
-                        <flux:label class="flex items-center gap-1.5 font-secondary font-medium uppercase tracking-wide text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
-                            <flux:icon name="credit-card" class="w-3.5 h-3.5" />
-                            Card UID
-                        </flux:label>
+                    {{-- Card tap capture. Window-level listener (same approach as the kiosk tap.blade.php),
+                         so nothing has to be focused for the RFID reader's keyboard-wedge input to be caught.
+                         The UID is kept server-side and is never rendered. --}}
+                    <div
+                        x-data="{
+                            buffer: '',
+                            lastKeyTime: 0,
+                            busy: false,
+                            onKeydown(e) {
+                                if (this.busy || $wire.issueCardUid !== '') return;
 
-                        <div class="relative mt-1">
-                            {{-- Real capture field: invisible but focused, so the RFID reader's
-                                 keyboard-wedge input lands here. Debounced so the whole burst of
-                                 characters from a tap resolves as a single update, not one per key. --}}
-                            <input
-                                type="text"
-                                wire:model.live.debounce.200ms="issueCardUid"
-                                autocomplete="off"
-                                autofocus                 
-                                x-ref="cardUidInput"
-                                @keydown.enter.prevent
-                                class="absolute inset-0 w-full h-full opacity-0 cursor-default"
-                            />
+                                // Ignore normal typing in real form fields (e.g. the 'Assign to' search box)
+                                const t = e.target;
+                                if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
 
-                            <div
-                                class="pointer-events-none rounded-lg border-2 border-dashed p-5 flex flex-col items-center justify-center text-center transition-colors
-                                    {{ $issueCardUid ? 'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' : 'border-light-bd-default dark:border-dark-bd-default' }}"
-                            >
-                                @if ($issueCardUid)
-                                    <flux:icon name="check-circle" class="w-7 h-7 text-success dark:text-dark-success mb-1.5" />
-                                    <p class="font-mono text-lg tracking-[0.3em] font-semibold text-light-txt-primary dark:text-dark-txt-primary">
-                                        {{ strtoupper($issueCardUid) }}
-                                    </p>
-                                    <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Card detected</p>
-                                @else
-                                    <flux:icon name="wifi" class="w-7 h-7 text-light-txt-muted dark:text-dark-txt-muted mb-1.5 animate-pulse" />
-                                    <p class="font-secondary text-sm font-medium text-light-txt-body dark:text-dark-txt-body">Waiting for your tap…</p>
-                                    <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Please tap the card on the reader only once.</p>
-                                @endif
+                                // The reader types very fast; a pause means a new scan, so reset the buffer
+                                const now = Date.now();
+                                if (now - this.lastKeyTime > 100) this.buffer = '';
+                                this.lastKeyTime = now;
+
+                                if (e.key === 'Enter') {
+                                    const uid = this.buffer.trim().toUpperCase();
+                                    this.buffer = '';
+                                    if (/^[0-9A-Z]{4,}$/.test(uid)) {
+                                        // Stop the reader's trailing Enter from 'clicking' a focused button (e.g. Clear)
+                                        e.preventDefault();
+                                        this.busy = true;
+                                        $wire.captureCard(uid).finally(() => { this.busy = false; });
+                                    }
+                                } else if (e.key.length === 1) {
+                                    this.buffer += e.key;
+                                }
+                            }
+                        }"
+                        x-on:keydown.window="onKeydown($event)"
+                    >
+                        <flux:field>
+                            <flux:label class="flex items-center gap-1.5 font-secondary font-medium uppercase tracking-wide text-nav-label text-light-txt-muted dark:text-dark-txt-muted">
+                                <flux:icon name="credit-card" class="w-3.5 h-3.5" />
+                                Card
+                            </flux:label>
+
+                            <div class="mt-1" role="status" aria-live="polite">
+                                <div
+                                    @class([
+                                        'rounded-lg border-2 border-dashed p-5 flex flex-col items-center justify-center text-center transition-colors',
+                                        'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' => $issueCardUid,
+                                        'border-danger dark:border-dark-danger bg-danger/5 dark:bg-dark-danger/10' => ! $issueCardUid && $cardError,
+                                        'border-light-bd-default dark:border-dark-bd-default' => ! $issueCardUid && ! $cardError,
+                                    ])
+                                >
+                                    @if ($issueCardUid)
+                                        <flux:icon name="check-circle" class="w-7 h-7 text-success dark:text-dark-success mb-1.5" />
+                                        <p class="font-secondary text-sm font-semibold text-light-txt-primary dark:text-dark-txt-primary">Card captured successfully</p>
+                                        <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Now choose who this card is for.</p>
+                                    @elseif ($cardError)
+                                        <flux:icon name="exclamation-triangle" class="w-7 h-7 text-danger dark:text-dark-danger mb-1.5" />
+                                        <p class="font-secondary text-sm font-medium text-danger dark:text-dark-danger">{{ $cardError }}</p>
+                                        <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Tap the card on the reader again.</p>
+                                    @else
+                                        <flux:icon name="wifi" class="w-7 h-7 text-light-txt-muted dark:text-dark-txt-muted mb-1.5 animate-pulse" />
+                                        <p class="font-secondary text-sm font-medium text-light-txt-body dark:text-dark-txt-body">Waiting for your tap…</p>
+                                        <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Please tap the card on the reader only once.</p>
+                                    @endif
+                                </div>
                             </div>
-                        </div>
 
-                        <flux:error name="issueCardUid" />
+                            <flux:error name="issueCardUid" />
 
-                        @if ($issueCardUid)
-                            <button
-                                type="button"
-                                wire:click="$set('issueCardUid', '')"
-                                x-on:click="$nextTick(() => $refs.cardUidInput.focus())"
-                                class="mt-2 font-secondary text-xs text-primary hover:underline"
-                            >
-                                Not this card? Tap again
-                            </button>
-                        @else
-                            <flux:description class="font-secondary text-helper text-light-txt-muted dark:text-dark-txt-muted">
-                                Captured automatically by the RFID reader.
-                            </flux:description>
-                        @endif
-                    </flux:field>
+                            @if ($issueCardUid)
+                                <button
+                                    type="button"
+                                    wire:click="clearCard"
+                                    class="mt-2 font-secondary text-xs text-primary hover:underline"
+                                >
+                                    Not this card? Tap again
+                                </button>
+                            @else
+                                <flux:description class="font-secondary text-helper text-light-txt-muted dark:text-dark-txt-muted">
+                                    Captured automatically by the RFID reader.
+                                </flux:description>
+                            @endif
+                        </flux:field>
+                    </div>
 
                     <flux:field>
                         <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary flex items-center gap-1.5">

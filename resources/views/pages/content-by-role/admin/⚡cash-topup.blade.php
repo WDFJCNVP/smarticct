@@ -3,6 +3,7 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -21,8 +22,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
 {
     // ===================== CASH TOP-UP =====================
 
+    #[Locked]
     public string $cashCardUid    = '';
     public string $cashCardState  = 'ready'; // ready | success | warn
+    public string $cashCardMessage = ''; // reason shown when state is 'warn' (never contains the UID)
     public string $cashUserSearch = '';
     public bool   $cashSearchMode = false;
     public ?int   $cashSelectedUserId = null;
@@ -39,6 +42,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
     {
         $this->cashCardUid           = '';
         $this->cashCardState         = 'ready';
+        $this->cashCardMessage = '';
         $this->cashUserSearch        = '';
         $this->cashSearchMode        = false;
         $this->cashSelectedUserId    = null;
@@ -105,31 +109,50 @@ new #[Layout('layouts.admin-layout')] class extends Component
         return 0;
     }
 
-    public function updatedCashCardUid(): void
+    /**
+     * Called by the window-level tap listener. The UID is kept server-side only
+     * and is never rendered back to the page.
+     */
+    public function tapCard(string $uid): void
     {
-        $this->cashCardUid = strtoupper(trim($this->cashCardUid));
+        // Ignore taps in search mode, or once a card is recognised
+        // (the cashier must press × to scan a different card).
+        if ($this->cashSearchMode || $this->cashCardState === 'success') {
+            return;
+        }
+
+        $uid = strtoupper(trim($uid));
 
         $this->cashSelectedAmount   = null;
         $this->cashCustomAmount     = null;
         $this->cashAmountReceived   = null;
         $this->cashSelectedUserId   = null;
 
-        if (empty($this->cashCardUid)) {
-            $this->cashCardState = 'ready';
+        $this->cashCardMessage = '';
+
+        // A real tap always produces the full 10-character UID in one burst.
+        if (!preg_match('/^[0-9A-F]{10}$/', $uid)) {
+            $this->cashCardUid     = '';
+            $this->cashCardState   = 'warn';
+            $this->cashCardMessage = strlen($uid) !== 10
+                ? 'Unreadable tap: received ' . strlen($uid) . ' characters, expected 10. Please tap again.'
+                : 'Unreadable tap: unexpected characters in the card data. Please tap again.';
             return;
         }
 
-        // A real tap always produces the full 8-character UID in one burst —
-        // don't attempt a lookup (or show "not recognised") on a partial scan.
-        if (!preg_match('/^[0-9A-F]{8}$/', $this->cashCardUid)) {
-            $this->cashCardState = 'ready';
-            return;
-        }
+        $this->cashCardUid = $uid;
 
         $card = $this->cashCardRecord;
 
-        if (!$card || $card->status !== 'active') {
-            $this->cashCardState = 'warn';
+        if (!$card) {
+            $this->cashCardState   = 'warn';
+            $this->cashCardMessage = 'This card is not registered in the system.';
+            return;
+        }
+
+        if ($card->status !== 'active') {
+            $this->cashCardState   = 'warn';
+            $this->cashCardMessage = 'This card is ' . $card->status . ' and cannot be topped up.';
             return;
         }
 
@@ -142,6 +165,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->cashSearchMode      = true;
         $this->cashCardUid         = '';
         $this->cashCardState       = 'ready';
+        $this->cashCardMessage = '';
         $this->cashSelectedUserId  = null;
         $this->cashSelectedAmount  = null;
         $this->cashCustomAmount    = null;
@@ -175,6 +199,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $this->cashUserSearch      = '';
         $this->cashCardUid         = '';
         $this->cashCardState       = 'ready';
+        $this->cashCardMessage = '';
         $this->cashSelectedAmount  = null;
         $this->cashCustomAmount    = null;
         $this->cashAmountReceived  = null;
@@ -378,9 +403,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
                             'text-success/80 dark:text-dark-success/80'     => $cashCardState === 'success',
                             'text-danger/80 dark:text-dark-danger/80'       => $cashCardState === 'warn',
                         ])>
-                            @if ($cashCardState === 'ready') Hold the card near the reader — the field fills automatically
-                            @elseif ($cashCardState === 'success') UID {{ $cashCardUid }} · {{ $this->cashResolvedUser?->name }}
-                            @else Unregistered card or card is suspended/terminated
+                            @if ($cashCardState === 'ready') Hold the card near the reader — it is captured automatically
+                            @elseif ($cashCardState === 'success') {{ $this->cashResolvedUser?->name }}
+                            @else {{ $cashCardMessage ?: 'Unregistered card or card is suspended/terminated' }}
                             @endif
                         </p>
                     </div>
@@ -394,28 +419,62 @@ new #[Layout('layouts.admin-layout')] class extends Component
             @endif
 
             <div class="flex flex-col sm:flex-row sm:items-end gap-4">
-                {{-- Card UID input --}}
+                {{-- Card tap capture --}}
                 @if (!$cashSearchMode)
-                    <div class="flex-1">
+                    {{-- Window-level tap listener (same approach as the kiosk tap.blade.php): nothing has to be
+                         focused for the RFID reader's keyboard-wedge input to be caught. Exists only while
+                         card-tap mode is shown. The UID is kept server-side and is never rendered. --}}
+                    <div
+                        class="flex-1"
+                        x-data="{
+                            buffer: '',
+                            lastKeyTime: 0,
+                            busy: false,
+                            onKeydown(e) {
+                                // Ignore normal typing in real form fields (custom amount, amount received, ...)
+                                const t = e.target;
+                                if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
+
+                                // The reader types very fast; a pause means a new scan, so reset the buffer
+                                const now = Date.now();
+                                if (now - this.lastKeyTime > 100) this.buffer = '';
+                                this.lastKeyTime = now;
+
+                                if (e.key === 'Enter') {
+                                    const uid = this.buffer.trim().toUpperCase();
+                                    this.buffer = '';
+                                    if (/^[0-9A-Z]{4,}$/.test(uid)) {
+                                        // Stop the reader's trailing Enter from 'clicking' a focused preset/amount button
+                                        e.preventDefault();
+                                        if (this.busy || $wire.cashCardState === 'success') return;
+                                        this.busy = true;
+                                        $wire.tapCard(uid).finally(() => { this.busy = false; });
+                                    }
+                                } else if (e.key.length === 1) {
+                                    this.buffer += e.key;
+                                }
+                            }
+                        }"
+                        x-on:keydown.window="onKeydown($event)"
+                    >
                         <flux:field>
                             <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary flex items-center gap-1.5">
                                 <flux:icon name="credit-card" class="w-3.5 h-3.5" />
-                                Card UID
+                                Card
                             </flux:label>
-                            <div class="relative mt-1">
-                                <input
-                                    type="text"
-                                    wire:model.live.debounce.200ms="cashCardUid"
-                                    autocomplete="off"
-                                    autofocus
-                                    x-ref="cashCardUidInput"
-                                    @keydown.enter.prevent
-                                    class="absolute inset-0 w-full h-full opacity-0 cursor-default"
-                                />
-                                <div class="pointer-events-none rounded-lg border-2 border-dashed p-2.5 flex items-center justify-center gap-2 transition-colors
-                                    {{ $cashCardUid ? 'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' : 'border-light-bd-default dark:border-dark-bd-default' }}">
-                                    @if ($cashCardUid)
-                                        <span class="font-mono text-sm tracking-[0.2em] font-semibold text-light-txt-primary dark:text-dark-txt-primary">{{ $cashCardUid }}</span>
+                            <div class="mt-1" role="status" aria-live="polite">
+                                <div @class([
+                                    'rounded-lg border-2 border-dashed p-2.5 flex items-center justify-center gap-2 transition-colors',
+                                    'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' => $cashCardState === 'success',
+                                    'border-danger dark:border-dark-danger bg-danger/5 dark:bg-dark-danger/10'     => $cashCardState === 'warn',
+                                    'border-light-bd-default dark:border-dark-bd-default'                          => $cashCardState === 'ready',
+                                ])>
+                                    @if ($cashCardState === 'success')
+                                        <flux:icon name="check-circle" class="w-4 h-4 text-success dark:text-dark-success shrink-0" />
+                                        <span class="font-secondary text-sm font-semibold text-light-txt-primary dark:text-dark-txt-primary">Card captured</span>
+                                    @elseif ($cashCardState === 'warn')
+                                        <flux:icon name="exclamation-triangle" class="w-4 h-4 text-danger dark:text-dark-danger shrink-0" />
+                                        <span class="font-secondary text-sm text-danger dark:text-dark-danger">Tap the card again…</span>
                                     @else
                                         <span class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Tap card on reader…</span>
                                     @endif

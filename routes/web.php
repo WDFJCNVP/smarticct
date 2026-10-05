@@ -191,7 +191,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('role:operator')
         ->name('operator.travel.record');
 
-    Route::livewire('/operator/travel-history', 'pages::content-by-role.operator.travel_history')
+    Route::livewire('/operator/travel-history', 'pages::content-by-role.operator.travel-history')
         ->middleware('role:operator')
         ->name('operator.travel.history');
     Route::get('/operator/travel-history/export', [\App\Http\Controllers\OperatorTravelHistoryExportController::class, 'export'])

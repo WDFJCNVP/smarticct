@@ -3,6 +3,7 @@
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Locked;
 use App\Events\RegistrationTapCardEvent;
 use Livewire\Component;
 use Illuminate\Support\Str;
@@ -38,11 +39,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $date_of_birth = '';
     public string $commuter_type = 'regular';
     public string $address = '';
+    #[Locked]
     public string $card_number = '';
     public string $new_card_id = '';
 
-    public bool $card_focused = true;
-    public string $card_state = 'warn';
+    public string $card_state = 'ready'; // ready | success | error
+    public ?string $card_error = null;
 
     public string $employee_id = '';
     public string $license_number = '';
@@ -120,40 +122,50 @@ new #[Layout('layouts.admin-layout')] class extends Component
     #[On('echo:registration-tap-card,.RegistrationTapCardEvent')]
     public function getUid($event): void
     {
-        $this->card_number = trim($event['uid']);
-        $this->new_card_id = $event['id'];
-        $this->card_state  = 'success';
+        $this->captureCard((string) ($event['uid'] ?? ''), (string) ($event['id'] ?? ''));
     }
 
-    public function cardScanned(): void
+    /**
+     * Single entry point for every card tap (keyboard-wedge reader via Alpine,
+     * or the Reverb broadcast above). The UID is stored server-side only and is
+     * never rendered back to the page.
+     */
+    public function captureCard(string $uid, string $id = ''): void
     {
-        $this->card_state = $this->card_number !== '' ? 'success' : 'ready';
+        // Ignore stray taps outside the card step, and repeat taps once a card is captured.
+        if ($this->step !== 4 || $this->card_state === 'success') {
+            return;
+        }
+
+        $uid = strtoupper(trim($uid));
+
+        if (! preg_match('/^[0-9A-Z]{4,32}$/', $uid)) {
+            $this->card_state = 'error';
+            $this->card_error = 'The card could not be read. Please tap again.';
+            return;
+        }
+
+        if (Card::where('uid', $uid)->exists()) {
+            $this->card_state = 'error';
+            $this->card_error = 'This card is already registered to another account.';
+            return;
+        }
+
+        $this->card_number = $uid;
+        if ($id !== '') {
+            $this->new_card_id = $id;
+        }
+        $this->card_error = null;
+        $this->card_state = 'success';
+        $this->resetValidation('card_number');
     }
 
     public function clearCard(): void
     {
         $this->card_number = '';
+        $this->new_card_id = '';
+        $this->card_error  = null;
         $this->card_state  = 'ready';
-    }
-
-    public function cardFocused(): void
-    {
-        if ($this->card_state !== 'success') {
-            $this->card_state = 'ready';
-        }
-    }
-
-    public function cardBlurred(): void
-    {
-        if ($this->card_state !== 'success') {
-            $this->card_state = 'warn';
-        }
-    }
-
-    public function refocus(): void
-    {
-        $this->card_state = 'ready';
-        $this->dispatch('focus-rfid-input');
     }
 
     #[Computed]
@@ -810,102 +822,122 @@ new #[Layout('layouts.admin-layout')] class extends Component
     @endif
 
     @if($step === 4)
-        <x-card>
-            <div @class([
-                'flex items-center gap-3 p-4 border-b border-light-bd-default dark:border-dark-bd-default',
-                'bg-info/10 dark:bg-dark-info/10'       => $card_state === 'ready',
-                'bg-success/10 dark:bg-dark-success/10' => $card_state === 'success',
-                'bg-danger/10 dark:bg-dark-danger/10'   => $card_state === 'warn',
-            ])>
+        {{-- Window-level tap listener (same approach as the kiosk tap.blade.php).
+             Lives only while step 4 is rendered, so it never stacks across steps/re-renders. --}}
+        <div
+            x-data="{
+                buffer: '',
+                lastKeyTime: 0,
+                busy: false,
+                onKeydown(e) {
+                    if (this.busy || $wire.card_state === 'success') return;
+
+                    // Ignore normal typing in real form fields
+                    const t = e.target;
+                    if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
+
+                    // The reader types very fast; a pause means a new scan, so reset the buffer
+                    const now = Date.now();
+                    if (now - this.lastKeyTime > 100) this.buffer = '';
+                    this.lastKeyTime = now;
+
+                    if (e.key === 'Enter') {
+                        const uid = this.buffer.trim().toUpperCase();
+                        this.buffer = '';
+                        if (/^[0-9A-Z]{4,}$/.test(uid)) {
+                            // Stop the reader's trailing Enter from 'clicking' a focused Continue/Skip button
+                            e.preventDefault();
+                            this.busy = true;
+                            $wire.captureCard(uid).finally(() => { this.busy = false; });
+                        }
+                    } else if (e.key.length === 1) {
+                        this.buffer += e.key;
+                    }
+                }
+            }"
+            @keydown.window="onKeydown($event)"
+        >
+            <x-card>
                 <div @class([
-                    'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
-                    'bg-info/20 dark:bg-dark-info/20'       => $card_state === 'ready',
-                    'bg-success/20 dark:bg-dark-success/20' => $card_state === 'success',
-                    'bg-danger/20 dark:bg-dark-danger/20'   => $card_state === 'warn',
+                    'flex items-center gap-3 p-4 border-b border-light-bd-default dark:border-dark-bd-default',
+                    'bg-info/10 dark:bg-dark-info/10'       => $card_state === 'ready',
+                    'bg-success/10 dark:bg-dark-success/10' => $card_state === 'success',
+                    'bg-danger/10 dark:bg-dark-danger/10'   => $card_state === 'error',
                 ])>
-                    @if($card_state === 'ready')
-                        <flux:icon name="credit-card" class="w-5 h-5 text-info dark:text-dark-info" />
-                    @elseif($card_state === 'success')
-                        <flux:icon name="check-circle" class="w-5 h-5 text-success dark:text-dark-success" />
-                    @else
-                        <flux:icon name="exclamation-triangle" class="w-5 h-5 text-danger dark:text-dark-danger" />
+                    <div @class([
+                        'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
+                        'bg-info/20 dark:bg-dark-info/20'       => $card_state === 'ready',
+                        'bg-success/20 dark:bg-dark-success/20' => $card_state === 'success',
+                        'bg-danger/20 dark:bg-dark-danger/20'   => $card_state === 'error',
+                    ])>
+                        @if($card_state === 'ready')
+                            <flux:icon name="credit-card" class="w-5 h-5 text-info dark:text-dark-info" />
+                        @elseif($card_state === 'success')
+                            <flux:icon name="check-circle" class="w-5 h-5 text-success dark:text-dark-success" />
+                        @else
+                            <flux:icon name="exclamation-triangle" class="w-5 h-5 text-danger dark:text-dark-danger" />
+                        @endif
+                    </div>
+
+                    <div class="flex-1 min-w-0" role="status" aria-live="polite">
+                        <p @class([
+                            'font-secondary text-table-row font-medium',
+                            'text-info dark:text-dark-info'       => $card_state === 'ready',
+                            'text-success dark:text-dark-success' => $card_state === 'success',
+                            'text-danger dark:text-dark-danger'   => $card_state === 'error',
+                        ])>
+                            @if($card_state === 'ready')
+                                Get your RFID card ready
+                            @elseif($card_state === 'success')
+                                Card captured successfully!
+                            @else
+                                Couldn't capture the card
+                            @endif
+                        </p>
+                        <p @class([
+                            'font-secondary text-timestamp',
+                            'text-info dark:text-dark-info'       => $card_state === 'ready',
+                            'text-success dark:text-dark-success' => $card_state === 'success',
+                            'text-danger dark:text-dark-danger'   => $card_state === 'error',
+                        ])>
+                            @if($card_state === 'ready')
+                                Hold the card near the reader. It is captured automatically.
+                            @elseif($card_state === 'success')
+                                The card will be assigned to this account. Click × to scan a different card.
+                            @else
+                                {{ $card_error }}
+                            @endif
+                        </p>
+                    </div>
+
+                    @if($card_state === 'success')
+                        <button wire:click="clearCard"
+                            class="text-light-txt-muted hover:text-light-txt-body dark:text-dark-txt-muted dark:hover:text-dark-txt-primary transition"
+                            aria-label="Clear card">
+                            <flux:icon name="x-mark" class="w-6 h-6" />
+                        </button>
                     @endif
                 </div>
 
-                <div class="flex-1 min-w-0">
-                    <p @class([
-                        'font-secondary text-table-row font-medium',
-                        'text-info dark:text-dark-info'       => $card_state === 'ready',
-                        'text-success dark:text-dark-success' => $card_state === 'success',
-                        'text-danger dark:text-dark-danger'   => $card_state === 'warn',
-                    ])>
-                        @if($card_state === 'ready')   Get your RFID card ready
-                        @elseif($card_state === 'success') Card scanned successfully!
-                        @else Input field lost focus
-                        @endif
-                    </p>
-                    <p @class([
-                        'font-secondary text-timestamp',
-                        'text-info dark:text-dark-info'       => $card_state === 'ready',
-                        'text-success dark:text-dark-success' => $card_state === 'success',
-                        'text-danger dark:text-dark-danger'   => $card_state === 'warn',
-                    ])>
-                        @if($card_state === 'ready')
-                            Hold the card near the reader — the number fills in automatically.
-                        @elseif($card_state === 'success')
-                            UID {{ $card_number }} captured. Click × to scan a different card.
+                <div class="p-4">
+                    <div
+                        class="rounded-lg border-2 border-dashed p-4 flex items-center justify-center gap-2 transition-colors
+                            {{ $card_state === 'success' ? 'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' : 'border-light-bd-default dark:border-dark-bd-default' }}"
+                    >
+                        @if ($card_state === 'success')
+                            <flux:icon name="check-circle" class="w-5 h-5 text-success dark:text-dark-success shrink-0" />
+                            <p class="font-secondary text-base font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                                Card captured
+                            </p>
                         @else
-                            Click the input field below to re-focus, then tap the rfid card.
+                            <flux:icon name="wifi" class="w-5 h-5 text-light-txt-muted dark:text-dark-txt-muted shrink-0 animate-pulse" />
+                            <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Waiting for your tap… please tap only once</p>
                         @endif
-                    </p>
-                </div>
-
-                @if($card_state === 'success')
-                    <button wire:click="clearCard"
-                        class="text-light-txt-muted hover:text-light-txt-body dark:text-dark-txt-muted dark:hover:text-dark-txt-primary transition"
-                        aria-label="Clear card">
-                        <flux:icon name="x-mark" class="w-6 h-6" />
-                    </button>
-                @endif
-            </div>
-
-            <div class="p-4">
-                <flux:field>
-                    <flux:label class="font-secondary">Card UID</flux:label>
-                    <div class="relative">
-                        {{-- Real capture field: invisible but focused. Also fed directly by the
-                             RegistrationTapCardEvent broadcast above when a physical reader is
-                             wired in, so typing here is just the keyboard-wedge fallback path. --}}
-                        <x-input
-                            id="rfid-input"
-                            wire:model.live.debounce.200ms="card_number"
-                            name="card_number"
-                            wire:keydown.enter="cardScanned"
-                            wire:focus="cardFocused"
-                            wire:blur="cardBlurred"
-                            autocomplete="off"
-                            autofocus
-                            class="opacity-0 absolute inset-0 w-full h-full cursor-default"
-                        />
-                        <div
-                            class="pointer-events-none rounded-lg border-2 border-dashed p-4 flex items-center justify-center gap-2 transition-colors
-                                {{ $card_state === 'success' ? 'border-success dark:border-dark-success bg-success/5 dark:bg-dark-success/10' : 'border-light-bd-default dark:border-dark-bd-default' }}"
-                        >
-                            @if ($card_state === 'success')
-                                <flux:icon name="check-circle" class="w-5 h-5 text-success dark:text-dark-success shrink-0" />
-                                <p class="font-mono text-base tracking-[0.3em] font-semibold text-light-txt-primary dark:text-dark-txt-primary">
-                                    {{ $card_number }}
-                                </p>
-                            @else
-                                <flux:icon name="wifi" class="w-5 h-5 text-light-txt-muted dark:text-dark-txt-muted shrink-0 animate-pulse" />
-                                <p class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">Waiting for your tap… please tap only once</p>
-                            @endif
-                        </div>
                     </div>
                     <flux:error name="card_number" />
-                </flux:field>
-            </div>
-        </x-card>
+                </div>
+            </x-card>
+        </div>
     @endif
 
     @if($step === 5)
@@ -1191,15 +1223,4 @@ new #[Layout('layouts.admin-layout')] class extends Component
             </div>
         </div>
     </flux:modal>
-
-    <script>
-        document.addEventListener('livewire:initialized', () => {
-            Livewire.on('focus-rfid-input', () => {
-                setTimeout(() => {
-                    const el = document.getElementById('rfid-input');
-                    if (el) el.focus();
-                }, 50);
-            });
-        });
-    </script>
 </div>
