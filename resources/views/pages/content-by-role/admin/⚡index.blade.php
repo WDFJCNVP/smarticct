@@ -16,6 +16,7 @@ use App\Models\TripRequest;
 use App\Models\RentTransaction;
 use App\Models\AuditLog;
 use App\Models\TravelRecord;
+use App\Models\TerminalAccount;
 
 new #[Layout('layouts.admin-layout')] class extends Component
 {
@@ -23,6 +24,12 @@ new #[Layout('layouts.admin-layout')] class extends Component
     public string $peakVehicleType = 'all'; // filter for the peak-queueing-time chart
 
     // ===================== KPI CARDS =====================
+
+    #[Computed]
+    public function availableToWithdraw(): float
+    {
+        return (float) TerminalAccount::where('name', 'main')->value('balance');
+    }
 
     #[Computed]
     public function totalUsers()
@@ -935,9 +942,9 @@ public function todayRevenue()
                 <div class="flex items-center gap-3 min-w-0">
                     <flux:icon.banknotes class="w-5 h-5 text-white/70 shrink-0" />
                     <div class="min-w-0">
-                        <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Total Revenue</div>
+                        <div class="font-secondary text-nav-label font-semibold uppercase tracking-wide text-white/80">Withdrawable Balance</div>
                         <div class="font-primary text-3xl font-extrabold tabular-nums">
-                            ₱{{ number_format($this->totalRevenue, 2) }}
+                            ₱{{ number_format($this->availableToWithdraw, 2) }}
                         </div>
                     </div>
                 </div>

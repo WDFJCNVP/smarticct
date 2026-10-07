@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Flux\Flux;
 
+use Illuminate\Support\Str;
+use App\Models\TerminalAccount;
+
 use App\Events\PaymongoMoneyTransferEvent;
 
 new class extends Component
@@ -153,66 +156,87 @@ new class extends Component
         $balanceBefore = $this->currentBalance;
         $institutionName = $this->selectedInstitutionName;
 
+        //Create CardTransaction record
         try {
-            $succeeded = DB::transaction(function () use ($card, $validated, $totalDeduction, $balanceBefore, $isAdmin, $institutionName) {
+            $transaction = DB::transaction(function () use ($card, $validated, $totalDeduction, $isAdmin, $institutionName) {
 
-                $result = app(OperatorDisbursementService::class)->createWithdrawal([
-                    'provider'       => $validated['provider'],
-                    'amount'         => $validated['withdrawAmount'],
-                    'account_number' => $validated['accountNumber'],
-                    'account_name'   => $validated['accountName'],
-                    'bic'            => $validated['selectedBic'],
-                    'operator_id'    => auth()->id(),
-                ]);
+                if ($isAdmin) {
+                    $account   = TerminalAccount::locked();
+                    $available = $account->available();
+                    $settled   = (float) $account->balance;
+                } else {
+                    $lockedCard = Card::lockForUpdate()->findOrFail($card->id);
+                    $pending = (float) CardTransaction::where('card_id', $card->id)
+                        ->where('transaction_type', 'withdrawal')->where('status', 'pending')->sum('amount');
+                    $settled   = (float) $lockedCard->balance;
+                    $available = max(0.0, $settled - $pending);
+                }
 
-                $transaction = CardTransaction::create([
+                if ($available < $totalDeduction) {
+                    throw new \RuntimeException('Insufficient balance.');
+                }
+
+                return CardTransaction::create([
                     'card_id'          => $isAdmin ? null : $card->id,
                     'processed_by'     => auth()->id(),
                     'transaction_type' => $isAdmin ? 'admin_withdrawal' : 'withdrawal',
-                    'reference_no'     => $result['reference_number'], // now populated correctly again
+                    'reference_no'     => 'WD-' . now()->format('YmdHis') . '-' . Str::random(4),
                     'amount'           => $totalDeduction,
-                    'balance_before'   => $balanceBefore,
-                    'balance_after'    => $balanceBefore, // unchanged — no deduction here anymore
-                    'status'           => $result['successful'] ? 'pending' : 'failed',
+                    'balance_before'   => $settled,
+                    'balance_after'    => $settled, 
+                    'status'           => 'pending',
                     'transaction_time' => now(),
                     'source'           => $isAdmin ? 'admin_withdraw_page' : 'operator_withdraw_page',
                     'message'          => "Withdrawal via {$validated['provider']} to {$institutionName} ({$validated['accountNumber']})",
-                    'metadata'         => (array) $result['response'],
+                    'metadata'         => ['requested_amount' => (float) $validated['withdrawAmount'], 'fee' => $this->fee],
                 ]);
-
-                return $result['successful'];
-
             });
-        } catch (\Exception $e) {
-            Log::error('Withdrawal failed', ['error' => $e->getMessage(), 'user_id' => auth()->id()]);
-            $this->addError('withdrawAmount', 'Withdrawal request failed. Please check your details and try again.');
-            Flux::toast(variant: 'danger', duration: 4000, heading: 'Withdrawal failed.', text: 'Something went wrong while processing this withdrawal. Please try again.');
+        } catch (\RuntimeException $e) {
+            $this->addError('withdrawAmount', 'Insufficient balance to cover this withdrawal plus the transfer fee.');
             return;
         }
 
-        if (!$succeeded) {
+        //Submit the gathered info with the reference_no
+        try {
+            $result = app(OperatorDisbursementService::class)->createWithdrawal([
+                'provider'         => $validated['provider'],
+                'amount'           => $validated['withdrawAmount'],
+                'account_number'   => $validated['accountNumber'],
+                'account_name'     => $validated['accountName'],
+                'bic'              => $validated['selectedBic'],
+                'operator_id'      => auth()->id(),
+                'reference_number' => $transaction->reference_no,
+            ]);
+        } catch (\Throwable $e) {
+            
+            Log::critical('Withdrawal outcome unknown, left pending', [
+                'reference_no' => $transaction->reference_no, 'error' => $e->getMessage(),
+            ]);
+            Flux::toast(variant: 'warning', duration: 6000, heading: 'Status unknown.',
+                text: 'The transfer may still go through. Check the dashboard before retrying.');
+            return;
+        }
+
+        if (!$result['successful']) {
+            $transaction->update([
+                'status'   => 'failed',
+                'metadata' => array_merge((array) $transaction->metadata, (array) $result['response']),
+            ]);
+
             $this->addError('withdrawAmount', 'Withdrawal request failed. Please check your details and try again.');
             Flux::toast(variant: 'danger', duration: 4000, heading: 'Withdrawal failed.', text: 'Please check your details and try again.');
             return;
         }
+
+        $transaction->update([
+            'metadata' => array_merge((array) $transaction->metadata, (array) $result['response']),
+        ]);
 
         try {
             broadcast(new NotificationEvent());
         } catch (\Exception $e) {
             Log::warning('Withdrawal succeeded but notification broadcast failed', ['error' => $e->getMessage()]);
         }
-
-        // Flux::toast(
-        //     variant: 'success',
-        //     duration: 4000,
-        //     heading: 'Withdrawal submitted!',
-        //     text: "₱" . number_format($totalDeduction, 2) . " is on its way to {$institutionName}.",
-        // );
-
-        // session()->flash('withdrawal_submitted', true);
-
-        // $redirectRoute = $isAdmin ? route('admin.dashboard') : route('operator.dashboard');
-        // $this->redirect($redirectRoute, navigate: true);
     }
 
     #[On('echo:paymongo-money-transfer-event,.PaymongoMoneyTransferEvent')]
@@ -285,7 +309,9 @@ new class extends Component
                 <flux:input wire:model="accountName" label="Account name" placeholder="Exact name registered on the account" />
                 <flux:input wire:model="accountNumber" label="Account / mobile number" />
 
-                <flux:button type="submit" variant="primary" class="w-full" :disabled="!$this->hasSufficientBalance">
+                <flux:button type="submit" variant="primary" class="w-full"
+                    wire:loading.attr="disabled" wire:target="submitWithdrawal"
+                    :disabled="!$this->hasSufficientBalance">
                     Confirm Withdrawal
                 </flux:button>
             </flux:card>

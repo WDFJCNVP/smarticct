@@ -27,6 +27,8 @@ use App\Events\NotificationEvent;
 use App\Events\CardTransactionCreated;
 use App\Events\CashTransactionCreated;
 
+use App\Models\TerminalAccount;
+
 use App\Services\AuditLogsService;
 
 class CardController extends Controller
@@ -834,6 +836,8 @@ class CardController extends Controller
                             'message'          => "Queueing fee for {$vehicle->vehicle_type}, plate {$vehicle->plate_number}",
                         ]);
 
+                        TerminalAccount::credit($amount);
+
                         return [
                             'success'      => true,
                             'balanceAfter' => $deduction['balanceAfter'],
@@ -880,6 +884,8 @@ class CardController extends Controller
                                 'source'           => 'kiosk_tap_in',
                                 'message'          => "Queueing fee for {$vehicle->vehicle_type}, plate {$vehicle->plate_number}",
                             ]);
+
+                            TerminalAccount::credit($amount);
                         }
 
                         return $deduction;

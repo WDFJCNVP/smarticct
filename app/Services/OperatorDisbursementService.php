@@ -13,7 +13,8 @@ class OperatorDisbursementService
 
     public function createWithdrawal(array $data): array
     {
-        $referenceNumber = 'WD-' . now()->format('YmdHis') . '-' . Str::random(4);
+        
+        $referenceNumber = $data['reference_number'] ?? 'WD-' . now()->format('YmdHis') . '-' . Str::random(4);
 
         try {
             $response = $this->paymongo->createTransfer([

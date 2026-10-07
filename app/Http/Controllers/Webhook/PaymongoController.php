@@ -12,6 +12,9 @@ use App\Models\UserNotification;
 use App\Events\NotificationEvent;
 use App\Events\PaymongoMoneyTransferEvent;
 
+use App\Models\TerminalAccount;
+use App\Services\AuditLogsService;
+
 class PaymongoController extends Controller
 {
     public function handleWebhook(Request $request)
@@ -233,31 +236,61 @@ class PaymongoController extends Controller
 
         try {
             $event = json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
-            $type = $event['data']['attributes']['type'] ?? null;
+            $type  = $event['data']['attributes']['type'] ?? null;
             $referenceNumber = $event['data']['attributes']['data']['attributes']['reference_number'] ?? null;
 
             if (!$referenceNumber) {
                 Log::error('DISBURSEMENT WEBHOOK: missing reference_number.', ['event' => $event]);
-                return response()->json(['message' => 'ok']); // ack anyway, nothing to match
+                return response()->json(['message' => 'ok']);
             }
 
-            DB::transaction(function () use ($type, $referenceNumber, $event) {
+            $audit = DB::transaction(function () use ($type, $referenceNumber, $event) {
+
                 $transaction = CardTransaction::where('reference_no', $referenceNumber)
                     ->lockForUpdate()
                     ->first();
 
+                // Duplicate transaction not allowed
                 if (!$transaction || in_array($transaction->status, ['success', 'failed'])) {
-                    return; // already terminal, or unknown reference — idempotent no-op
+                    return null;
                 }
 
+                $isAdminWithdrawal = $transaction->transaction_type === 'admin_withdrawal';
+
                 if ($type === 'transfer.outward.successful') {
+
                     $transaction->update(['status' => 'success']);
 
+                    $balanceAfter = null;
+
                     if ($transaction->card_id) {
+
+                        // Operator withdrawal
                         $card = $transaction->card()->lockForUpdate()->first();
+
                         if ($card) {
-                            $card->decrement('balance', $transaction->amount); // deduct only now, on confirmed success
+                            $card->decrement('balance', $transaction->amount);
+                            $balanceAfter = (float) $card->fresh()->balance;
                         }
+
+                    } elseif ($isAdminWithdrawal) {
+
+                        // Admin withdrawal
+                        $account = TerminalAccount::locked();
+                        $newBalance = round((float) $account->balance - (float) $transaction->amount, 2);
+
+                        if ($newBalance < 0) {
+                            Log::warning('DISBURSEMENT WEBHOOK: terminal balance would go negative.', [
+                                'reference_no' => $transaction->reference_no,
+                                'balance'      => $account->balance,
+                                'amount'       => $transaction->amount,
+                            ]);
+                        }
+
+                        $account->update(['balance' => $newBalance]);
+                        $balanceAfter = $newBalance;
+
+                        $transaction->update(['balance_after' => $newBalance]);
                     }
 
                     if ($transaction->processed_by) {
@@ -275,16 +308,30 @@ class PaymongoController extends Controller
                             'notification_id' => $notification->id,
                             'user_id'         => $transaction->processed_by,
                         ]);
-
                     }
 
-                } elseif ($type === 'transfer.outward.failed') {
+                    return [
+                        'user_id'  => $transaction->processed_by,
+                        'action'   => $isAdminWithdrawal ? 'Admin Withdrawal' : 'Operator Withdrawal',
+                        'subject'  => 'Withdrawal completed',
+                        'metadata' => [
+                            'reference_no'   => $transaction->reference_no,
+                            'total_deducted' => (float) $transaction->amount,
+                            'balance_before' => $transaction->balance_before !== null ? (float) $transaction->balance_before : null,
+                            'balance_after'  => $balanceAfter,
+                        ],
+                    ];
+                }
+
+                if ($type === 'transfer.outward.failed') {
+
                     $attrs = $event['data']['attributes']['data']['attributes'] ?? [];
+                    $providerError = $attrs['provider_error'] ?? 'Unknown error';
+                    $providerCode  = $attrs['provider_error_code'] ?? 'n/a';
 
                     $transaction->update([
-                        'status' => 'failed',
-                        'message' => $transaction->message
-                            . " | Failed: {$attrs['provider_error']} ({$attrs['provider_error_code']})",
+                        'status'  => 'failed',
+                        'message' => $transaction->message . " | Failed: {$providerError} ({$providerCode})",
                     ]);
 
                     if ($transaction->processed_by) {
@@ -303,16 +350,45 @@ class PaymongoController extends Controller
                             'user_id'         => $transaction->processed_by,
                         ]);
                     }
+
+                    return [
+                        'user_id'  => $transaction->processed_by,
+                        'action'   => $isAdminWithdrawal ? 'Admin Withdrawal' : 'Operator Withdrawal',
+                        'subject'  => 'Withdrawal failed',
+                        'metadata' => [
+                            'reference_no'   => $transaction->reference_no,
+                            'total_amount'   => (float) $transaction->amount,
+                            'provider_error' => $providerError,
+                            'provider_code'  => $providerCode,
+                        ],
+                    ];
                 }
+
+                return null;
             });
 
-            try {
-                broadcast(new NotificationEvent());
-                broadcast(new PaymongoMoneyTransferEvent());
+            // Outside the transaction: only runs if the DB work committed
+            if ($audit !== null) {
+                try {
+                    app(AuditLogsService::class)->create([
+                        'user_id'  => $audit['user_id'],
+                        'action'   => $audit['action'],
+                        'subject'  => $audit['subject'],
+                        'channel'  => 'Webhook',
+                        'metadata' => $audit['metadata'],
+                    ]);
+                } catch (\Throwable $e) {
+                        Log::warning('Disbursement settled but audit log failed', ['error' => $e->getMessage()]);
+                    } 
 
-            } catch (\Exception $e) {
-                Log::warning('Disbursement processed but notification broadcast failed', ['error' => $e->getMessage()]);
+                try {
+                    broadcast(new NotificationEvent());
+                    broadcast(new PaymongoMoneyTransferEvent());
+                } catch (\Exception $e) {
+                    Log::warning('Disbursement processed but notification broadcast failed', ['error' => $e->getMessage()]);
+                }
             }
+            
         } catch (\Throwable $e) {
             Log::error('DISBURSEMENT WEBHOOK: Processing failed after signature passed.', [
                 'error' => $e->getMessage(),
