@@ -55,6 +55,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'last_feed_viewed_at' => 'datetime',
+            'login_locked_until' => 'datetime',
+            'login_blocked_at' => 'datetime',
         ];
     }
 

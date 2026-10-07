@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Models\User;
+use App\Services\LoginLockoutService;
 
 use App\Services\AuditLogsService;
 
@@ -53,19 +55,72 @@ new #[Layout('layouts.public-account-setup')] class extends Component
         ]);
     }
 
+    private function logLockoutAttempt(string $action, string $message): void
+    {
+        app(AuditLogsService::class)->create([
+            'user_id' => null,
+            'action' => $action,
+            'subject' => "Login lockout - $this->email_address",
+            'channel' => 'Web',
+            'metadata' => json_encode([
+                'ip_address' => request()->ip(),
+                'message' => $message,
+            ]),
+        ]);
+    }
+
     public function login()
     {
-        $this->ensureIsNotRateLimited();
-
         $validated_attributes = $this->validate();
 
+        $lockout = app(LoginLockoutService::class);
+        $user = User::where('email_address', $this->email_address)->first();
+
+        // Check lock/block BEFORE Auth::attempt, so even a correct password is rejected
+        if ($user && $lockout->isBlocked($user)) {
+            $this->logLockoutAttempt('login_blocked_locked', 'Login attempt on a blocked account.');
+
+            throw ValidationException::withMessages([
+                'email_address' => 'Your account has been blocked due to repeated failed login attempts. Please contact the administrator.',
+            ]);
+        }
+
+        if ($user && ($seconds = $lockout->secondsLocked($user)) > 0) {
+            $this->rateLimitedFor = $seconds;
+            $this->logLockoutAttempt('login_failed', 'Login attempt during lockout.');
+
+            throw ValidationException::withMessages([
+                'email_address' => 'Too many login attempts.',
+            ]);
+        }
+
         if (!Auth::attempt($validated_attributes, $this->remember)) {
-            RateLimiter::hit($this->throttleKey());
+            if ($user) {
+                $result = $lockout->recordFailure($user);
+
+                if ($result['status'] === 'blocked') {
+                    $this->logLockoutAttempt('account_blocked', 'Account blocked after repeated failed logins.');
+
+                    throw ValidationException::withMessages([
+                        'email_address' => 'Your account has been blocked due to repeated failed login attempts. Please contact the administrator.',
+                    ]);
+                }
+
+                if ($result['status'] === 'locked') {
+                    $this->rateLimitedFor = $result['seconds'];
+                    $this->logLockoutAttempt('login_locked', "Locked for {$result['seconds']} seconds.");
+
+                    throw ValidationException::withMessages([
+                        'email_address' => 'Too many login attempts.',
+                    ]);
+                }
+            }
 
             throw ValidationException::withMessages([
                 'email_address' => 'Sorry, those credentials do not match.',
-            ]); 
+            ]);
         }
+
 
         if (auth()->user()->isDeleted()) {
             Auth::logout();
@@ -109,7 +164,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
             ]);
         }
 
-        RateLimiter::clear($this->throttleKey());
+        $lockout->reset(auth()->user());
 
         request()->session()->regenerate();
 
@@ -210,7 +265,7 @@ new #[Layout('layouts.public-account-setup')] class extends Component
 
                 <p
                     x-show="secondsLeft > 0"
-                    x-text="'Too many attempts. Try again in ' + secondsLeft + 's.'"
+                    x-text="'Too many attempts. Try again in ' + format(secondsLeft) + '.'"
                     class="font-secondary text-helper text-danger mt-1 transition-opacity duration-300"
                 ></p>
             </flux:field>
@@ -284,6 +339,13 @@ new #[Layout('layouts.public-account-setup')] class extends Component
                     clearInterval(this.timer);
                 }
             }, 1000);
+        },
+
+        format(s) {
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            return [h && h + 'h', m && m + 'm', (sec || !(h || m)) && sec + 's'].filter(Boolean).join(' ');
         },
     }));
 </script>
