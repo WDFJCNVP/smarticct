@@ -11,6 +11,7 @@ use App\Models\CardTransaction;
 use App\Models\CashTransaction;
 use App\Models\TopUpTransaction;
 use App\Services\TransactionLedgerService;
+use App\Models\TerminalAccount;
 
 new #[Layout('layouts.admin-layout')] class extends Component
 {
@@ -150,6 +151,14 @@ new #[Layout('layouts.admin-layout')] class extends Component
         $totalRevenue      = $topupTotal + $queueFeeTotal + $farePaymentTotal;
         $totalRevenueToday = $topupTotalToday + $queueFeeTotalToday;
 
+        $withdrawnQuery   = CardTransaction::where('transaction_type', 'admin_withdrawal')->where('status', 'success');
+        $withdrawnTotal   = (clone $withdrawnQuery)->sum('amount');   // includes transfer fees
+        $withdrawnToday   = (clone $withdrawnQuery)->whereDate('transaction_time', today())->sum('amount');
+        $withdrawnPending = CardTransaction::where('transaction_type', 'admin_withdrawal')->where('status', 'pending')->sum('amount');
+
+        // Single source of truth: don't recompute this from the ledger here
+        $availableBalance = TerminalAccount::where('name', 'main')->first()?->available() ?? 0.0;
+
         return [
             'total_revenue'       => $totalRevenue,
             'total_revenue_today' => $totalRevenueToday,
@@ -161,6 +170,10 @@ new #[Layout('layouts.admin-layout')] class extends Component
             'fare_payment_total'  => $farePaymentTotal,
             'card_issuance_count' => $cardIssuanceCount,
             'card_issuance_total' => $cardIssuanceTotal,
+            'withdrawn_total'     => $withdrawnTotal,
+            'withdrawn_today'     => $withdrawnToday,
+            'withdrawn_pending'   => $withdrawnPending,
+            'available_balance'   => $availableBalance,
         ];
     }
 
@@ -437,6 +450,9 @@ new #[Layout('layouts.admin-layout')] class extends Component
             <x-text class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">
                 Top-ups, queue fees &amp; card issuance
             </x-text>
+            <x-text class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">
+                Withdrawn today: ₱{{ $this->stats['withdrawn_today'] }}
+            </x-text>
         </flux:card>
 
         <flux:card class="p-3 sm:p-4">
@@ -485,6 +501,16 @@ new #[Layout('layouts.admin-layout')] class extends Component
             <x-text class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">
                 Queue fees paid by card tap
             </x-text>
+            <div class="mt-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default space-y-0.5">
+                <div class="flex justify-between text-xs font-secondary text-light-txt-muted dark:text-dark-txt-muted">
+                    <span>Withdrawn (incl. fees)</span>
+                    <span>−₱{{ number_format($this->stats['withdrawn_total'], 2) }}</span>
+                </div>
+                <div class="flex justify-between text-xs font-secondary font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                    <span>Available to withdraw</span>
+                    <span>₱{{ number_format($this->stats['available_balance'], 2) }}</span>
+                </div>
+            </div>
         </flux:card>
     </div>
 
@@ -502,7 +528,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 ₱{{ number_format($this->stats['queue_fee_total'], 2) }}
             </x-text>
         </flux:card>
-        <flux:card class="p-3 sm:p-4">
+<!--         <flux:card class="p-3 sm:p-4">
             <x-text class="font-secondary text-xs sm:text-stat-label text-light-txt-muted dark:text-dark-txt-muted block mb-1">Fare payments</x-text>
             <x-text class="font-primary text-lg font-bold text-light-txt-primary dark:text-dark-txt-primary block">
                 ₱{{ number_format($this->stats['fare_payment_total'], 2) }}
@@ -510,7 +536,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
             <x-text class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">
                 Goes to operators, not revenue
             </x-text>
-        </flux:card>
+        </flux:card> -->
         <flux:card class="p-3 sm:p-4">
             <x-text class="font-secondary text-xs sm:text-stat-label text-light-txt-muted dark:text-dark-txt-muted block mb-1">Card issuance</x-text>
             <x-text class="font-primary text-lg font-bold text-light-txt-primary dark:text-dark-txt-primary block">

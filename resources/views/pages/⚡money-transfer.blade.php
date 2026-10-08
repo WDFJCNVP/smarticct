@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 use App\Models\TerminalAccount;
 
 use App\Events\PaymongoMoneyTransferEvent;
+use App\Events\PaymongoMoneyTransferErrorEvent;
 
 new class extends Component
 {
@@ -242,12 +243,28 @@ new class extends Component
     #[On('echo:paymongo-money-transfer-event,.PaymongoMoneyTransferEvent')]
     public function onMoneyTransferEventSuccess() {
         Flux::toast(
+                variant: 'success', 
+                duration: 4000, 
+                heading: 'Withdrawal Successful', 
+                text: 'Your funds have been transferred successfully.'
+            );
+        
+        session()->flash('withdrawal_submitted', true);
+
+        $redirectRoute = auth()->user()->role === 'admin' ? route('admin.dashboard') : route('operator.dashboard');
+        $this->redirect($redirectRoute, navigate: true);
+    }
+
+    #[On('echo:paymongo-money-transfer-error-event,.PaymongoMoneyTransferErrorEvent')]
+    public function onMoneyTransferEventError() {
+        Flux::toast(
             variant: 'danger', 
             duration: 4000, 
             heading: 'Withdrawal failed.', 
-            text: 'Please check your details and try again.');
+            text: 'Please check your details and try again.'
+        );      
         
-        session()->flash('withdrawal_submitted', true);
+        session()->flash('withdrawal_submitted', true)
 
         $redirectRoute = auth()->user()->role === 'admin' ? route('admin.dashboard') : route('operator.dashboard');
         $this->redirect($redirectRoute, navigate: true);

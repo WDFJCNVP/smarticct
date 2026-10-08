@@ -11,6 +11,7 @@ use App\Models\Notification;
 use App\Models\UserNotification;
 use App\Events\NotificationEvent;
 use App\Events\PaymongoMoneyTransferEvent;
+use App\Events\PaymongoMoneyTransferErrorEvent;
 
 use App\Models\TerminalAccount;
 use App\Services\AuditLogsService;
@@ -367,7 +368,6 @@ class PaymongoController extends Controller
                 return null;
             });
 
-            // Outside the transaction: only runs if the DB work committed
             if ($audit !== null) {
                 try {
                     app(AuditLogsService::class)->create([
@@ -383,7 +383,11 @@ class PaymongoController extends Controller
 
                 try {
                     broadcast(new NotificationEvent());
-                    broadcast(new PaymongoMoneyTransferEvent());
+                    broadcast(
+                        $audit['status'] === 'success'
+                            ? new PaymongoMoneyTransferEvent()
+                            : new PaymongoMoneyTransferErrorEvent()
+                    );
                 } catch (\Exception $e) {
                     Log::warning('Disbursement processed but notification broadcast failed', ['error' => $e->getMessage()]);
                 }

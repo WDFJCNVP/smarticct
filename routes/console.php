@@ -9,9 +9,9 @@ use App\Models\Post;
 use App\Services\QueueManagementService;
 use App\Services\DocumentExpiryNotificationService;
 
-// Schedule::command('app:notify-expiring-franchises')
-//     ->everyMinute()
-//     ->appendOutputTo(storage_path('logs/schedule.log'));
+Schedule::command('app:notify-expiring-franchises')
+    ->everyMinute()
+    ->appendOutputTo(storage_path('logs/schedule.log'));
 
 Schedule::call(function () {
     app(QueueManagementService::class)->generateSchedule(today());
