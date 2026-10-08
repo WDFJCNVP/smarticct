@@ -1,33 +1,83 @@
 <?php
 
 use Livewire\Component;
-use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
-use Illuminate\Support\Carbon;
+use Livewire\Attributes\Url;
 use App\Models\Queue;
-use App\Models\DailyScheduleSlot;
 use App\Services\QueueOrderService;
 
 new class extends Component
 {
+    #[Url(as: 'type')]
+    public string $vehicleType = 'Bus';
+
     #[Computed]
-    public function getCurrentActiveGroup()
+    public function types(): array
+    {
+        return ['Bus', 'UV-express'];
+    }
+
+    protected function activeType(): string
+    {
+        return in_array($this->vehicleType, $this->types, true)
+            ? $this->vehicleType
+            : $this->types[0];
+    }
+
+    public function selectType(string $type): void
+    {
+        if (in_array($type, $this->types, true)) {
+            $this->vehicleType = $type;
+        }
+    }
+
+    // Everything scheduled today, both types (one query)
+    #[Computed]
+    public function todayQueue()
     {
         return Queue::with('dailyScheduleSlot')
             ->whereIn('status', ['loading', 'staging', 'departed', 'skipped'])
+            ->whereIn('vehicle_type', $this->types)
             ->whereNotNull('daily_schedule_slot_id')
             ->whereHas('dailyScheduleSlot', fn ($q) => $q->where('schedule_date', today()->toDateString()))
-            ->orderBy('slot_position', 'asc')
+            ->orderByRaw("CASE status WHEN 'loading' THEN 0 WHEN 'staging' THEN 1 ELSE 2 END")
+            ->orderBy('slot_position')
+            ->orderBy('id')
             ->get();
+    }
+
+    // Only the selected tab's vehicles
+    #[Computed]
+    public function getCurrentActiveGroup()
+    {
+        return $this->todayQueue->where('vehicle_type', $this->activeType())->values();
+    }
+
+    #[Computed]
+    public function tabCounts(): array
+    {
+        return collect($this->types)->mapWithKeys(fn ($type) => [
+            $type => $this->todayQueue
+                ->where('vehicle_type', $type)
+                ->whereIn('status', ['loading', 'staging'])
+                ->count(),
+        ])->all();
+    }
+
+    #[Computed]
+    public function nextWaiting()
+    {
+        return $this->getCurrentActiveGroup
+            ->where('status', 'staging')
+            ->sortBy('slot_position')
+            ->first();
     }
 
     #[Computed]
     public function canAdvanceQueue(): bool
     {
-        $first = $this->getCurrentActiveGroup->where('status', 'staging')->first();
-
-        return $first && $first->status === 'staging';
+        return $this->nextWaiting !== null;
     }
 
     #[Computed]
@@ -46,22 +96,23 @@ new class extends Component
     #[On('echo:vehicle-queue,.QueuedVehicleEvent')]
     public function refresh(): void
     {
+        unset($this->todayQueue);
         unset($this->getCurrentActiveGroup);
+        unset($this->tabCounts);
+        unset($this->nextWaiting);
         unset($this->canAdvanceQueue);
         unset($this->groupStats);
     }
 
     public function nextVehicle(): void
     {
-        $firstWaitingVehicle = $this->getCurrentActiveGroup
-            ->where('status', 'staging')
-            ->first();
+        $next = $this->nextWaiting;
 
-        if (! $firstWaitingVehicle) {
+        if (! $next) {
             return;
         }
 
-        $result = app(QueueOrderService::class)->sendToBackOfQueue($firstWaitingVehicle->id);
+        $result = app(QueueOrderService::class)->sendToBackOfQueue($next->id);
 
         if ($result['success'] === false) {
             Flux::toast(
@@ -72,28 +123,27 @@ new class extends Component
             );
 
             return;
-
-        } else{
-            $this->refresh();
-
-            Flux::toast(
-                variant: 'success',
-                duration: 4000,
-                heading: 'Vehicle advanced.',
-                text: "{$firstWaitingVehicle->plate_number} has been demoted.",
-            );
         }
+
+        $this->refresh();
+
+        Flux::toast(
+            variant: 'success',
+            duration: 4000,
+            heading: 'Vehicle advanced.',
+            text: "{$next->plate_number} has been demoted.",
+        );
     }
 
     public function skipVehicle(): void
     {
-        $first = $this->getCurrentActiveGroup->where('status', 'staging')->first();
+        $next = $this->nextWaiting;
 
-        if (! $first) {
+        if (! $next) {
             return;
         }
 
-        $result = app(QueueOrderService::class)->skipVehicle($first->id);
+        $result = app(QueueOrderService::class)->skipVehicle($next->id);
         $this->refresh();
 
         Flux::toast(
@@ -136,6 +186,21 @@ new class extends Component
                     Manage queue order and advance the next vehicle for today's schedule
                 </x-heading>
             </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2 mb-4">
+            @foreach ($this->types as $type)
+                <flux:button
+                    wire:key="tab-{{ $type }}"
+                    wire:click="selectType('{{ $type }}')"
+                    size="sm"
+                    :variant="$type === $this->activeType() ? 'primary' : 'ghost'"
+                    class="font-secondary"
+                >
+                    {{ $type }}
+                    <span class="ml-1.5 text-xs opacity-70">{{ $this->tabCounts[$type] ?? 0 }}</span>
+                </flux:button>
+            @endforeach
         </div>
 
         {{-- Overview stats --}}
@@ -199,13 +264,13 @@ new class extends Component
     </div>
 
     <div class="flex-1 overflow-y-auto space-y-2">
-
-        @forelse ($this->getCurrentActiveGroup as $index => $vehicle)
+        
+        @forelse ($this->getCurrentActiveGroup as $vehicle)
 
             @php
                 $status   = $vehicle->status;
                 $isActive = $status === 'loading';
-                $isFirst  = $index === 0;
+                $isFirst  = $vehicle->id === $this->nextWaiting?->id;
 
                 $cardClasses = match(true) {
                     $isActive => 'ring-1 ring-primary/30 dark:ring-primary/40 !border-primary/30 dark:!border-primary/40 !bg-primary/5 dark:!bg-primary/10',
@@ -275,7 +340,7 @@ new class extends Component
             <x-card class="!rounded-xl !border !border-dashed !border-light-bd-strong dark:!border-dark-bd-strong !bg-light-secondary dark:!bg-dark-secondary !text-center !p-8">
                 <flux:icon name="calendar" class="w-8 h-8 mx-auto text-light-txt-muted dark:text-dark-txt-muted mb-2" />
                 <x-text variant="subtle" class="!font-secondary block" style="font-size: var(--text-table-row)">
-                    No active group scheduled for today.
+                    No active {{ $this->activeType() }} group scheduled for today.
                 </x-text>
             </x-card>
         @endforelse
@@ -283,25 +348,23 @@ new class extends Component
     </div>
 
     @if ($this->canAdvanceQueue)
-        @php
-            $next = $this->getCurrentActiveGroup->where('status', 'staging')->first();
-        @endphp
+        @php $next = $this->nextWaiting; @endphp
 
         <div class="shrink-0 border-t border-light-bd-default dark:border-dark-bd-default bg-light-secondary/50 dark:bg-dark-secondary/50 py-3">
             <flux:card size="sm" class="flex items-center gap-3">
 
                 <div class="flex-1 min-w-0">
                     <x-text class="font-secondary uppercase tracking-widest text-[10px] font-semibold text-light-txt-muted dark:text-dark-txt-muted block mb-0.5">
-                        Up next
+                        Up next &middot; {{ $next->vehicle_type }}
                     </x-text>
                     <span class="font-mono tracking-widest font-semibold text-light-txt-primary dark:text-dark-txt-primary block">
                         {{ $next->plate_number }}
                     </span>
                     <span class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted block">
-                        {{ $next->driver_name ?: '—' }} &middot; {{ $next->vehicle_type }} &middot; {{ $next->destination }}
+                        {{ $next->driver_name ?: '—' }} &middot; {{ $next->destination }}
                     </span>
                 </div>
-                
+
                 <div class="flex gap-2">
                     <flux:button wire:click="skipVehicle" wire:confirm="Skip this vehicle for this round?" icon="x-mark" variant="danger" size="sm" class="font-secondary">
                         Skip
