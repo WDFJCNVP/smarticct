@@ -315,6 +315,7 @@ class PaymongoController extends Controller
                         'user_id'  => $transaction->processed_by,
                         'action'   => $isAdminWithdrawal ? 'Admin Withdrawal' : 'Operator Withdrawal',
                         'subject'  => 'Withdrawal completed',
+                        'status'   => 'success',
                         'metadata' => [
                             'reference_no'   => $transaction->reference_no,
                             'total_deducted' => (float) $transaction->amount,
@@ -356,6 +357,7 @@ class PaymongoController extends Controller
                         'user_id'  => $transaction->processed_by,
                         'action'   => $isAdminWithdrawal ? 'Admin Withdrawal' : 'Operator Withdrawal',
                         'subject'  => 'Withdrawal failed',
+                        'status'   => 'failed',
                         'metadata' => [
                             'reference_no'   => $transaction->reference_no,
                             'total_amount'   => (float) $transaction->amount,
