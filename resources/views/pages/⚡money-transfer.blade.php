@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Flux\Flux;
 
+use Livewire\Attributes\Locked;
+
 use Illuminate\Support\Str;
 use App\Models\TerminalAccount;
 
@@ -21,6 +23,10 @@ use App\Events\PaymongoMoneyTransferErrorEvent;
 
 new class extends Component
 {
+
+    #[Locked] public bool $awaitingResult = false;
+    #[Locked] public ?string $pendingReference = null;
+
     public string $withdrawAmount = '';
     public string $provider = 'instapay'; // defaults to instant
     public string $institutionCategory = 'ewallet';
@@ -130,6 +136,10 @@ new class extends Component
 
     public function submitWithdrawal()
     {
+        if ($this->awaitingResult) {
+            return;
+        }
+
         $validated = $this->validate([
             'withdrawAmount' => 'required|numeric|min:1',
             'provider'       => 'required|in:instapay,pesonet',
@@ -233,6 +243,9 @@ new class extends Component
             'metadata' => array_merge((array) $transaction->metadata, (array) $result['response']),
         ]);
 
+        $this->pendingReference = $transaction->reference_no;
+        $this->awaitingResult = true;
+
         try {
             broadcast(new NotificationEvent());
         } catch (\Exception $e) {
@@ -241,33 +254,42 @@ new class extends Component
     }
 
     #[On('echo:paymongo-money-transfer-event,.PaymongoMoneyTransferEvent')]
-    public function onMoneyTransferEventSuccess() {
-        Flux::toast(
-                variant: 'success', 
-                duration: 4000, 
-                heading: 'Withdrawal Successful', 
-                text: 'Your funds have been transferred successfully.'
-            );
-        
-        session()->flash('withdrawal_submitted', true);
-
-        $redirectRoute = auth()->user()->role === 'admin' ? route('admin.dashboard') : route('operator.dashboard');
-        $this->redirect($redirectRoute, navigate: true);
-    }
+    public function onMoneyTransferEventSuccess() { $this->checkWithdrawalStatus(); }
 
     #[On('echo:paymongo-money-transfer-error-event,.PaymongoMoneyTransferErrorEvent')]
-    public function onMoneyTransferEventError() {
-        Flux::toast(
-            variant: 'danger', 
-            duration: 4000, 
-            heading: 'Withdrawal failed.', 
-            text: 'Please check your details and try again.'
-        );      
-        
-        session()->flash('withdrawal_submitted', true);
+    public function onMoneyTransferEventError() { $this->checkWithdrawalStatus(); }
 
-        $redirectRoute = auth()->user()->role === 'admin' ? route('admin.dashboard') : route('operator.dashboard');
-        $this->redirect($redirectRoute, navigate: true);
+    public function checkWithdrawalStatus(): void
+    {
+        if (! $this->pendingReference) {
+            return;
+        }
+
+        $transaction = CardTransaction::where('reference_no', $this->pendingReference)
+            ->where('processed_by', auth()->id())
+            ->first();
+
+        // Event was for someone else's withdrawal, or not settled yet: keep waiting.
+        if (! $transaction || $transaction->status === 'pending') {
+            return;
+        }
+
+        $this->awaitingResult   = false;
+        $this->pendingReference = null;
+
+        if ($transaction->status === 'success') {
+            Flux::toast(variant: 'success', duration: 4000, heading: 'Withdrawal Successful',
+                text: 'Your funds have been transferred successfully.');
+
+            session()->flash('withdrawal_submitted', true);
+
+            $url = auth()->user()->role === 'admin' ? route('admin.dashboard') : route('operator.dashboard');
+            $this->js('setTimeout(() => Livewire.navigate(' . json_encode($url) . '), 1500)');
+            return;
+        }
+
+        Flux::toast(variant: 'danger', duration: 5000, heading: 'Withdrawal failed.',
+            text: 'Please check your details and try again.');
     }
 
     public function render()
@@ -328,7 +350,7 @@ new class extends Component
 
                 <flux:button type="submit" variant="primary" class="w-full"
                     wire:loading.attr="disabled" wire:target="submitWithdrawal"
-                    :disabled="!$this->hasSufficientBalance">
+                    :disabled="!$this->hasSufficientBalance || $awaitingResult">
                     Confirm Withdrawal
                 </flux:button>
             </flux:card>
@@ -393,5 +415,36 @@ new class extends Component
             </flux:card>
         </div>
     </div>
+    </div>
+
+    {{-- Waiting for the PayMongo webhook --}}
+    <div
+        @class([
+            'fixed inset-0 z-50 items-center justify-center bg-black/40 backdrop-blur-sm',
+            'flex'   => $awaitingResult,
+            'hidden' => ! $awaitingResult,
+        ])
+        wire:loading.flex
+        wire:target="submitWithdrawal"
+        @if ($awaitingResult) wire:poll.5s="checkWithdrawalStatus" @endif
+        x-data="{ slow: false, timer: null }"
+        x-init="$wire.$watch('awaitingResult', on => {
+            clearTimeout(timer); slow = false;
+            if (on) timer = setTimeout(() => slow = true, 45000);
+        })"
+    >
+        <flux:card class="w-full max-w-sm p-6 text-center space-y-3">
+            <flux:icon.loading class="mx-auto size-8" />
+            <flux:heading size="lg">Processing your withdrawal…</flux:heading>
+            <flux:text size="sm">Please keep this page open while we wait for confirmation from the bank or e-wallet.</flux:text>
+
+            <div x-show="slow" class="space-y-2">
+                <flux:text size="sm">This is taking longer than usual. Your request was sent, so you can check the dashboard for the final status.</flux:text>
+                <flux:button size="sm" variant="ghost" wire:navigate
+                    :href="auth()->user()->role === 'admin' ? route('admin.dashboard') : route('operator.dashboard')">
+                    Go to dashboard
+                </flux:button>
+            </div>
+        </flux:card>
     </div>
 </div>
