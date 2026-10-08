@@ -87,6 +87,7 @@ class QueueOrderService
 
             Queue::where('vehicle_type', $target->vehicle_type)
                 ->where('status', $target->status)
+                ->whereHas('dailyScheduleSlot', fn($q) => $q->where('schedule_date', today()->toDateString()))
                 ->where('slot_position', '>', $target->slot_position)
                 ->decrement('slot_position');
 
@@ -98,6 +99,38 @@ class QueueOrderService
                 'success' => true,
                 'message' => "Vehicle {$target->plate_number} moved to the back of the line."
             ];
+        });
+    }
+
+    public function skipVehicle(int $queueId): array
+    {
+        return DB::transaction(function () use ($queueId) {
+            $queue = Queue::where('id', $queueId)
+                ->where('status', 'staging')
+                ->whereNotNull('daily_schedule_slot_id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $queue) {
+                return ['success' => false, 'message' => 'Vehicle not found or not waiting.'];
+            }
+
+            $queue->update(['status' => 'skipped']);
+            $queue->dailyScheduleSlot?->update(['status' => 'skipped']);
+
+            $othersPending = Queue::where('vehicle_type', $queue->vehicle_type)
+                ->whereIn('status', ['staging', 'loading'])
+                ->whereHas('dailyScheduleSlot', fn($q) => $q->where('schedule_date', today()->toDateString()))
+                ->exists();
+
+            // Nobody left waiting or boarding: start the next round (same as ProcessAfterDepart does)
+            if (! $othersPending) {
+                app(QueueManagementService::class)->generateSchedule();
+            }
+
+            broadcast(new QueuedVehicleEvent());
+
+            return ['success' => true, 'message' => "{$queue->plate_number} was skipped."];
         });
     }
 

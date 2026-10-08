@@ -15,7 +15,7 @@ new class extends Component
     public function getCurrentActiveGroup()
     {
         return Queue::with('dailyScheduleSlot')
-            ->whereIn('status', ['loading', 'staging', 'departed'])
+            ->whereIn('status', ['loading', 'staging', 'departed', 'skipped'])
             ->whereNotNull('daily_schedule_slot_id')
             ->whereHas('dailyScheduleSlot', fn ($q) => $q->where('schedule_date', today()->toDateString()))
             ->orderBy('slot_position', 'asc')
@@ -84,6 +84,26 @@ new class extends Component
             );
         }
     }
+
+    public function skipVehicle(): void
+    {
+        $first = $this->getCurrentActiveGroup->where('status', 'staging')->first();
+
+        if (! $first) {
+            return;
+        }
+
+        $result = app(QueueOrderService::class)->skipVehicle($first->id);
+        $this->refresh();
+
+        Flux::toast(
+            variant: $result['success'] ? 'success' : 'warning',
+            duration: 4000,
+            heading: $result['success'] ? 'Vehicle skipped.' : 'Cannot skip.',
+            text: $result['message'],
+        );
+    }
+
     public function render()
     {
         $role = auth()->user()->role;
@@ -281,10 +301,15 @@ new class extends Component
                         {{ $next->driver_name ?: '—' }} &middot; {{ $next->vehicle_type }} &middot; {{ $next->destination }}
                     </span>
                 </div>
-
-                <flux:button wire:click="nextVehicle" icon="arrow-right" variant="primary" size="sm" class="font-secondary">
-                    Next
-                </flux:button>
+                
+                <div class="flex gap-2">
+                    <flux:button wire:click="skipVehicle" wire:confirm="Skip this vehicle for this round?" icon="x-mark" variant="danger" size="sm" class="font-secondary">
+                        Skip
+                    </flux:button>
+                    <flux:button wire:click="nextVehicle" icon="arrow-right" variant="primary" size="sm" class="font-secondary">
+                        Next
+                    </flux:button>
+                </div>
 
             </flux:card>
         </div>

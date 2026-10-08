@@ -37,6 +37,15 @@ class Queue extends Model
         ];
     }
 
+    public function scopeActiveToday($query)
+    {
+        return $query->whereIn('status', ['staging', 'loading'])
+            ->where(function ($q) {
+                $q->whereNull('daily_schedule_slot_id') // non-scheduled types (Multi-cab, etc.)
+                  ->orWhereHas('dailyScheduleSlot', fn ($s) => $s->where('schedule_date', today()->toDateString()));
+            });
+    }
+
     public function travelRecords(){
         return $this->hasMany(TravelRecord::class);
     }

@@ -15,6 +15,23 @@ class QueueManagementService
         'UV-express' => 3,
     ];
 
+    public function expireStaleEntries(): int
+    {
+        return DB::transaction(function () {
+            $staleSlotIds = DailyScheduleSlot::where('schedule_date', '<', today()->toDateString())->pluck('id');
+
+            $count = Queue::where('status', 'staging')
+                ->whereIn('daily_schedule_slot_id', $staleSlotIds)
+                ->update(['status' => 'skipped']);
+
+            DailyScheduleSlot::whereIn('id', $staleSlotIds)
+                ->where('status', 'waiting')
+                ->update(['status' => 'skipped']);
+
+            return $count;
+        });
+    }
+
     private function resolveNextGroup(string $vehicleType, string $targetDate): array
     {
         $maxGroups = self::GROUP_COUNTS[$vehicleType] ?? 2;
@@ -72,6 +89,8 @@ class QueueManagementService
 
         $scheduleData = [];
 
+        $this->expireStaleEntries();
+
         foreach (array_keys(self::GROUP_COUNTS) as $vehicleType) {
             
             // 1. ROUND EXISTENCE CHECK: Get all slots for this vehicle type today
@@ -81,7 +100,8 @@ class QueueManagementService
 
             if ($existingSlots->isNotEmpty()) {
                 // Are ALL of today's slots departed? 
-                $allDeparted = $existingSlots->every(fn($slot) => $slot->status === 'departed');
+                
+                $allDeparted = $existingSlots->every(fn($slot) => in_array($slot->status, ['departed', 'skipped']));
 
                 if (!$allDeparted) {
                     continue; // Group is still queueing/loading. Skip this vehicle type.

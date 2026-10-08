@@ -10,12 +10,10 @@ use App\Services\QueueManagementService;
 use App\Services\DocumentExpiryNotificationService;
 
 Schedule::command('app:notify-expiring-franchises')
-    ->everyMinute()
+    ->dailyAt('08:00')
     ->appendOutputTo(storage_path('logs/schedule.log'));
 
-Schedule::call(function () {
-    app(QueueManagementService::class)->generateSchedule(today());
-})->daily();
+Schedule::command('app:generate-daily-schedule')->dailyAt('00:00');
 
 Schedule::call(function () {
     app(DocumentExpiryNotificationService::class)->notifyExpiringDocuments(30);

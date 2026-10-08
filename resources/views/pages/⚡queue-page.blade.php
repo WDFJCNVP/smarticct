@@ -146,18 +146,24 @@ new class extends Component {
         );
     }
 
-    #[Computed]
+    // #[Computed]
+    // public function getQueuedUserVehicle() {
+    //     return Queue::where('user_id', auth()->user()->id)
+    //         ->whereIn('status', ['staging', 'loading'])
+    //         ->get();
+    // }
+
     public function getQueuedUserVehicle() {
-        return Queue::where('user_id', auth()->user()->id)
-            ->whereIn('status', ['staging', 'loading'])
+        return Queue::activeToday()
+            ->where('user_id', auth()->user()->id)
             ->get();
     }
 
     public function getQueuePosition($queue)
     {
-        $orderedIds = Queue::where('vehicle_type', $queue->vehicle_type)
+        $orderedIds = Queue::activeToday()
+            ->where('vehicle_type', $queue->vehicle_type)
             ->where('destination', $queue->destination)
-            ->whereIn('status', ['staging', 'loading'])
             ->orderByRaw("CASE status WHEN 'loading' THEN 1 WHEN 'staging' THEN 2 ELSE 3 END")
             ->orderBy('slot_position')
             ->orderBy('time_queued')
@@ -171,7 +177,7 @@ new class extends Component {
     #[Computed]
     public function groupVehicles()
     {
-        return Queue::whereIn('status', ['staging', 'loading'])
+        return Queue::activeToday()
             ->when(
                 $this->vehicleType,
                 fn($q) => $q->where('vehicle_type', $this->vehicleType)
@@ -196,7 +202,7 @@ new class extends Component {
     #[Computed]
     public function queueStats()
     {
-        $active = Queue::whereIn('status', ['staging', 'loading'])->get();
+        $active = Queue::activeToday()->get();
 
         return [
             'total'      => $active->count(),
