@@ -147,9 +147,16 @@ class CardController extends Controller
             ->first();
 
         if (!$myQueue) {
+            $isBoarding = Queue::where('plate_number', $vehicle->plate_number)
+                ->where('daily_schedule_slot_id', $slot->id)
+                ->where('status', 'loading')
+                ->exists();
+
             return [
                 'success' => false,
-                'message' => 'No scheduled staging queue record found for this vehicle, or it is already active.',
+                'message' => $isBoarding
+                    ? 'This vehicle is already queued and boarding passengers.'
+                    : 'No waiting queue entry for this vehicle yet. The next round is created after the current one finishes.',
             ];
         }
 
@@ -179,13 +186,14 @@ class CardController extends Controller
         $isFront = $frontQueue && $frontQueue->id === $myQueue->id;
 
         if (!$isFront) {
+            $first = $frontQueue?->plate_number ?? 'another vehicle';
+
             return [
                 'success' => false,
-                'message' => "Queue activation denied. Your vehicle is currently at position $myQueue->slot_position. Please wait for your turn.",
+                'message' => "Queue activation denied. {$first} is first in line, and your vehicle is at position {$myQueue->slot_position}. Please wait for your turn.",
             ];
         }
 
-        
         $departs_in = match ($vehicle->vehicle_type) {
             'Bus'        => Carbon::now()->addMinutes(30),
             'UV-express' => null,
@@ -781,15 +789,12 @@ class CardController extends Controller
 
                 if ($isScheduled) {
                    
-                    $isGroupActive = DailyScheduleSlot::where('schedule_date', today())
-                        ->where('metadata->assigned_vehicle_id', (int) $validated['vehicle_id'])
-                        ->whereIn('status', ['waiting', 'queued'])
-                        ->exists();
+                    $blockReason = app(\App\Services\QueueManagementService::class)->scheduleBlockReason($vehicle);
 
-                    if (!$isGroupActive) {
+                    if ($blockReason !== null) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'Your turn has passed for this round. Please wait for the rest of your group to depart before the next round begins.',
+                            'message' => $blockReason,
                         ], 404);
                     }
 

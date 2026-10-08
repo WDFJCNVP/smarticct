@@ -7,6 +7,7 @@ use App\Models\VehicleGroup;
 use App\Models\Queue;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Models\Vehicle;
 
 class QueueManagementService
 {
@@ -15,6 +16,43 @@ class QueueManagementService
         'UV-express' => 3,
     ];
 
+    public function scheduleBlockReason(Vehicle $vehicle): ?string
+    {
+        $today = today()->toDateString();
+
+        $slot = DailyScheduleSlot::where('schedule_date', $today)
+            ->where('metadata->assigned_vehicle_id', $vehicle->id)
+            ->first();
+
+        // The vehicle IS in today's active group
+        if ($slot) {
+            return match ($slot->status) {
+                'waiting', 'queued' => null, // allowed to try
+                'skipped'           => 'Your vehicle was skipped for this round. Please wait for the next round.',
+                default             => 'Your turn has passed for this round. Please wait for the rest of your group to depart before the next round begins.',
+            };
+        }
+
+        // The vehicle has no slot today: its group is not the active one
+        $activeSlot = DailyScheduleSlot::with('vehicleGroup')
+            ->where('schedule_date', $today)
+            ->where('metadata->vehicle_type', $vehicle->vehicle_type)
+            ->first();
+
+        if (! $activeSlot) {
+            return "No {$vehicle->vehicle_type} schedule has been generated for today. Please contact the terminal admin.";
+        }
+
+        $myGroup     = $vehicle->vehicle_group()->value('group_number');
+        $activeGroup = $activeSlot->vehicleGroup?->group_number;
+
+        if (! $myGroup) {
+            return "This vehicle is not assigned to any {$vehicle->vehicle_type} group. Please contact the terminal admin.";
+        }
+
+        return "Not scheduled today. This vehicle is in Group {$myGroup}, but today's active {$vehicle->vehicle_type} group is Group {$activeGroup}. Please queue on your group's scheduled day.";
+    }
+    
     public function expireStaleEntries(): int
     {
         return DB::transaction(function () {

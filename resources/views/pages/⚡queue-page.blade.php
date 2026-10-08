@@ -129,12 +129,9 @@ new class extends Component {
             return;
         }
 
-        $queue->update([
-            'time_departed' => now(),
-            'status' =>'departed'
-        ]);
+        $queue->update(['time_departed' => now()]);
 
-        ProcessAfterDepart::dispatch($queue->id);
+        ProcessAfterDepart::dispatchSync($queue->id);
 
         $this->refreshQueuedVehicleList();
 
