@@ -264,7 +264,7 @@ new class extends Component
             text: 'Please check your details and try again.'
         );      
         
-        session()->flash('withdrawal_submitted', true)
+        session()->flash('withdrawal_submitted', true);
 
         $redirectRoute = auth()->user()->role === 'admin' ? route('admin.dashboard') : route('operator.dashboard');
         $this->redirect($redirectRoute, navigate: true);
