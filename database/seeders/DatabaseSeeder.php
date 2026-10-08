@@ -48,6 +48,8 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        $this->call(TerminalAccountSeeder::class);
+
         // --- 5 operator + 5 commuter test accounts ----------------------
         // $this->call([
         //     UserSeeder::class,
