@@ -587,6 +587,7 @@ class CardController extends Controller
                 'destination'      => 'nullable|string',
                 'vehicle_type'     => 'nullable|string',
                 'plate_number'     => 'nullable|string',
+                'passenger_count'  => 'nullable|integer|min:1|max:20',
             ]);
 
             // dd($validated['vehicle_type']);
@@ -673,6 +674,20 @@ class CardController extends Controller
                         ];
                     }
 
+                    $passengerCount = (int) ($validated['passenger_count'] ?? 1);
+                    $seatsLeft      = $queue->seat_capacity - $queue->seat_count;
+
+                    if ($passengerCount > $seatsLeft) {
+                        return [
+                            'success'       => false,
+                            'balanceBefore' => $balanceBefore,
+                            'balanceAfter'  => $balanceBefore,
+                            'message'       => $seatsLeft <= 0
+                                ? 'This vehicle is already full.'
+                                : "Only {$seatsLeft} seat(s) left in this vehicle.",
+                        ];
+                    }
+
                     $isAlreadyInVehicle = TravelRecord::where('user_id', $card->user_id)
                         ->whereHas('queue', function ($query) {
                             $query->where('status', 'loading');
@@ -691,7 +706,7 @@ class CardController extends Controller
                     $deduction = $this->deductUserCard($lockedCard, $amount);
 
                     if ($deduction['success']) {
-                        $queue->increment('seat_count');
+                        $queue->increment('seat_count', $passengerCount);
                         $queue->refresh();
 
                         $operatorCard = $queue->user->card;
