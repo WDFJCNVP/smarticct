@@ -149,7 +149,7 @@ new class extends Component {
     //         ->whereIn('status', ['staging', 'loading'])
     //         ->get();
     // }
-
+    #[Computed]
     public function getQueuedUserVehicle() {
         return Queue::activeToday()
             ->where('user_id', auth()->user()->id)
