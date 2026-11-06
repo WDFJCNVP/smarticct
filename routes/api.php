@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\SkipVehicleController;
 use App\Http\Controllers\Webhook\PaymongoController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\KioskQueueController;
+use App\Http\Controllers\Webhook\RentalPaymongoController;
+
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -32,4 +34,8 @@ Route::get('/card/{uid}', [UserController::class, 'getUser']);
 Route::post('/card/verify', [UserController::class, 'verifyPin']);
 Route::post('/kiosk/login', [UserController::class, 'login']);
 Route::get('/queued/routes', [KioskQueueController::class, 'getAvailableRides']);
+
+//Rental enpoints
+Route::post('/webhooks/paymongo/rental', [RentalPaymongoController::class, 'handle'])
+    ->name('webhooks.paymongo.rental');
 

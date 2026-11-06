@@ -45,6 +45,9 @@ return [
         'source_account_bic' => env('PAYMONGO_SOURCE_ACCOUNT_BIC'),
         'disbursement_webhook_secret' => env('PAYMONGO_DISBURSEMENT_WEBHOOK_SECRET'),
         'callback_url' => env('PAYMONGO_TRANSFER_CALLBACK_URL'),
+        
+        'rental_webhook_secret' => env('PAYMONGO_RENTAL_WEBHOOK_SECRET'),
+        'rentals_enabled'       => env('PAYMONGO_RENTALS_ENABLED', false),
     ]
 
 ];

@@ -5,8 +5,11 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\WithPagination;
 
+use Flux\Flux;
+
 use App\Models\Queue;
 use App\Models\Vehicle;
+use App\Enums\RentalStatus;
 
 new  #[Layout('layouts.operator-layout')] class extends Component
 {
@@ -19,9 +22,99 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 
     public Vehicle $vehicle;
 
+    // Mirrors vehicles.rental_status for the Active / Not active select.
+    public string $rentalStatus = 'inactive';
+
+    /** True until the operator has set up at least one rental event for this vehicle. */
+    #[Computed]
+    public function hasNoRentalRates(): bool
+    {
+        return ! $this->vehicle->eventRates()->offered()->exists();
+    }
+
+    /** Runs when the Active / Not active select changes. */
+    public function updatedRentalStatus(string $value): void
+    {
+        abort_if($this->vehicle->user_id !== auth()->id(), 404);
+
+        $vehicle = $this->vehicle->fresh();
+        $current = $vehicle->rental_status?->value ?? RentalStatus::Inactive->value;
+        $target  = RentalStatus::tryFrom($value);
+
+        // Operators can only switch between active and inactive.
+        if (! in_array($target, [RentalStatus::Active, RentalStatus::Inactive], true)) {
+            $this->rentalStatus = $current;
+            return;
+        }
+
+        // Suspended is controlled by the admin only.
+        if ($vehicle->rental_status === RentalStatus::Suspended) {
+            $this->rentalStatus = $current;
+            $this->notify('Rental suspended', 'The admin suspended rental for this vehicle, so you cannot change its status.', 'danger');
+            return;
+        }
+
+        if ($target === RentalStatus::Active) {
+            $problems = $this->activationProblems($vehicle);
+
+            if ($problems) {
+                $this->rentalStatus = $current;
+                $this->notify('Cannot set to active', implode(' ', $problems), 'danger');
+                return;
+            }
+        }
+
+        $vehicle->rental_status = $target;
+        $vehicle->save();
+        $this->vehicle = $vehicle;
+
+        $this->notify(
+            $target === RentalStatus::Active ? 'Vehicle is now active' : 'Vehicle is now not active',
+            $target === RentalStatus::Active
+                ? 'Passengers can now see it on the booking page.'
+                : 'It is hidden from passengers. Existing requests are not affected.',
+        );
+    }
+
+    /** @return list<string> reasons this vehicle cannot be set to active yet */
+    private function activationProblems(Vehicle $vehicle): array
+    {
+        $problems = [];
+
+        if (auth()->user()->card === null) {
+            $problems[] = 'You need an issued card before you can rent out a vehicle.';
+        }
+
+        $franchiseOk = $vehicle->has_franchise
+            && in_array($vehicle->documentStatus(), ['valid', 'expiring'], true);
+
+        if (! $franchiseOk) {
+            $problems[] = 'This vehicle needs a valid franchise.';
+        }
+
+        if (! $vehicle->eventRates()->offered()->exists()) {
+            $problems[] = 'Set up at least one rental event first.';
+        }
+
+        return $problems;
+    }
+
+    private function notify(string $heading, string $text, string $variant = 'success'): void
+    {
+        Flux::toast(
+            variant: $variant,   // success | warning | danger
+            heading: $heading,
+            duration: 4000,
+            text: $text,
+        );
+    }
+
     public function mount(Vehicle $vehicle)
     {
         abort_if($vehicle->user_id !== auth()->id(), 404);
+
+        $this->vehicle = $vehicle;
+        $this->rentalStatus = $vehicle->rental_status?->value ?? RentalStatus::Inactive->value;
     }
 
     public function updatedSearch() { $this->resetPage(); }
@@ -84,7 +177,7 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 ?>
 <div>
     <x-page-header
-        heading="Vehicles' Travel Record"
+        heading="Vehicle's Record"
     >
     </x-page-header>
 
@@ -157,7 +250,7 @@ new  #[Layout('layouts.operator-layout')] class extends Component
         </div>
 
         {{-- Expiry dates footer --}}
-        <div class="border-t border-light-bd-default dark:border-dark-bd-default mt-3 sm:mt-4 pt-2 sm:pt-3 text-xs text-light-txt-muted dark:text-dark-txt-muted flex flex-wrap gap-3 sm:gap-4">
+        <div class="border-t border-light-bd-default dark:border-dark-bd-default mt-3 sm:mt-4 pt-2 sm:pt-3 text-xs text-light-txt-muted dark:text-dark-txt-muted flex flex-wrap justify-between items-center gap-3 sm:gap-4">
             @if($this->vehicle->has_franchise && $this->vehicle->franchise_expiry_date)
                 <span>Franchise expires: <strong>{{ $this->vehicle->franchise_expiry_date->format('M d, Y') }}</strong></span>
             @else

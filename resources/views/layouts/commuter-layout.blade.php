@@ -66,8 +66,8 @@
                     Dashboard
                 </x-dashboard.sidebar-menu.sidebar-item>
 
-                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('feed') }}" icon="squares-2x2" wire:navigate>
-                    Feed
+                <x-dashboard.sidebar-menu.sidebar-item href="{{ route('rental') }}" icon="squares-2x2" wire:navigate>
+                    Rent a Vehicle
                 </x-dashboard.sidebar-menu.sidebar-item>
 
                 <x-dashboard.sidebar-menu.sidebar-item href="{{ route('route') }}" icon="briefcase" wire:navigate>

@@ -198,7 +198,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('role:operator')
         ->name('operator.travel.history.export');
 
-
     Route::livewire('/operator/queueing', 'pages::content-by-role.operator.live-queue')
         ->middleware('role:operator')
         ->name('operator.live.queue');
@@ -215,6 +214,22 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('role:operator')
         ->name('operator.earnings');
 
+    Route::livewire('/setup/rental/details/{vehicle}', 'pages::content-by-role.operator.rental-setup')
+        ->middleware('role:operator')
+        ->name('setup-rental');
+
+    Route::livewire('/rental/vehicle/{vehicle}', 'pages::content-by-role.operator.rental-details')
+    ->middleware('role:operator')
+    ->name('rental-details');
+
+    Route::livewire('/rental/request/{rentalRequest}', 'pages::content-by-role.operator.rental-request-review')
+    ->middleware('role:operator')
+    ->name('rental-request-review');
+
+    Route::livewire('/operator/rental', 'pages::content-by-role.operator.rental')
+        ->middleware('role:operator')
+        ->name('operator.rental');
+
     //commuter Section
     Route::livewire('/commuter/dashboard', 'pages::content-by-role.commuter.index')
         ->middleware('role:commuter')
@@ -222,6 +237,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::livewire('/commuter/travel/record', 'pages::content-by-role.commuter.travel-record')
         ->middleware('role:commuter')
         ->name('commuter.travel.record');
+    Route::livewire('/rental', 'pages::content-by-role.commuter.rental')
+        ->middleware('role:commuter')
+        ->name('rental');
+        
+    Route::livewire('/rental/requests', 'pages::content-by-role.commuter.my-rental-requests')
+    ->name('my-rental-requests');
 
     //Notification
     Route::livewire('/notification', 'pages::notifications')

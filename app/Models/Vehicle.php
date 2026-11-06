@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\RentalStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Vehicle extends Model
 {
@@ -39,6 +43,7 @@ class Vehicle extends Model
             'departs_at'            => 'datetime',
             'has_franchise'         => 'boolean',
             'franchise_expiry_date' => 'date',
+            'rental_status'         => RentalStatus::class,
         ];
     }
 
@@ -92,6 +97,45 @@ class Vehicle extends Model
     public function vehicle_group()
     {
         return $this->hasMany(VehicleGroup::class);
+    }
+
+    // ---------------------------------------------------------------
+    // Vehicle rental
+    // rental_status is intentionally NOT in $fillable: set it explicitly
+    // in the rental service so an operator can never mass-assign a
+    // suspended vehicle back to active.
+    // ---------------------------------------------------------------
+
+    /** Every event rate this vehicle has (active or not). */
+    public function eventRates(): HasMany
+    {
+        return $this->hasMany(VehicleEventRate::class);
+    }
+
+    /** Rates currently offered to passengers. */
+    public function offeredEventRates(): HasMany
+    {
+        return $this->hasMany(VehicleEventRate::class)->offered();
+    }
+
+    /** Event types this vehicle can be rented for, with the rate columns on the pivot. */
+    public function eventTypes(): BelongsToMany
+    {
+        return $this->belongsToMany(RentalEventType::class, 'vehicle_event_rates')
+            ->withPivot(['id', 'down_payment_amount', 'is_active'])
+            ->withTimestamps();
+    }
+
+    public function rentalRequests(): HasMany
+    {
+        return $this->hasMany(RentalRequest::class);
+    }
+
+    /** Vehicles shown on the passenger Booking Page. */
+    public function scopeRentable(Builder $query): Builder
+    {
+        return $query->where('rental_status', RentalStatus::Active->value)
+            ->whereHas('eventRates', fn (Builder $q) => $q->offered());
     }
 
     public function documentStatus(int $warningDays = 30): ?string

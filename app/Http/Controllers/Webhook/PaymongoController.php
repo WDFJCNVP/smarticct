@@ -97,6 +97,7 @@ class PaymongoController extends Controller
                         ]);
 
                         $card = Card::where('id', $transaction->card_id)->lockForUpdate()->first();
+                        
                         if ($card) {
                             $card->increment('balance', $confirmedAmountPesos);
                             Log::info("Credited PHP {$transaction->points_credited} to Card ID {$card->id}");
