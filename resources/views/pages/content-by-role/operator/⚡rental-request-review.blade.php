@@ -277,11 +277,11 @@ new #[Layout('layouts.operator-layout')] class extends Component
                     Your prices for this event
                 </x-heading>
                 <div>
-                    <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">First payment (down payment)</span>
+                    <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-0.5">Down payment:</span>
                     <span class="text-base font-bold font-primary text-light-txt-primary dark:text-dark-txt-primary tabular-nums">{{ \App\Support\Peso::format($downPay) }}</span>
                 </div>
                 <x-text class="mt-2 text-xs text-light-txt-muted dark:text-dark-txt-muted">
-                    The passenger saw the first payment when sending the request, and it stays the same for this request even if you change it later. You set the full payment in your quote, based on this route and group.
+                    The passenger saw the Down Payment when sending the request, and it stays the same for this request even if you change it later. You set the full payment in your quote, based on this route and group.
                 </x-text>
             </flux:card>
         </div>
@@ -396,7 +396,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                         @if ($r->quoted_total !== null)
                             <p class="tabular-nums">Quoted full price: <strong>₱{{ number_format((float) $r->quoted_total, 2) }}</strong></p>
                             @if ($r->quoted_first_payment !== null)
-                                <p class="tabular-nums">First payment: <strong>₱{{ number_format((float) $r->quoted_first_payment, 2) }}</strong></p>
+                                <p class="tabular-nums">Down payment: <strong>₱{{ number_format((float) $r->quoted_first_payment, 2) }}</strong></p>
                             @endif
                         @endif
                     </div>
@@ -421,7 +421,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                 @enderror
 
                 <div class="rounded-lg bg-light-subtle dark:bg-dark-subtle p-3 text-sm text-light-txt-body dark:text-dark-txt-body tabular-nums">
-                    First payment, paid online by the passenger: <strong>{{ \App\Support\Peso::format($downPay) }}</strong>
+                    Down payment, paid online by the passenger: <strong>{{ \App\Support\Peso::format($downPay) }}</strong>
                 </div>
 
                 <flux:input
@@ -431,7 +431,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                     min="{{ $downPay }}"
                     inputmode="decimal"
                     label="Full payment (₱)"
-                    description="The total for the whole trip, based on the route and number of passengers. The first payment is part of it."
+                    description="The total for the whole trip, based on the route and number of passengers. The Down Payment is part of it."
                     placeholder="e.g. 4500"
                 />
 
@@ -446,7 +446,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                 <flux:textarea wire:model="quoteNote" label="What is included (optional)" rows="2" placeholder="e.g. Fuel, toll fees, and driver included" />
 
                 <x-text class="text-xs text-light-txt-muted dark:text-dark-txt-muted">
-                    The passenger has {{ \App\Services\RentalRequestService::QUOTE_VALID_HOURS }} hours to accept. Once they accept and pay the first payment, the trip is confirmed.
+                    The passenger has {{ \App\Services\RentalRequestService::QUOTE_VALID_HOURS }} hours to accept. Once they accept and pay the Down Payment, the trip is confirmed.
                 </x-text>
 
                 <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">

@@ -97,7 +97,7 @@
                     icon="home"
                 >Dashboard</x-dashboard.sidebar-menu.sidebar-item>
 
-                <livewire:pages::feed-sidebar-item />
+                <!-- <livewire:pages::feed-sidebar-item /> -->
                 <x-dashboard.sidebar-menu.sidebar-item
                     href="{{ route('admin.routes') }}"
                     icon="map"

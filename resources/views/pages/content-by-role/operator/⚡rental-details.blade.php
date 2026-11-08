@@ -214,7 +214,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                         @endunless
                     </div>
                     <div class="text-xs sm:text-sm text-light-txt-body dark:text-dark-txt-body tabular-nums">
-                        First payment <strong>{{ \App\Support\Peso::format($rate->down_payment_amount) }}</strong>
+                        Down payment: <strong>{{ \App\Support\Peso::format($rate->down_payment_amount) }}</strong>
                     </div>
                 </div>
             @empty
@@ -295,7 +295,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                     <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Route</flux:table.column>
                     <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Trip</flux:table.column>
                     <flux:table.column align="center" class="hidden sm:table-cell px-2 md:px-4 py-2">Passengers</flux:table.column>
-                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Quote</flux:table.column>
+                    <flux:table.column align="center" class="hidden md:table-cell px-2 md:px-4 py-2">Full Payment</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Status</flux:table.column>
                     <flux:table.column align="center" class="px-2 md:px-4 py-2">Action</flux:table.column>
                 </flux:table.columns>

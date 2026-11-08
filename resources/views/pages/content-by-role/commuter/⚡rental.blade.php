@@ -395,7 +395,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
                         </div>
 
                         <div>
-                            <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-1.5">Events and first payment</span>
+                            <span class="block text-[10px] sm:text-xs text-light-txt-muted dark:text-dark-txt-muted uppercase tracking-wider mb-1.5">Events and Down payments</span>
 
                             <div class="divide-y divide-light-bd-default dark:divide-dark-bd-default">
                                 @foreach ($v->offeredEventRates as $rate)
@@ -405,7 +405,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
                                             <div class="text-xs text-light-txt-muted dark:text-dark-txt-muted">{{ $rate->eventType->description }}</div>
                                         @endif
                                         <div class="mt-1 text-xs text-light-txt-body dark:text-dark-txt-body tabular-nums">
-                                            First payment: <strong>{{ \App\Support\Peso::format($rate->down_payment_amount) }}</strong>
+                                            Down payment: <strong>{{ \App\Support\Peso::format($rate->down_payment_amount) }}</strong>
                                         </div>
                                     </div>
                                 @endforeach

@@ -67,7 +67,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
             variant: 'success',
             heading: 'Quote accepted',
             duration: 4000,
-            text: 'The dates are held for you. Pay the first payment to confirm your booking.',
+            text: 'The dates are held for you. Pay the Down Payment to confirm your booking.',
         );
 
         // The payment window appears right away.
@@ -166,7 +166,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
                 Your requests and quotes
             </x-heading>
             <x-text class="mt-1 text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                Check the operator's price, accept it, and pay the first payment to confirm your booking.
+                Check the operator's price, accept it, and pay the Down Payment to confirm your booking.
             </x-text>
         </div>
 
@@ -311,7 +311,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
                         >Accept quote</flux:button>
                     </div>
 
-                {{-- Accepted: waiting for the first payment --}}
+                {{-- Accepted: waiting for the Down Payment --}}
                 @elseif ($request->status === $S::AwaitingPayment && ! $lapsedHold)
                     <div class="mt-4 rounded-lg border border-warning/40 bg-warning/10 dark:bg-dark-warning/10 p-3 text-sm">
                         <p class="font-medium text-light-txt-primary dark:text-dark-txt-primary tabular-nums">
@@ -397,7 +397,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
 
             <div class="flex flex-col gap-4 max-h-[75vh] overflow-y-auto p-1">
                 <div>
-                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">Pay your first payment</flux:heading>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">Pay your Down Payment</flux:heading>
                     <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
                         {{ $p->event_name }} · {{ $p->vehicle->plate_number }} · {{ $p->trip_start_at->format('M d, Y') }}
                     </flux:text>
@@ -431,7 +431,7 @@ new #[Layout('layouts.commuter-layout')] class extends Component
 
                 <div class="rounded-lg border border-warning/40 bg-warning/10 dark:bg-dark-warning/10 p-3 text-xs text-light-txt-body dark:text-dark-txt-body space-y-1">
                     <p>Pay before <strong>{{ $p->hold_expires_at->format('M d, g:i A') }}</strong>. After that the request expires and the dates are released.</p>
-                    <p>Please pay only once. Your first payment is part of the total price.</p>
+                    <p>Please pay only once. Your Down Payment is part of the total price.</p>
                 </div>
 
                 <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
