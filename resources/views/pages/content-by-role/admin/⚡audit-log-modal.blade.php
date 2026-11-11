@@ -40,7 +40,7 @@ new class extends Component
                 </div>
                 <div class="flex justify-between items-center gap-3 px-3 py-2">
                     <span class="text-light-txt-muted dark:text-dark-txt-muted shrink-0">IP address</span>
-                    <span class="font-mono text-xs text-light-txt-body dark:text-dark-txt-body truncate min-w-0 text-right">{{ $this->selectedLog->metadata['ip_address'] ?? '-' }}</span>
+                    <span class="font-mono text-xs text-light-txt-body dark:text-dark-txt-body truncate min-w-0 text-right">{{ \App\Support\IpDisplay::show($this->selectedLog->metadata['ip_address'] ?? null) }}</span>
                 </div>
             </div>
 

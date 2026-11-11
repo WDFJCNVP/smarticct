@@ -534,7 +534,7 @@ new #[Layout('layouts.admin-layout')] class extends Component
                         <div class="sm:col-span-2">
                             <dt class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">Metadata</dt>
                             <dd class="font-secondary text-table-row text-light-txt-body dark:text-dark-txt-primary">
-                                <pre class="text-xs bg-light-subtle dark:bg-dark-subtle p-2 rounded overflow-auto max-h-32">{{ json_encode($selectedLog->metadata, JSON_PRETTY_PRINT) }}</pre>
+                                <pre class="text-xs bg-light-subtle dark:bg-dark-subtle p-2 rounded overflow-auto max-h-32">{{ \App\Support\IpDisplay::prettyJson($selectedLog->metadata) }}</pre>
                             </dd>
                         </div>
                     @endif
