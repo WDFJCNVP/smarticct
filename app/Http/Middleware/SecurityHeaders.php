@@ -17,8 +17,11 @@ class SecurityHeaders
     public function handle(Request $request, Closure $next): Response
     {
         // Optional: send every plain-HTTP request to HTTPS (needs trusted proxies on Heroku).
-        if (config('security.force_https') && ! $request->isSecure()) {
-            return redirect()->secure($request->getRequestUri(), 301);
+        // Never redirect local development hosts (php artisan serve has no HTTPS).
+        $isLocalHost = in_array($request->getHost(), ['localhost', '127.0.0.1', '::1'], true);
+
+        if (config('security.force_https') && ! $isLocalHost && ! $request->isSecure()) {
+            return redirect()->secure($request->getRequestUri(), 302);
         }
 
         // Create a per-request nonce BEFORE the views render so @vite / Livewire can use it.
@@ -86,7 +89,7 @@ class SecurityHeaders
             'default-src' => ["'self'"],
             'script-src'  => $script,
             'style-src'   => array_merge(["'self'", "'unsafe-inline'"], $cfg['style_hosts']),
-            'font-src'    => array_merge(["'self'", 'data:'], $cfg['style_hosts']),
+            'font-src'    => array_merge(["'self'", 'data:'], $cfg['font_hosts']),
             'img-src'     => $cfg['img'],
             'connect-src' => $connect,
             'object-src'  => ["'none'"],

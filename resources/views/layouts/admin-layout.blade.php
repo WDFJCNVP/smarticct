@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
-    @fluxAppearance
+    @fluxAppearance(['nonce' => Vite::cspNonce()])
     <style>
         .sidebar-nav-large [data-flux-sidebar-item] {
             height: auto !important;
@@ -164,7 +164,7 @@
 
     <flux:main>{{ $slot }}</flux:main>
 
-    @fluxScripts
+    @fluxScripts(['nonce' => Vite::cspNonce()])
     @livewireScripts
     @persist('toast')<flux:toast position="top end"/>@endpersist
 </body>

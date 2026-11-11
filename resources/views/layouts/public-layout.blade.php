@@ -8,7 +8,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     @livewireStyles
-    @fluxAppearance
+    @fluxAppearance(['nonce' => Vite::cspNonce()])
 </head>
 <body class="min-h-screen flex flex-col bg-light-primary dark:bg-dark-primary antialiased">
     <flux:header container class="sticky top-0 z-50 bg-light-secondary dark:bg-dark-secondary border-b border-light-bd-default dark:border-dark-bd-default">
@@ -108,7 +108,7 @@
         </flux:main>
 
     @livewireScripts
-    @fluxScripts
+    @fluxScripts(['nonce' => Vite::cspNonce()])
 
         @persist('toast')
             <flux:toast position="top end"/>

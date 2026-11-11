@@ -22,8 +22,11 @@ return [
         // Alpine needs this until livewire.csp_safe = true works for every component.
         'unsafe_eval' => env('SECURITY_CSP_UNSAFE_EVAL', true),
 
-        // Hosts for fonts/styles (the Livewire starter kit loads Instrument Sans from Bunny Fonts).
-        'style_hosts' => ['https://fonts.bunny.net'],
+        // Stylesheet hosts (Bunny Fonts from the starter kit + Google Fonts CSS).
+        'style_hosts' => ['https://fonts.bunny.net', 'https://fonts.googleapis.com'],
+
+        // Font FILE hosts (Google Fonts serves the actual font files from fonts.gstatic.com).
+        'font_hosts'  => ['https://fonts.bunny.net', 'https://fonts.gstatic.com'],
 
         'img'         => ["'self'", 'data:', 'blob:'],
 

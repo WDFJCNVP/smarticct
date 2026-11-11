@@ -16,7 +16,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
 
         @livewireStyles
-        @fluxAppearance
+        @fluxAppearance(['nonce' => Vite::cspNonce()])
 
         <style>
             .sidebar-nav-large [data-flux-sidebar-item] {
@@ -120,7 +120,7 @@
             {{ $slot }}
         </flux:main>
 
-        @fluxScripts
+        @fluxScripts(['nonce' => Vite::cspNonce()])
         @livewireScripts
 
         @persist('toast')

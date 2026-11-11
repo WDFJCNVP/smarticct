@@ -7,7 +7,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     @livewireStyles
-    @fluxAppearance
+    @fluxAppearance(['nonce' => Vite::cspNonce()])
 </head>
 <body class="h-full">
 
@@ -25,6 +25,6 @@
     </div>
 
     @livewireScripts
-    @fluxScripts
+    @fluxScripts(['nonce' => Vite::cspNonce()])
 </body>
 </html>
