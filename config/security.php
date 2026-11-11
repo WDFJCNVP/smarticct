@@ -26,7 +26,7 @@ return [
         'style_hosts' => ['https://fonts.bunny.net', 'https://fonts.googleapis.com'],
 
         // Font FILE hosts (Google Fonts serves the actual font files from fonts.gstatic.com).
-        'font_hosts'  => ['https://fonts.bunny.net', 'https://fonts.gstatic.com'],
+        'font_hosts'  => ['https://fonts.bunny.net', 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net'],
 
         'img'         => ["'self'", 'data:', 'blob:'],
 
