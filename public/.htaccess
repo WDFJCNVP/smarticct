@@ -1,4 +1,14 @@
 <IfModule mod_rewrite.c>
+
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always unset X-Powered-By
+
+    # Heroku's router terminates HTTPS, so check the forwarded protocol.
+    # Keep max-age equal to SECURITY_HSTS_MAX_AGE on Heroku.
+    
+    Header always set Strict-Transport-Security "max-age=300" "expr=%{HTTP:X-Forwarded-Proto} == 'https'"
+
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>
