@@ -34,7 +34,8 @@ class SecurityHeaders
 
         // Missing Anti-clickjacking Header
         // (sent separately because CSP frame-ancestors is ignored in report-only mode)
-        $headers->set('X-Frame-Options', 'DENY');
+        $sameOriginFrames = config('security.frame') === 'sameorigin';
+        $headers->set('X-Frame-Options', $sameOriginFrames ? 'SAMEORIGIN' : 'DENY');
 
         // X-Content-Type-Options Missing
         $headers->set('X-Content-Type-Options', 'nosniff');
@@ -97,7 +98,7 @@ class SecurityHeaders
         ];
 
         if ($enforce) {
-            $directives['frame-ancestors'] = ["'none'"];
+            $directives['frame-ancestors'] = [config('security.frame') === 'sameorigin' ? "'self'" : "'none'"];
         }
 
         return collect($directives)

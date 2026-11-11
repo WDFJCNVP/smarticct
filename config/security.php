@@ -12,6 +12,9 @@ return [
         'include_subdomains' => env('SECURITY_HSTS_SUBDOMAINS', false),
     ],
 
+    // Who may put our pages in an iframe: 'deny' (nobody) or 'sameorigin' (only our own site).
+    'frame' => env('SECURITY_FRAME', 'deny'),
+
     // Cache-Control: no-store on dynamic pages (balances, PIN, card data).
     'no_store' => env('SECURITY_NO_STORE', true),
 
