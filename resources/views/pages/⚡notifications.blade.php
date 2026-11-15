@@ -83,10 +83,18 @@ new class extends Component
                 @if ($notification->is_read === 0)  
                     <div class="relative inline-block">
                         <span class="absolute -top-0.2 -left-0.2 z-10 block h-1.5 w-1.5 rounded-full bg-danger ring-2 ring-white dark:ring-dark-surface"></span>
-                        <flux:icon.envelope class="h-5 w-5 text-primary dark:text-white" />
+                        @if ($notification->notification?->type === 'Rental')
+                            <flux:icon.truck class="h-5 w-5 text-primary dark:text-white" />
+                        @else
+                            <flux:icon.envelope class="h-5 w-5 text-primary dark:text-white" />
+                        @endif
                     </div>
                 @else
-                    <flux:icon.envelope class="h-5 w-5 text-primary dark:text-white" />
+                    @if ($notification->notification?->type === 'Rental')
+                        <flux:icon.truck class="h-5 w-5 text-primary dark:text-white" />
+                    @else
+                        <flux:icon.envelope class="h-5 w-5 text-primary dark:text-white" />
+                    @endif
                 @endif
 
                 <div class="flex-1 min-w-0">

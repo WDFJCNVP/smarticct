@@ -6,6 +6,9 @@ use Livewire\Attributes\Layout;
 
 use Flux\Flux;
 
+use App\Services\RentalNotifier;
+use Illuminate\Support\Facades\Log;
+
 use App\Enums\RentalRequestStatus;
 use App\Enums\RentalStatus;
 use App\Models\RentalRequest;
@@ -85,7 +88,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
             ->count();
     }
 
-    public function sendQuote(RentalRequestService $service): void
+    public function sendQuote(RentalRequestService $service, RentalNotifier $notifier): void
     {
         $firstPayment = (float) $this->rentalRequest->down_payment_amount;
 
@@ -116,6 +119,15 @@ new #[Layout('layouts.operator-layout')] class extends Component
             return;
         }
 
+        try {
+            $notifier->quoteSent($updated);
+        } catch (\Throwable $e) {
+            Log::error('Quote notification failed', [
+                'request_id' => $updated->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+
         $this->rentalRequest = $updated->load(['vehicle', 'passenger.userStatus']);
         $this->reset(['quotedTotal', 'quoteNote']);
         Flux::modal('send-quote')->close();
@@ -128,7 +140,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
         );
     }
 
-    public function decline(RentalRequestService $service): void
+    public function decline(RentalRequestService $service, RentalNotifier $notifier): void
     {
         $this->validate(
             ['declineReason' => ['nullable', 'string', 'max:255']],
@@ -143,7 +155,16 @@ new #[Layout('layouts.operator-layout')] class extends Component
             $this->addError('form', $e->getMessage());
             return;
         }
-
+        
+       try {
+            $notifier->requestDeclined($updated);
+        } catch (\Throwable $e) {
+            Log::error('Decline notification failed', [
+                'request_id' => $updated->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+        
         $this->rentalRequest = $updated->load(['vehicle', 'passenger.userStatus']);
         $this->reset('declineReason');
         Flux::modal('decline-request')->close();
@@ -162,7 +183,10 @@ new #[Layout('layouts.operator-layout')] class extends Component
     $r         = $rentalRequest;
     $downPay   = (float) $r->down_payment_amount;
     $firstPay  = (float) ($r->quoted_first_payment ?? $r->down_payment_amount);
-    $badgeColor = match ($r->status) {
+    // A request past its deadline already reads "Expired", even before the clean-up job runs.
+    $lapsed      = $r->isLapsed();
+    $statusLabel = $lapsed ? 'Expired' : $r->status->label();
+    $badgeColor = $lapsed ? 'red' : match ($r->status) {
         \App\Enums\RentalRequestStatus::Pending         => 'yellow',
         \App\Enums\RentalRequestStatus::Quoted          => 'blue',
         \App\Enums\RentalRequestStatus::AwaitingPayment => 'orange',
@@ -187,7 +211,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                 {{ $r->event_name }} for {{ $r->vehicle->plate_number }}
             </x-heading>
             <div class="mt-1 flex flex-wrap items-center gap-2">
-                <flux:badge :color="$badgeColor" size="sm" class="font-secondary text-badge text-xs">{{ $r->status->label() }}</flux:badge>
+                <flux:badge :color="$badgeColor" size="sm" class="font-secondary text-badge text-xs">{{ $statusLabel }}</flux:badge>
                 <x-text class="text-xs text-light-txt-muted dark:text-dark-txt-muted">
                     Requested {{ $r->created_at->diffForHumans() }}
                 </x-text>
@@ -377,7 +401,11 @@ new #[Layout('layouts.operator-layout')] class extends Component
                             <p class="text-sm text-light-txt-body dark:text-dark-txt-body break-words">{{ $r->quote_note }}</p>
                         @endif
                         <x-text class="text-xs text-light-txt-muted dark:text-dark-txt-muted">
-                            Waiting for the passenger. The quote expires {{ $r->quote_expires_at?->format('M d, g:i A') }} ({{ $r->quote_expires_at?->diffForHumans() }}).
+                            @if ($lapsed)
+                                The passenger did not answer in time. This quote expired {{ $r->quote_expires_at?->format('M d, g:i A') }} and the request is now Expired.
+                            @else
+                                Waiting for the passenger. The quote expires {{ $r->quote_expires_at?->format('M d, g:i A') }} ({{ $r->quote_expires_at?->diffForHumans() }}).
+                            @endif
                         </x-text>
                     </div>
 
@@ -387,7 +415,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                         Status
                     </x-heading>
                     <div class="space-y-2 text-sm text-light-txt-body dark:text-dark-txt-body">
-                        <flux:badge :color="$badgeColor" size="sm" class="font-secondary text-badge text-xs">{{ $r->status->label() }}</flux:badge>
+                        <flux:badge :color="$badgeColor" size="sm" class="font-secondary text-badge text-xs">{{ $statusLabel }}</flux:badge>
 
                         @if (filled($r->status_reason))
                             <p class="break-words">{{ $r->status_reason }}</p>

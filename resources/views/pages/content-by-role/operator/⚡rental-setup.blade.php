@@ -215,7 +215,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
         </div>
 
         <flux:breadcrumbs class="shrink-0 sm:pt-1">
-            <flux:breadcrumbs.item href="{{ route('operator.vehicles') }}" wire:navigate>
+            <flux:breadcrumbs.item href="{{ route('operator.rental') }}" wire:navigate>
                 Back to my vehicles
             </flux:breadcrumbs.item>
             <flux:breadcrumbs.item>Rental details</flux:breadcrumbs.item>

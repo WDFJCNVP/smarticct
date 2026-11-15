@@ -59,8 +59,7 @@ class RentalExpiryService
             }
 
             $count++;
-            $this->tell([$request->passenger_id], 'Request expired',
-                "The operator did not reply to your {$request->event_name} request in time.", $request);
+            $this->tell($request, 'pending');
         });
 
         return $count;
@@ -79,10 +78,7 @@ class RentalExpiryService
             }
 
             $count++;
-            $this->tell([$request->passenger_id], 'Quote expired',
-                "The quote for {$request->event_name} expired because it was not accepted in time.", $request);
-            $this->tell([$request->vehicle->user_id], 'Quote expired',
-                "The passenger did not answer your quote for {$request->event_name} in time.", $request);
+            $this->tell($request, 'quoted');
         });
 
         return $count;
@@ -107,10 +103,7 @@ class RentalExpiryService
             }
 
             $count++;
-            $this->tell([$request->passenger_id], 'Payment time passed',
-                "The payment time for {$request->event_name} passed, so the dates were released.", $request);
-            $this->tell([$request->vehicle->user_id], 'Booking not paid',
-                "The passenger did not pay the first payment for {$request->event_name} in time. The dates are free again.", $request);
+            $this->tell($request, 'payment');
         });
 
         return $count;
@@ -183,11 +176,11 @@ class RentalExpiryService
         });
     }
 
-    /** A notification problem must never stop the clean-up. */
-    private function tell(array $userIds, string $title, string $message, RentalRequest $request): void
+    /** Tells both sides that the request is now Expired. A notification problem must never stop the clean-up. */
+    private function tell(RentalRequest $request, string $stage): void
     {
         try {
-            $this->notifier->send($userIds, $title, $message, ['rental_request_id' => $request->id]);
+            $this->notifier->requestExpired($request, $stage);
         } catch (\Throwable $e) {
             Log::warning('RENTAL EXPIRY: notification failed.', [
                 'rental_request_id' => $request->id,

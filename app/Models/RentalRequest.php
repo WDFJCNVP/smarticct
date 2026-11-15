@@ -63,6 +63,26 @@ class RentalRequest extends Model
         ];
     }
 
+    /**
+     * Past its deadline (or its trip start) but not yet marked Expired by the clean-up job.
+     * Pages use this so a lapsed request already reads "Expired" on both sides.
+     */
+    public function isLapsed(): bool
+    {
+        $deadline = match ($this->status) {
+            RentalRequestStatus::Pending         => $this->respond_by,
+            RentalRequestStatus::Quoted          => $this->quote_expires_at,
+            RentalRequestStatus::AwaitingPayment => $this->hold_expires_at,
+            default                              => false,
+        };
+
+        if ($deadline === false) {
+            return false;
+        }
+
+        return ($deadline && $deadline->isPast()) || $this->trip_start_at->isPast();
+    }
+
     public function passenger(): BelongsTo
     {
         return $this->belongsTo(User::class, 'passenger_id');

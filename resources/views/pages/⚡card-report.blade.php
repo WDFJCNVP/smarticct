@@ -1,89 +1,85 @@
 <?php
 
 use Livewire\Component;
-use Livewire\WithFileUploads;
 use Livewire\Attributes\Computed;
 use App\Models\Card;
-use App\Models\CardReport;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 
 new class extends Component
 {
-    use WithFileUploads;
-
     public string $reason = '';
-    public string $description = '';
-    public $valid_id;
+    public string $password = '';
 
     #[Computed]
     public function userCard(): ?Card
     {
-        return Card::with('user')
-            ->where('user_id', auth()->id())
-            ->first();
+        return Card::where('user_id', auth()->id())->first();
     }
 
-    #[Computed]
-    public function existingPendingReport(): bool
-    {
-        if (!$this->userCard) return false;
-        return CardReport::where('card_id', $this->userCard->id)
-            ->where('status', 'pending')
-            ->exists();
-    }
-
-    #[Computed]
-    public function cardReports()
-    {
-        if (!$this->userCard) return collect();
-        return CardReport::with('newCard')
-            ->where('user_id', auth()->id())
-            ->latest()
-            ->get();
-    }
-
-    public function removeValidId(): void
-    {
-        $this->reset('valid_id');
-    }
-
-    public function submitLostReport(): void
+    public function blockCard(): void
     {
         $this->validate([
-            'reason'      => 'required|in:lost,damaged,other',
-            'description' => 'required|string|min:10|max:1000',
-            'valid_id'    => 'required|image|max:5120',
+            'reason'   => 'required|in:lost,damaged,other',
+            'password' => 'required|string',
         ], [
-            'reason.required'      => 'Please select a reason.',
-            'description.min'      => 'Please describe what happened (at least 10 characters).',
-            'valid_id.required'    => 'Please upload a photo of your valid ID.',
-            'valid_id.image'       => 'The file must be an image (JPG, PNG, etc.).',
-            'valid_id.max'         => 'Image must not exceed 5MB.',
+            'reason.required'   => 'Please select a reason.',
+            'password.required' => 'Please enter your password to confirm.',
         ]);
 
-        if ($this->existingPendingReport) {
-            Flux::toast(variant: 'warning', duration: 4000, heading: 'Report already submitted.', text: 'You already have a pending report for this card.');
+        $card = $this->userCard;
+
+        if (!$card) {
             return;
         }
 
-        $path = $this->valid_id->store('card-reports/' . auth()->id(), 'public');
+        if ($card->isSuspended()) {
+            Flux::modal('confirm-block-card')->close();
+            Flux::toast(variant: 'warning', duration: 4000, heading: 'Card already blocked.', text: 'Your card is already suspended.');
+            return;
+        }
 
-        CardReport::create([
-            'user_id'       => auth()->id(),
-            'card_id'       => $this->userCard->id,
-            'reason'        => $this->reason,
-            'description'   => $this->description,
-            'valid_id_path' => $path,
-            'status'        => 'pending',
+        // Confirm the user's login password, with a simple attempt limit
+        $key = 'block-card:' . auth()->id();
+
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            $seconds = RateLimiter::availableIn($key);
+            $this->addError('password', "Too many attempts. Please try again in {$seconds} seconds.");
+            return;
+        }
+
+        if (!Hash::check($this->password, auth()->user()->password)) {
+            RateLimiter::hit($key, 60);
+            $this->reset('password');
+            $this->addError('password', 'The password you entered is incorrect.');
+            return;
+        }
+
+        RateLimiter::clear($key);
+
+        $card->update([
+            'status'            => 'suspended',
+            'suspension_reason' => 'Reported by cardholder: ' . $this->reason,
+            'suspended_at'      => now(),
+            'suspended_by'      => auth()->id(),
         ]);
 
-        $this->reset('reason', 'description', 'valid_id');
+        unset($this->userCard);
+        $this->reset('reason', 'password');
 
+        Flux::modal('confirm-block-card')->close();
         Flux::toast(
             variant: 'success',
             duration: 4000,
-            heading: 'Report submitted.',
-            text: 'An admin will review your request. Visit the terminal to complete the card replacement.',
+            heading: 'Card blocked.',
+            text: 'Your card can no longer be used. Visit the terminal to get a replacement.',
         );
+    }
+
+    public function clearPassword(): void
+    {
+        $this->reset('password');
+        $this->resetErrorBag('password');
     }
 
     public function render()
@@ -97,8 +93,8 @@ new class extends Component
 <div>
     {{-- ====== PAGE HEADER (mini-navbar: heading left, notifications right) ====== --}}
     <x-page-header
-        heading="Card Reports"
-        description="Report a lost or damaged card, and track your replacement status."
+        heading="Block Card"
+        description="Lost or damaged your card? Block it instantly to keep your balance safe."
         class="mb-4"
     >
         {{-- No extra controls --}}
@@ -112,10 +108,10 @@ new class extends Component
                 class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
                 style="font-size: var(--text-page-title)"
             >
-                Card Reports
+                Block Card
             </x-heading>
             <x-text variant="subtle" class="!font-secondary mt-1 block" style="font-size: var(--text-helper)">
-                Report a lost or damaged card, and track your replacement status.
+                Lost or damaged your card? Block it instantly to keep your balance safe.
             </x-text>
         </div>
     </div>
@@ -123,7 +119,7 @@ new class extends Component
     <div class="mb-6">
         <flux:breadcrumbs>
             <flux:breadcrumbs.item href="{{ route('user.card') }}" wire:navigate>Back to My Card</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>Card Reports</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>Block Card</flux:breadcrumbs.item>
         </flux:breadcrumbs>
     </div>
 
@@ -134,205 +130,104 @@ new class extends Component
             <p class="text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Visit the terminal to get your RFID card issued.</p>
         </flux:card>
     @else
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div class="max-w-2xl">
+            <x-card class="!p-0 overflow-hidden">
+                <div class="px-4 sm:px-5 py-3 border-b border-light-bd-default dark:border-dark-bd-default bg-light-secondary/50 dark:bg-dark-secondary/50">
+                    <h3 class="font-primary text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
+                        Block Lost / Damaged Card
+                    </h3>
+                </div>
 
-            {{-- Left: Report form --}}
-            <div class="lg:col-span-2">
-                <x-card class="!p-0 overflow-hidden">
-                    <div class="px-4 sm:px-5 py-3 border-b border-light-bd-default dark:border-dark-bd-default bg-light-secondary/50 dark:bg-dark-secondary/50">
-                        <h3 class="font-primary text-card-title font-semibold text-light-txt-primary dark:text-dark-txt-primary">
-                            Report Lost / Damaged Card
-                        </h3>
-                    </div>
-
-                    @if ($this->existingPendingReport)
-                        <div class="p-4 sm:p-6">
-                            <div class="rounded-lg bg-warning/10 dark:bg-dark-warning/20 border border-warning/30 dark:border-dark-warning/30 px-4 py-3 flex items-start gap-3">
-                                <flux:icon name="clock" class="w-5 h-5 text-warning dark:text-dark-warning shrink-0 mt-0.5" />
-                                <div>
-                                    <p class="text-sm font-medium text-warning dark:text-dark-warning">You have a pending report</p>
-                                    <p class="text-xs text-warning/80 dark:text-dark-warning/80 mt-0.5">
-                                        Visit the terminal to complete the card replacement. You can submit a new report once this one is resolved.
-                                    </p>
-                                </div>
+                @if ($this->userCard->isSuspended())
+                    <div class="p-4 sm:p-6">
+                        <div class="rounded-lg bg-danger/10 dark:bg-dark-danger/20 border border-danger/30 dark:border-dark-danger/30 px-4 py-3 flex items-start gap-3">
+                            <flux:icon name="lock-closed" class="w-5 h-5 text-danger dark:text-dark-danger shrink-0 mt-0.5" />
+                            <div>
+                                <p class="text-sm font-medium text-danger dark:text-dark-danger">Your card is blocked</p>
+                                <p class="text-xs text-danger/80 dark:text-dark-danger/80 mt-0.5">
+                                    Visit the terminal and avail a new ICCT card from the cashier to complete the replacement.
+                                </p>
                             </div>
                         </div>
-                    @else
-                        <div class="p-4 sm:p-6 space-y-5">
-                            <flux:text class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                                Submit a report and bring a new blank RFID card to the terminal for replacement.
-                            </flux:text>
+                    </div>
+                @else
+                    <div class="p-4 sm:p-6 space-y-5">
+                        <flux:text class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                            Blocking your card takes effect immediately and it can no longer be used. Visit the terminal to get a replacement.
+                        </flux:text>
 
-                            <flux:field>
-                                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
-                                    Reason
-                                </flux:label>
-                                <flux:select
-                                    wire:model="reason"
-                                    placeholder="Select a reason…"
-                                    size="sm"
-                                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
-                                >
-                                    <flux:select.option value="lost">Lost</flux:select.option>
-                                    <flux:select.option value="damaged">Damaged</flux:select.option>
-                                    <flux:select.option value="other">Other</flux:select.option>
-                                </flux:select>
-                                <flux:error name="reason" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
-                            </flux:field>
+                        <flux:field>
+                            <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
+                                Reason
+                            </flux:label>
+                            <flux:select
+                                wire:model.live="reason"
+                                placeholder="Select a reason…"
+                                size="sm"
+                                class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default"
+                            >
+                                <flux:select.option value="lost">Lost</flux:select.option>
+                                <flux:select.option value="damaged">Damaged</flux:select.option>
+                                <flux:select.option value="other">Other</flux:select.option>
+                            </flux:select>
+                            <flux:error name="reason" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
+                        </flux:field>
 
-                            <flux:field>
-                                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
-                                    Description
-                                </flux:label>
-                                <flux:textarea
-                                    wire:model="description"
-                                    placeholder="Describe what happened to your card…"
-                                    rows="3"
-                                    size="sm"
-                                    class="font-secondary text-table-row bg-light-primary dark:bg-dark-surface text-light-txt-body dark:text-dark-txt-primary border-light-bd-default dark:border-dark-bd-default placeholder:text-light-txt-muted dark:placeholder:text-dark-txt-muted"
-                                />
-                                <flux:error name="description" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
-                            </flux:field>
-
-                            <flux:field>
-                                <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">
-                                    Valid ID photo
-                                </flux:label>
-
-                                @if (!$valid_id)
-                                    <label
-                                        for="report_valid_id"
-                                        class="flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-light-bd-default dark:border-dark-bd-default bg-light-subtle dark:bg-dark-subtle px-4 py-6 cursor-pointer hover:border-light-txt-muted dark:hover:border-dark-txt-muted transition-colors mt-1"
-                                    >
-                                        <flux:icon name="arrow-up-tray" class="w-6 h-6 text-light-txt-muted dark:text-dark-txt-muted" />
-                                        <span class="text-sm text-light-txt-body dark:text-dark-txt-body">Upload a photo of your ID</span>
-                                        <span class="text-xs text-light-txt-muted dark:text-dark-txt-muted">JPG or PNG, max 5MB</span>
-                                        <input
-                                            id="report_valid_id"
-                                            type="file"
-                                            accept="image/*"
-                                            wire:model="valid_id"
-                                            class="hidden"
-                                        />
-                                    </label>
-                                @endif
-
-                                <div wire:loading wire:target="valid_id" class="text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">Uploading…</div>
-
-                                @if ($valid_id)
-                                    <div class="flex items-center gap-3 rounded-lg border border-light-bd-default dark:border-dark-bd-default bg-light-subtle dark:bg-dark-subtle px-3 py-2 mt-1">
-                                        <img
-                                            src="{{ $valid_id->temporaryUrl() }}"
-                                            alt="Valid ID preview"
-                                            class="size-10 rounded-md object-cover shrink-0"
-                                        />
-                                        <span class="text-sm text-light-txt-body dark:text-dark-txt-primary truncate flex-1">
-                                            {{ $valid_id->getClientOriginalName() }}
-                                        </span>
-                                        <flux:icon name="check-circle" class="size-4 text-success dark:text-dark-success shrink-0" />
-                                        <button type="button" wire:click="removeValidId" class="shrink-0 text-light-txt-muted dark:text-dark-txt-muted hover:text-light-txt-body dark:hover:text-dark-txt-primary">
-                                            <flux:icon name="x-mark" class="size-4" />
-                                        </button>
-                                    </div>
-                                @endif
-
-                                <flux:error name="valid_id" class="font-secondary text-helper text-danger dark:text-dark-danger mt-1" />
-                            </flux:field>
-
-                            <div class="flex justify-end pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                        <div class="flex justify-end pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                            <flux:modal.trigger name="confirm-block-card">
                                 <flux:button
-                                    variant="primary"
-                                    wire:click="submitLostReport"
-                                    wire:loading.attr="disabled"
-                                    wire:target="submitLostReport"
+                                    variant="danger"
+                                    :disabled="!$reason"
                                     class="w-full sm:w-auto justify-center font-secondary"
                                 >
-                                    <span wire:loading.remove wire:target="submitLostReport">Submit Report</span>
-                                    <span wire:loading wire:target="submitLostReport">Submitting…</span>
+                                    Block Card
                                 </flux:button>
-                            </div>
+                            </flux:modal.trigger>
                         </div>
-                    @endif
-                </x-card>
-            </div>
-
-            {{-- Right: Report history --}}
-            <div class="lg:col-span-1">
-                <flux:card class="p-0! overflow-hidden">
-                    <div class="px-3 sm:px-4 py-2.5 border-b border-light-bd-default dark:border-dark-bd-default">
-                        <p class="font-secondary font-semibold text-sm text-light-txt-primary dark:text-dark-txt-primary">Report History</p>
-                        <p class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">Your past card reports and their status.</p>
                     </div>
-
-                    <div class="divide-y divide-light-bd-default dark:divide-dark-bd-default max-h-[560px] overflow-y-auto">
-                        @forelse ($this->cardReports as $report)
-                            <div class="p-3 sm:p-4">
-                                <div class="flex items-start gap-3">
-                                    {{-- Status icon --}}
-                                    @if ($report->status === 'pending')
-                                        <div class="shrink-0 w-8 h-8 rounded-full bg-warning/10 dark:bg-dark-warning/20 flex items-center justify-center">
-                                            <flux:icon name="clock" class="w-4 h-4 text-warning dark:text-dark-warning" />
-                                        </div>
-                                    @elseif ($report->status === 'approved')
-                                        <div class="shrink-0 w-8 h-8 rounded-full bg-success/10 dark:bg-dark-success/20 flex items-center justify-center">
-                                            <flux:icon name="check-circle" class="w-4 h-4 text-success dark:text-dark-success" />
-                                        </div>
-                                    @else
-                                        <div class="shrink-0 w-8 h-8 rounded-full bg-danger/10 dark:bg-dark-danger/20 flex items-center justify-center">
-                                            <flux:icon name="x-circle" class="w-4 h-4 text-danger dark:text-dark-danger" />
-                                        </div>
-                                    @endif
-
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-2 flex-wrap">
-                                            <x-text class="text-sm font-medium text-light-txt-body dark:text-dark-txt-primary">
-                                                {{ ucfirst($report->reason) }} card report
-                                            </x-text>
-                                            @if ($report->status === 'pending')
-                                                <flux:badge color="yellow" size="sm" class="font-secondary text-badge text-xs">Pending review</flux:badge>
-                                            @elseif ($report->status === 'approved')
-                                                <flux:badge color="green" size="sm" class="font-secondary text-badge text-xs">Approved</flux:badge>
-                                            @else
-                                                <flux:badge color="red" size="sm" class="font-secondary text-badge text-xs">Rejected</flux:badge>
-                                            @endif
-                                        </div>
-
-                                        <x-text class="text-[11px] text-light-txt-muted dark:text-dark-txt-muted mt-0.5">
-                                            Submitted {{ $report->created_at->format('M d, Y') }}
-                                        </x-text>
-
-                                        @if ($report->status === 'approved' && $report->newCard)
-                                            <x-text class="text-xs text-success dark:text-dark-success mt-1">
-                                                New card issued: <span class="font-mono">**** {{ substr($report->newCard->card_number, -4) }}</span>
-                                                · {{ $report->approved_at?->format('M d, Y') }}
-                                            </x-text>
-                                        @endif
-
-                                        @if ($report->status === 'rejected' && $report->rejection_reason)
-                                            <x-text class="text-xs text-danger dark:text-dark-danger mt-1">
-                                                Reason: {{ $report->rejection_reason }}
-                                            </x-text>
-                                        @endif
-
-                                        @if ($report->status === 'pending')
-                                            <x-text class="text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">
-                                                Avail a new ICCT card from the cashier (located inside the terminal) to complete the replacement.
-                                            </x-text>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                        @empty
-                            <div class="flex flex-col items-center justify-center py-8 gap-2">
-                                <flux:icon name="document-text" class="w-6 h-6 text-light-txt-muted dark:text-dark-txt-muted" />
-                                <x-text class="font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
-                                    No reports submitted yet.
-                                </x-text>
-                            </div>
-                        @endforelse
-                    </div>
-                </flux:card>
-            </div>
+                @endif
+            </x-card>
         </div>
+
+        {{-- Confirmation modal (requires the account password) --}}
+        <flux:modal name="confirm-block-card" class="min-w-[22rem] md:w-96" wire:close="clearPassword">
+            <form wire:submit="blockCard" class="space-y-6">
+                <div>
+                    <flux:heading size="lg">Block this card?</flux:heading>
+                    <flux:text class="mt-2">
+                        Your card will be blocked immediately and can no longer be used for payments or top-ups.
+                        Enter your account password to confirm.
+                    </flux:text>
+                </div>
+
+                <flux:field>
+                    <flux:label>Password</flux:label>
+                    <flux:input
+                        type="password"
+                        wire:model="password"
+                        viewable
+                        autocomplete="current-password"
+                        placeholder="Your login password"
+                    />
+                    <flux:error name="password" />
+                </flux:field>
+
+                <div class="flex gap-2">
+                    <flux:spacer />
+                    <flux:modal.close>
+                        <flux:button type="button" variant="ghost">Cancel</flux:button>
+                    </flux:modal.close>
+                    <flux:button
+                        type="submit"
+                        variant="danger"
+                        wire:loading.attr="disabled"
+                        wire:target="blockCard"
+                    >
+                        <span wire:loading.remove wire:target="blockCard">Yes, block my card</span>
+                        <span wire:loading wire:target="blockCard">Blocking…</span>
+                    </flux:button>
+                </div>
+            </form>
+        </flux:modal>
     @endif
 </div>

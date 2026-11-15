@@ -135,7 +135,7 @@ class RentalPaymentService
                 'outcome'             => 'confirmed',
                 'request'             => $request,
                 'amount'              => $confirmedPesos,
-                'expired_passengers'  => $others->pluck('passenger_id')->all(),
+                'expired_request_ids' => $others->pluck('id')->all(),
             ];
         });
 
@@ -209,10 +209,15 @@ class RentalPaymentService
                 // Close any other open checkout page for this request so it cannot be paid twice.
                 $this->checkout->expireOpenSessions($result['request']);
 
+                // 6. Tell the operator and the passenger.
                 $this->notifier->bookingConfirmed($result['request'], (float) $result['amount']);
 
-                if (! empty($result['expired_passengers'])) {
-                    $this->notifier->expiredByBooking($result['expired_passengers']);
+                // Tell every passenger whose open request just lost the dates.
+                if (! empty($result['expired_request_ids'])) {
+                    RentalRequest::with(['vehicle.user', 'passenger'])
+                        ->whereIn('id', $result['expired_request_ids'])
+                        ->get()
+                        ->each(fn (RentalRequest $lost) => $this->notifier->lostToAnotherBooking($lost));
                 }
             } elseif ($result['outcome'] === 'needs_review') {
                 $this->notifier->needsReview($result['request'], $result['amount'], $result['problem']);

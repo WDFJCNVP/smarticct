@@ -4,6 +4,7 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 
+use App\Models\RentalRequest;
 use App\Models\UserNotification;
 
 new class extends Component
@@ -39,6 +40,39 @@ new class extends Component
         return $this->user_notification;
     }
 
+    /**
+     * For a rental notification: the page where this user can see the request.
+     * Operator -> the review page, passenger -> My requests. Nothing for anyone else.
+     */
+    #[Computed]
+    public function rentalLink(): ?array
+    {
+        $notification = $this->notificationDetails->notification;
+
+        if (! $notification || $notification->type !== 'Rental') {
+            return null;
+        }
+
+        $requestId = $notification->metadata['rental_request_id'] ?? null;
+        $request   = $requestId ? RentalRequest::with('vehicle')->find($requestId) : null;
+
+        if (! $request) {
+            return null;
+        }
+
+        $userId = auth()->id();
+
+        if ($request->vehicle->user_id === $userId) {
+            return ['url' => route('rental-request-review', ['rentalRequest' => $request->id]), 'label' => 'View request'];
+        }
+
+        if ($request->passenger_id === $userId) {
+            return ['url' => route('my-rental-requests'), 'label' => 'View my requests'];
+        }
+
+        return null;
+    }
+
     public function render() {
         $role = auth()->user()->role;
         return $this->view()->layout('layouts.' . $role . '-layout');
@@ -71,7 +105,11 @@ new class extends Component
     <x-card class="overflow-hidden">
         <div class="flex items-start gap-4 px-2">
             <div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
-                <flux:icon.envelope class="w-5 h-5 text-primary dark:text-white" />
+                @if ($this->notificationDetails->notification?->type === 'Rental')
+                    <flux:icon.truck class="w-5 h-5 text-primary dark:text-white" />
+                @else
+                    <flux:icon.envelope class="w-5 h-5 text-primary dark:text-white" />
+                @endif
             </div>
 
             <div class="flex-1 min-w-0">
@@ -90,11 +128,17 @@ new class extends Component
         <flux:separator class="my-4" />
 
         <div class="px-2 pb-2">
-            <x-text variant="strong" class="font-secondary text-light-txt-body dark:text-dark-txt-body">
-
-                {{ $this->notificationDetails->notification->message ?? 'No Message Content available.' }}
-            </x-text>
+            {{-- whitespace-pre-line shows each detail line of a rental message on its own line --}}
+            <x-text variant="strong" class="font-secondary whitespace-pre-line text-light-txt-body dark:text-dark-txt-body">{{ $this->notificationDetails->notification->message ?? 'No Message Content available.' }}</x-text>
         </div>
+
+        @if ($this->rentalLink)
+            <div class="px-2 pb-2 pt-2">
+                <flux:button :href="$this->rentalLink['url']" wire:navigate variant="primary" size="sm" class="font-secondary">
+                    {{ $this->rentalLink['label'] }}
+                </flux:button>
+            </div>
+        @endif
     </x-card>
 
     <flux:modal name="delete-notification" class="w-[calc(100%-2rem)] sm:min-w-[22rem] sm:max-w-none">

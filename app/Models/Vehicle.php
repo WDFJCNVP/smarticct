@@ -25,6 +25,7 @@ class Vehicle extends Model
         'has_franchise',
         'franchise_expiry_date',
         'last_notified_status',
+        'images',
     ];
 
     /**
@@ -44,6 +45,7 @@ class Vehicle extends Model
             'has_franchise'         => 'boolean',
             'franchise_expiry_date' => 'date',
             'rental_status'         => RentalStatus::class,
+            'images' => 'array',
         ];
     }
 

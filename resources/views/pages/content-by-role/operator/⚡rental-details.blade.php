@@ -5,6 +5,8 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\WithPagination;
 
+use Flux\Flux;
+
 use App\Enums\RentalRequestStatus;
 use App\Models\RentalRequest;
 use App\Models\Vehicle;
@@ -23,6 +25,70 @@ new #[Layout('layouts.operator-layout')] class extends Component
         abort_if($vehicle->user_id !== auth()->id(), 404);
 
         $this->vehicle = $vehicle;
+    }
+
+    // ---- vehicle profile picture (chosen from the vehicle's uploaded photos) ----
+
+    /** @return list<array{path: string, url: string}> every uploaded photo of this vehicle */
+    #[Computed]
+    public function photos(): array
+    {
+        return collect($this->vehicle->images ?? [])
+            ->map(fn ($path) => ['path' => $path, 'url' => asset('storage/' . $path)])
+            ->values()
+            ->all();
+    }
+
+    /** The chosen picture's path, or null when none is chosen (or the file was deleted since). */
+    #[Computed]
+    public function profileImagePath(): ?string
+    {
+        $path = $this->vehicle->profile_image;
+
+        return $path && in_array($path, $this->vehicle->images ?? [], true) ? $path : null;
+    }
+
+    #[Computed]
+    public function profileImageUrl(): ?string
+    {
+        return $this->profileImagePath ? asset('storage/' . $this->profileImagePath) : null;
+    }
+
+    public function setProfileImage(string $path): void
+    {
+        abort_if($this->vehicle->user_id !== auth()->id(), 404);
+
+        $vehicle = $this->vehicle->fresh();
+
+        // Only one of this vehicle's own uploaded photos can be chosen.
+        if (! in_array($path, $vehicle->images ?? [], true)) {
+            Flux::toast(variant: 'danger', heading: 'Photo not found', duration: 4000, text: 'That photo is no longer available. Please pick another one.');
+            return;
+        }
+
+        $vehicle->profile_image = $path;
+        $vehicle->save();
+
+        $this->vehicle = $vehicle;
+        unset($this->photos, $this->profileImagePath, $this->profileImageUrl);
+
+        Flux::modal('profile-image')->close();
+        Flux::toast(variant: 'success', heading: 'Vehicle picture updated', duration: 4000, text: 'This photo is now the picture of your vehicle.');
+    }
+
+    public function clearProfileImage(): void
+    {
+        abort_if($this->vehicle->user_id !== auth()->id(), 404);
+
+        $vehicle = $this->vehicle->fresh();
+        $vehicle->profile_image = null;
+        $vehicle->save();
+
+        $this->vehicle = $vehicle;
+        unset($this->profileImagePath, $this->profileImageUrl);
+
+        Flux::modal('profile-image')->close();
+        Flux::toast(variant: 'success', heading: 'Picture removed', duration: 3000, text: 'The default vehicle icon is shown again.');
     }
 
     public function updatedSearch() { $this->resetPage(); }
@@ -104,12 +170,12 @@ new #[Layout('layouts.operator-layout')] class extends Component
 
     <div class="flex flex-col-reverse sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6">
         <div>
-            <x-heading
+<!--             <x-heading
                 class="!font-primary !font-bold !text-light-txt-primary dark:!text-dark-txt-primary"
                 style="font-size: var(--text-section-heading)"
             >
                 Rental details and passenger requests for {{ $vehicle->plate_number }}.
-            </x-heading>
+            </x-heading> -->
         </div>
 
         <flux:breadcrumbs class="shrink-0 sm:pt-1">
@@ -124,8 +190,30 @@ new #[Layout('layouts.operator-layout')] class extends Component
     <flux:card class="mb-5 !p-3 sm:!p-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div class="flex items-center gap-3">
-                <div class="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-lg bg-primary/10 dark:bg-primary/20 text-primary dark:text-dark-txt-primary shrink-0">
-                    <flux:icon.truck class="w-4 h-4 sm:w-5 sm:h-5" />
+                {{-- Vehicle picture (falls back to the truck icon), with a pen button to change it --}}
+                <div class="relative shrink-0">
+                    @if ($this->profileImageUrl)
+                        <img
+                            src="{{ $this->profileImageUrl }}"
+                            alt="Picture of {{ $vehicle->plate_number }}"
+                            class="h-24 w-24 sm:h-28 sm:w-28 rounded-xl border border-light-bd-default dark:border-dark-bd-default object-cover"
+                        />
+                    @else
+                        <div class="flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-dark-txt-primary">
+                            <flux:icon.truck class="w-9 h-9 sm:w-10 sm:h-10" />
+                        </div>
+                    @endif
+
+                    <flux:modal.trigger name="profile-image">
+                        <button
+                            type="button"
+                            x-on:click="$dispatch('reset-profile-picker')"
+                            class="absolute -bottom-1.5 -right-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white shadow-md ring-2 ring-white dark:ring-dark-secondary hover:bg-primary-hover transition focus:outline-none focus-visible:ring-primary"
+                            aria-label="Change vehicle picture"
+                        >
+                            <flux:icon.pencil class="w-4 h-4" />
+                        </button>
+                    </flux:modal.trigger>
                 </div>
                 <div>
                     <x-text class="font-mono font-medium text-light-txt-primary dark:text-dark-txt-primary text-sm sm:text-base">
@@ -336,7 +424,9 @@ new #[Layout('layouts.operator-layout')] class extends Component
 
                             <flux:table.cell align="center" class="px-2 md:px-4 py-1.5 md:py-2">
                                 @php
-                                    $badgeColor = match ($request->status) {
+                                    // A request past its deadline already reads "Expired", even before the clean-up job runs.
+                                    $lapsed = $request->isLapsed();
+                                    $badgeColor = $lapsed ? 'red' : match ($request->status) {
                                         \App\Enums\RentalRequestStatus::Pending         => 'yellow',
                                         \App\Enums\RentalRequestStatus::Quoted          => 'blue',
                                         \App\Enums\RentalRequestStatus::AwaitingPayment => 'orange',
@@ -346,7 +436,7 @@ new #[Layout('layouts.operator-layout')] class extends Component
                                     };
                                 @endphp
                                 <flux:badge :color="$badgeColor" size="sm" class="font-secondary text-badge text-xs">
-                                    {{ $request->status->label() }}
+                                    {{ $lapsed ? 'Expired' : $request->status->label() }}
                                 </flux:badge>
                             </flux:table.cell>
 
@@ -355,10 +445,10 @@ new #[Layout('layouts.operator-layout')] class extends Component
                                     href="{{ route('rental-request-review', ['rentalRequest' => $request->id]) }}"
                                     wire:navigate
                                     size="sm"
-                                    :variant="$request->status === \App\Enums\RentalRequestStatus::Pending ? 'primary' : 'ghost'"
+                                    :variant="($request->status === \App\Enums\RentalRequestStatus::Pending && ! $lapsed) ? 'primary' : 'ghost'"
                                     class="font-secondary"
                                 >
-                                    {{ $request->status === \App\Enums\RentalRequestStatus::Pending ? 'Review' : 'View' }}
+                                    {{ ($request->status === \App\Enums\RentalRequestStatus::Pending && ! $lapsed) ? 'Review' : 'View' }}
                                 </flux:button>
                             </flux:table.cell>
                         </flux:table.row>
@@ -384,4 +474,95 @@ new #[Layout('layouts.operator-layout')] class extends Component
             </div>
         @endif
     </flux:card>
+
+    {{-- ===================== VEHICLE PICTURE MODAL ===================== --}}
+    <flux:modal name="profile-image" class="w-[calc(100%-2rem)] md:w-[44rem] md:max-w-2xl mx-auto rounded-xl">
+        <div class="flex flex-col gap-4 max-h-[80vh] overflow-y-auto p-1">
+            <div>
+                <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                    Choose the vehicle picture
+                </flux:heading>
+                <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                    Pick one of the photos you uploaded. Passengers will see it for this vehicle.
+                </flux:text>
+            </div>
+
+            @if (count($this->photos) > 0)
+                <div
+                    wire:key="profile-picker-{{ md5(($this->profileImagePath ?? '') . '|' . count($this->photos)) }}"
+                    x-data="{
+                        photos: @js($this->photos),
+                        initial: @js($this->profileImagePath),
+                        selected: @js($this->profileImagePath ?? $this->photos[0]['path']),
+                        get current() { return this.photos.find(p => p.path === this.selected); },
+                    }"
+                    x-on:reset-profile-picker.window="selected = initial ?? photos[0].path"
+                    class="flex flex-col gap-3"
+                >
+                    {{-- big preview --}}
+                    <div class="relative overflow-hidden rounded-xl border border-light-bd-default dark:border-dark-bd-default bg-light-subtle dark:bg-dark-subtle">
+                        <img :src="current?.url" alt="Selected vehicle photo" class="aspect-[4/3] sm:aspect-[16/10] w-full object-contain" />
+                        <span
+                            x-show="selected === initial" x-cloak
+                            class="absolute left-3 top-3 rounded-md bg-primary px-2 py-1 text-xs font-medium text-white shadow"
+                        >Current picture</span>
+                    </div>
+
+                    {{-- thumbnails --}}
+                    <div class="flex gap-2 overflow-x-auto pb-1">
+                        <template x-for="photo in photos" :key="photo.path">
+                            <button
+                                type="button"
+                                x-on:click="selected = photo.path"
+                                :aria-pressed="selected === photo.path"
+                                :class="selected === photo.path ? 'ring-2 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-dark-secondary' : 'opacity-70 hover:opacity-100'"
+                                class="h-16 w-16 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            >
+                                <img :src="photo.url" alt="" class="h-full w-full object-cover" />
+                            </button>
+                        </template>
+                    </div>
+
+                    <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                        <div>
+                            @if ($this->profileImagePath)
+                                <flux:button
+                                    type="button"
+                                    wire:click="clearProfileImage"
+                                    wire:confirm="Remove the picture and show the default icon?"
+                                    variant="ghost" size="sm" icon="trash"
+                                    class="w-full sm:w-auto justify-center font-secondary"
+                                >Use default icon</flux:button>
+                            @endif
+                        </div>
+
+                        <div class="flex flex-col-reverse sm:flex-row gap-2">
+                            <flux:modal.close>
+                                <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">Cancel</flux:button>
+                            </flux:modal.close>
+                            <flux:button
+                                type="button"
+                                variant="primary"
+                                x-on:click="$wire.setProfileImage(selected)"
+                                x-bind:disabled="selected === initial"
+                                wire:loading.attr="disabled"
+                                wire:target="setProfileImage"
+                                class="w-full sm:w-auto justify-center font-secondary"
+                            >Select this image</flux:button>
+                        </div>
+                    </div>
+                </div>
+            @else
+                <div class="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                    <flux:icon.photo class="w-8 h-8 text-light-txt-muted dark:text-dark-txt-muted" />
+                    <x-text class="text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        This vehicle has no photos yet. Upload photos from its Travel records page, then come back to choose one.
+                    </x-text>
+                    <flux:modal.close>
+                        <flux:button type="button" variant="ghost" class="font-secondary">Close</flux:button>
+                    </flux:modal.close>
+                </div>
+            @endif
+        </div>
+    </flux:modal>
 </div>

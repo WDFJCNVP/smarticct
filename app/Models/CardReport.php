@@ -9,7 +9,6 @@ class CardReport extends Model
     protected $fillable = [
         'user_id',
         'card_id',
-        'valid_id_path',
         'reason',
         'description',
         'status',

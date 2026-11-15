@@ -3,7 +3,12 @@
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
+
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 use Flux\Flux;
 
@@ -13,7 +18,7 @@ use App\Enums\RentalStatus;
 
 new  #[Layout('layouts.operator-layout')] class extends Component
 {
-    use WithPagination;
+    use WithPagination, WithFileUploads;
 
     public $vehicle_type;
     public $plate_number;
@@ -24,6 +29,107 @@ new  #[Layout('layouts.operator-layout')] class extends Component
 
     // Mirrors vehicles.rental_status for the Active / Not active select.
     public string $rentalStatus = 'inactive';
+
+    // ---- vehicle photos (max 5 per vehicle, stored on the "public" disk) ----
+    #[Locked]
+    public int $maxImages = 5;
+
+    /** Files picked in the browser, saved right away by updatedNewImages(). */
+    public array $newImages = [];
+
+    /** @return list<array{path: string, url: string}> */
+    #[Computed]
+    public function photos(): array
+    {
+        return collect($this->vehicle->images ?? [])
+            ->map(fn ($path) => ['path' => $path, 'url' => asset('storage/' . $path)])
+            ->values()
+            ->all();
+    }
+
+    /** Runs as soon as the operator picks files. */
+    public function updatedNewImages(): void
+    {
+        abort_if($this->vehicle->user_id !== auth()->id(), 404);
+
+        $this->resetErrorBag();
+
+        $vehicle   = $this->vehicle->fresh();
+        $existing  = $vehicle->images ?? [];
+        $remaining = $this->maxImages - count($existing);
+
+        if ($remaining <= 0) {
+            $this->reset('newImages');
+            $this->addError('newImages', "This vehicle already has {$this->maxImages} photos. Remove one to add another.");
+            return;
+        }
+
+        if (count($this->newImages) > $remaining) {
+            $this->reset('newImages');
+            $this->addError('newImages', "You can add only {$remaining} more " . ($remaining === 1 ? 'photo' : 'photos') . " (maximum {$this->maxImages} per vehicle).");
+            return;
+        }
+
+        try {
+            $this->validate([
+                'newImages'   => ['array'],
+                'newImages.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            ], [
+                'newImages.*.image' => 'Only image files can be uploaded.',
+                'newImages.*.mimes' => 'Photos must be JPG, PNG or WEBP.',
+                'newImages.*.max'   => 'Each photo must be 4 MB or smaller.',
+            ]);
+        } catch (ValidationException $e) {
+            $this->reset('newImages');
+            throw $e;
+        }
+
+        $saved = [];
+        foreach ($this->newImages as $file) {
+            $saved[] = $file->store("vehicle-images/{$vehicle->id}", 'public');
+        }
+
+        $vehicle->images = array_values(array_merge($existing, $saved));
+        $vehicle->save();
+
+        $this->vehicle = $vehicle;
+        $this->reset('newImages');
+        unset($this->photos);
+
+        $this->notify(
+            count($saved) === 1 ? 'Photo added' : 'Photos added',
+            'Passengers can see them when they look at this vehicle.',
+        );
+    }
+
+    public function removeImage(string $path): void
+    {
+        abort_if($this->vehicle->user_id !== auth()->id(), 404);
+
+        $vehicle = $this->vehicle->fresh();
+        $images  = $vehicle->images ?? [];
+
+        // Only paths that belong to this vehicle can be removed.
+        if (! in_array($path, $images, true)) {
+            return;
+        }
+
+        Storage::disk('public')->delete($path);
+
+        $vehicle->images = array_values(array_diff($images, [$path]));
+
+        // If this photo was the vehicle's picture, fall back to the default icon.
+        if ($vehicle->profile_image === $path) {
+            $vehicle->profile_image = null;
+        }
+
+        $vehicle->save();
+
+        $this->vehicle = $vehicle;
+        unset($this->photos);
+
+        $this->notify('Photo removed', 'The photo was deleted from this vehicle.');
+    }
 
     /** True until the operator has set up at least one rental event for this vehicle. */
     #[Computed]
@@ -249,13 +355,74 @@ new  #[Layout('layouts.operator-layout')] class extends Component
             </div>
         </div>
 
-        {{-- Expiry dates footer --}}
-        <div class="border-t border-light-bd-default dark:border-dark-bd-default mt-3 sm:mt-4 pt-2 sm:pt-3 text-xs text-light-txt-muted dark:text-dark-txt-muted flex flex-wrap justify-between items-center gap-3 sm:gap-4">
-            @if($this->vehicle->has_franchise && $this->vehicle->franchise_expiry_date)
-                <span>Franchise expires: <strong>{{ $this->vehicle->franchise_expiry_date->format('M d, Y') }}</strong></span>
-            @else
-                <span class="text-danger dark:text-dark-danger">Franchise not verified</span>
-            @endif
+        {{-- Footer: franchise (left) and vehicle photos (right) --}}
+        <div class="border-t border-light-bd-default dark:border-dark-bd-default mt-3 sm:mt-4 pt-3 sm:pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 text-xs text-light-txt-muted dark:text-dark-txt-muted">
+            {{-- Left --}}
+            <div class="flex items-start">
+                @if($this->vehicle->has_franchise && $this->vehicle->franchise_expiry_date)
+                    <span>Franchise expires: <strong>{{ $this->vehicle->franchise_expiry_date->format('M d, Y') }}</strong></span>
+                @else
+                    <span class="text-danger dark:text-dark-danger">Franchise not verified</span>
+                @endif
+            </div>
+
+            {{-- Right: photos --}}
+            <div class="sm:justify-self-end w-full sm:w-auto">
+                <div class="mb-2 flex items-center justify-between sm:justify-end gap-3">
+                    <span class="font-medium text-light-txt-body dark:text-dark-txt-body">Vehicle photos</span>
+                    <span class="tabular-nums">{{ count($this->photos) }} / {{ $this->maxImages }}</span>
+                </div>
+
+                <div class="flex flex-wrap sm:justify-end gap-2">
+                    @foreach ($this->photos as $photo)
+                        <div wire:key="photo-{{ md5($photo['path']) }}" class="group relative h-16 w-16 sm:h-20 sm:w-20 shrink-0">
+                            <a href="{{ $photo['url'] }}" target="_blank" rel="noopener" class="block h-full w-full">
+                                <img src="{{ $photo['url'] }}" alt="Vehicle photo" loading="lazy"
+                                     class="h-full w-full rounded-lg border border-light-bd-default dark:border-dark-bd-default object-cover" />
+                            </a>
+                            <button
+                                type="button"
+                                wire:click="removeImage(@js($photo['path']))"
+                                wire:confirm="Delete this photo?"
+                                class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition"
+                                aria-label="Delete photo"
+                            >
+                                <flux:icon.x-mark class="w-3 h-3" />
+                            </button>
+                        </div>
+                    @endforeach
+
+                    @if (count($this->photos) < $this->maxImages)
+                        <label
+                            wire:key="photo-add"
+                            class="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-light-bd-strong dark:border-dark-bd-strong text-light-txt-muted dark:text-dark-txt-muted hover:border-primary hover:text-primary dark:hover:text-dark-txt-primary transition focus-within:ring-2 focus-within:ring-primary"
+                        >
+                            <input
+                                type="file"
+                                wire:model="newImages"
+                                multiple
+                                accept="image/png,image/jpeg,image/webp"
+                                class="sr-only"
+                            />
+                            <span wire:loading.remove wire:target="newImages" class="flex flex-col items-center gap-1">
+                                <flux:icon.photo class="w-5 h-5" />
+                                <span class="text-[10px] leading-none">Add photo</span>
+                            </span>
+                            <span wire:loading wire:target="newImages" class="flex flex-col items-center gap-1">
+                                <flux:icon.loading class="w-5 h-5" />
+                                <span class="text-[10px] leading-none">Uploading</span>
+                            </span>
+                        </label>
+                    @endif
+                </div>
+
+                @php $imageError = $errors->first('newImages') ?: $errors->first('newImages.*'); @endphp
+                @if ($imageError)
+                    <p class="mt-2 text-danger dark:text-dark-danger sm:text-right">{{ $imageError }}</p>
+                @else
+                    <p class="mt-2 sm:text-right">Up to {{ $this->maxImages }} photos · JPG, PNG or WEBP · 4 MB each</p>
+                @endif
+            </div>
         </div>
     </flux:card>
 

@@ -154,11 +154,11 @@ new #[Layout('layouts.admin-layout')] class extends Component
                 </flux:button>
             </flux:link>
 
-            <flux:link href="{{ route('admin.cards.reports') }}" wire:navigate class="w-full sm:w-auto">
+<!--             <flux:link href="{{ route('admin.cards.reports') }}" wire:navigate class="w-full sm:w-auto">
                 <flux:button variant="primary" icon="exclamation-triangle" size="sm" class="font-secondary w-full sm:w-auto justify-center bg-primary text-white hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover">
                     Card Reports
                 </flux:button>
-            </flux:link>
+            </flux:link> -->
         </div>
     </div>
 

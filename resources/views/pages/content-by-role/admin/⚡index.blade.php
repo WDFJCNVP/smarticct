@@ -18,12 +18,79 @@ use App\Models\AuditLog;
 use App\Models\TravelRecord;
 use App\Models\TerminalAccount;
 
+use Illuminate\Support\Facades\DB;
+use App\Models\Notification;
+use App\Models\UserNotification;
+use App\Events\NotificationEvent;
+
 new #[Layout('layouts.admin-layout')] class extends Component
 {
     public string $range = '7'; // days: 7, 14, 30
     public string $peakVehicleType = 'all'; // filter for the peak-queueing-time chart
 
     // ===================== KPI CARDS =====================
+
+    public string $announcementTitle = '';
+    public string $announcementMessage = '';
+
+    public function sendAnnouncement(): void
+    {
+        abort_unless(auth()->user()->role === 'admin', 403);
+
+        $validated = $this->validate([
+            'announcementTitle'   => ['required', 'string', 'max:255'],
+            'announcementMessage' => ['required', 'string', 'max:2000'],
+        ], [], [
+            'announcementTitle'   => 'title',
+            'announcementMessage' => 'message',
+        ]);
+
+        $recipients = 0;
+
+        DB::transaction(function () use ($validated, &$recipients) {
+            $notification = Notification::create([
+                'type'     => 'Announcement',
+                'title'    => trim($validated['announcementTitle']),
+                'message'  => trim($validated['announcementMessage']),
+                'metadata' => ['sent_by' => auth()->id()],
+            ]);
+
+            $now = now();
+
+            // One user_notifications row per user. Chunked so a large user base
+            // doesn't build one giant insert.
+            User::query()->select('id')->chunkById(500, function ($users) use ($notification, $now, &$recipients) {
+                UserNotification::insert(
+                    $users->map(fn ($user) => [
+                        'notification_id' => $notification->id,
+                        'user_id'         => $user->id,
+                        'is_read'         => false,
+                        'admin_deleted'   => false,
+                        'user_deleted'    => false,
+                        'created_at'      => $now,
+                        'updated_at'      => $now,
+                    ])->all()
+                );
+
+                $recipients += $users->count();
+            });
+        });
+
+        // Same event your notifications page and bell already listen for.
+        event(new NotificationEvent());
+
+        $this->reset(['announcementTitle', 'announcementMessage']);
+        $this->resetValidation();
+
+        Flux::modal('announcement')->close();
+
+        Flux::toast(
+            duration: 4000,
+            variant: 'success',
+            heading: 'Announcement sent',
+            text: "Delivered to {$recipients} users.",
+        );
+    }
 
     #[Computed]
     public function availableToWithdraw(): float
@@ -57,336 +124,49 @@ new #[Layout('layouts.admin-layout')] class extends Component
         return Queue::whereIn('status', ['staging', 'loading'])->count();
     }
 
-#[Computed]
-public function totalRevenue()
-{
-    $queueFeeCard = CardTransaction::where('transaction_type', 'queueing_fee')
-        ->where('status', 'success')
-        ->sum('amount');
-
-    $queueFeeCash = CashTransaction::where('status', 'success')
-        ->where('reference_no', 'like', 'CASH-%')
-        ->sum('amount');
-
-    $topUps = TopUpTransaction::where('status', 'paid')->sum('amount_paid');
-
-    $fareCard = CardTransaction::where('transaction_type', 'queue_deduction')
-        ->where('source', 'kiosk_tap_in')
-        ->where('status', 'success')
-        ->sum('amount');
-
-    $fareCash = CashTransaction::where('status', 'success')
-        ->where('reference_no', 'like', 'FARECASH-%')
-        ->sum('amount');
-
-    return $queueFeeCard + $queueFeeCash + $topUps + $fareCard + $fareCash;
-}
-
-private function queueFeeRevenueForDate(\Carbon\Carbon $date): float
-{
-    $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
-        ->where('status', 'success')
-        ->whereDate('transaction_time', $date)
-        ->sum('amount');
-
-    $cashFees = CashTransaction::where('status', 'success')
-        ->where('reference_no', 'like', 'CASH-%')
-        ->whereDate('created_at', $date)
-        ->sum('amount');
-
-    return (float) ($cardFees + $cashFees);
-}
-
-private function dayOverDayTrend(float $today, float $yesterday): ?float
-{
-    if ($yesterday == 0.0) {
-        return $today > 0 ? 100.0 : null;
-    }
-
-    return round((($today - $yesterday) / $yesterday) * 100, 1);
-}
-
-#[Computed]
-public function todayRevenue()
-{
-    return $this->queueFeeRevenueForDate(today());
-}
-
     #[Computed]
-    public function queueFeeRevenueToday()
+    public function totalRevenue()
     {
-        // Was: today's queue count x *today's current* configured rate —
-        // which silently misreports the past if a rate is changed mid-day.
-        // Now the same real, transaction-level figure as "Revenue Today".
-        return $this->todayRevenue;
-    }
-
-    #[Computed]
-    public function cardAdoptionRate()
-    {
-        $totalUsers = $this->totalUsers ?: 1;
-
-        // Distinct cardholders, not raw card rows. A lost/damaged card
-        // replacement (admin/card-reports.blade.php -> approveReport())
-        // creates a brand-new Card row and only suspends the old one, so
-        // counting rows double-counts every replacement against the same
-        // user and lets this rate drift past 100% over time.
-        $cardHolders = Card::distinct('user_id')->count('user_id');
-
-        return round(($cardHolders / $totalUsers) * 100, 1);
-    }
-
-    #[Computed]
-    public function failedTransactionsCount()
-    {
-        return CardTransaction::whereIn('status', ['failed', 'insufficient_balance'])
-            ->whereDate('created_at', today())
-            ->count();
-    }
-
-    #[Computed]
-    public function totalWithdrawn()
-    {
-        return CardTransaction::where('transaction_type', 'admin_withdrawal')
-            ->whereIn('status', ['pending', 'success'])
+        $queueFeeCard = CardTransaction::where('transaction_type', 'queueing_fee')
+            ->where('status', 'success')
             ->sum('amount');
-    }
 
-    #[Computed]
-    public function pendingWithdrawals()
-    {
-        return CardTransaction::where('transaction_type', 'admin_withdrawal')
-            ->where('status', 'pending')
-            ->count();
-    }
-
-    #[Computed]
-    public function withdrawnToday()
-    {
-        return CardTransaction::where('transaction_type', 'admin_withdrawal')
-            ->whereIn('status', ['pending', 'success'])
-            ->whereDate('transaction_time', today())
+        $queueFeeCash = CashTransaction::where('status', 'success')
+            ->where('reference_no', 'like', 'CASH-%')
             ->sum('amount');
+
+        $topUps = TopUpTransaction::where('status', 'paid')->sum('amount_paid');
+
+        $fareCard = CardTransaction::where('transaction_type', 'queue_deduction')
+            ->where('source', 'kiosk_tap_in')
+            ->where('status', 'success')
+            ->sum('amount');
+
+        $fareCash = CashTransaction::where('status', 'success')
+            ->where('reference_no', 'like', 'FARECASH-%')
+            ->sum('amount');
+
+        return $queueFeeCard + $queueFeeCash + $topUps + $fareCard + $fareCash;
     }
 
-    // ===================== CHARTS =====================
-
-    #[Computed]
-    public function roleSplit()
+    private function queueFeeRevenueForDate(\Carbon\Carbon $date): float
     {
-        $counts = User::whereIn('role', ['operator', 'commuter'])
-            ->selectRaw('role, count(*) as total')
-            ->groupBy('role')
-            ->pluck('total', 'role');
-
-        return [
-            'labels' => $counts->keys()->map(fn ($r) => ucfirst($r))->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function commuterTypeSplit()
-    {
-        $counts = User::where('role', 'commuter')
-            ->whereNotNull('commuter_type')
-            ->selectRaw('commuter_type, count(*) as total')
-            ->groupBy('commuter_type')
-            ->pluck('total', 'commuter_type');
-
-        return [
-            'labels' => $counts->keys()->map(fn ($t) => ucwords(str_replace('_', ' ', $t)))->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function registrationsChart()
-    {
-        $days = max(1, (int) $this->range);
-        $start = today()->subDays($days - 1);
-        $end = today();
-
-        $counts = User::whereIn('role', ['operator', 'commuter'])
-            ->whereBetween('created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
-            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
-            ->groupBy('day')
-            ->pluck('total', 'day');
-
-        $labels = [];
-        $data = [];
-
-        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
-            $key = $cursor->format('Y-m-d');
-            $labels[] = $cursor->format('M j');
-            $data[] = (int) ($counts[$key] ?? 0);
-        }
-
-        return compact('labels', 'data');
-    }
-
-    #[Computed]
-    public function revenueByPaymentMethod()
-    {
-        $days = max(1, (int) $this->range);
-
-        $counts = TopUpTransaction::where('status', 'paid')
-            ->whereBetween('created_at', [today()->subDays($days - 1)->startOfDay(), today()->endOfDay()])
-            ->selectRaw('payment_method, SUM(amount_paid) as total')
-            ->groupBy('payment_method')
-            ->pluck('total', 'payment_method');
-
-        return [
-            'labels' => $counts->keys()->map(fn ($m) => $m ? ucfirst($m) : 'Unknown')->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function queueStatusBreakdown()
-    {
-        $counts = Queue::whereDate('time_queued', today())
-            ->selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
-        return [
-            'labels' => $counts->keys()->map(fn ($s) => ucfirst($s))->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function queueVolumeByVehicleType()
-    {
-        $days = max(1, (int) $this->range);
-
-        $counts = Queue::whereBetween('time_queued', [today()->subDays($days - 1)->startOfDay(), today()->endOfDay()])
-            ->selectRaw('vehicle_type, count(*) as total')
-            ->groupBy('vehicle_type')
-            ->pluck('total', 'vehicle_type');
-
-        return [
-            'labels' => $counts->keys()->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function postsByRole()
-    {
-        $days = max(1, (int) $this->range);
-
-        $counts = Post::query()
-            ->join('users', 'posts.user_id', '=', 'users.id')
-            ->where('posts.type', 'rental')
-            ->whereIn('users.role', ['operator', 'commuter'])
-            ->whereDate('posts.created_at', '>=', today()->subDays($days - 1))
-            ->selectRaw('users.role as role, count(*) as total')
-            ->groupBy('users.role')
-            ->pluck('total', 'role');
-
-        return [
-            'labels' => $counts->keys()->map(fn ($r) => ucfirst($r))->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function rentTransactionFunnel()
-    {
-        $counts = RentTransaction::selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
-        return [
-            'labels' => $counts->keys()->map(fn ($s) => ucfirst($s))->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function tripRequestStatusSplit()
-    {
-        $counts = TripRequest::selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
-        return [
-            'labels' => $counts->keys()->map(fn ($s) => ucfirst($s))->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function cardsByStatus()
-    {
-        $counts = Card::selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
-        return [
-            'labels' => $counts->keys()->map(fn ($s) => ucfirst($s))->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function auditActionVolume()
-    {
-        $days = max(1, (int) $this->range);
-
-        $counts = AuditLog::whereBetween('created_at', [today()->subDays($days - 1)->startOfDay(), today()->endOfDay()])
-            ->selectRaw('action, count(*) as total')
-            ->groupBy('action')
-            ->orderByDesc('total')
-            ->limit(8)
-            ->pluck('total', 'action');
-
-        return [
-            'labels' => $counts->keys()->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function recentAuditEntries()
-    {
-        return AuditLog::with('user:id,name')
-            ->latest()
-            ->limit(5)
-            ->get(['id', 'user_id', 'action', 'subject', 'channel', 'created_at']);
-    }
-
-    private function fareRevenueForDate(\Carbon\Carbon $date): float
-    {
-        $cardFares = CardTransaction::where('transaction_type', 'fare_earning')
-            ->where('source', 'cashier')
+        $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
             ->where('status', 'success')
             ->whereDate('transaction_time', $date)
             ->sum('amount');
 
-        $cashFares = CashTransaction::where('status', 'success')
-            ->where('reference_no', 'like', 'FARECASH-%')
+        $cashFees = CashTransaction::where('status', 'success')
+            ->where('reference_no', 'like', 'CASH-%')
             ->whereDate('created_at', $date)
             ->sum('amount');
 
-        return (float) ($cardFares + $cashFares);
+        return (float) ($cardFees + $cashFees);
     }
 
-    #[Computed]
-    public function tripsToday()
+    private function dayOverDayTrend(float $today, float $yesterday): ?float
     {
-        return TravelRecord::whereDate('created_at', today())->count();
-    }
-
-    #[Computed]
-    public function tripsTodayTrend()
-    {
-        $today = $this->tripsToday;
-        $yesterday = TravelRecord::whereDate('created_at', today()->subDay())->count();
-
-        if ($yesterday == 0) {
+        if ($yesterday == 0.0) {
             return $today > 0 ? 100.0 : null;
         }
 
@@ -394,432 +174,719 @@ public function todayRevenue()
     }
 
     #[Computed]
-    public function faresCollectedToday()
+    public function todayRevenue()
     {
-        return $this->fareRevenueForDate(today());
+        return $this->queueFeeRevenueForDate(today());
     }
 
-    #[Computed]
-    public function faresCollectedTrend()
-    {
-        return $this->dayOverDayTrend(
-            $this->faresCollectedToday,
-            $this->fareRevenueForDate(today()->subDay())
-        );
-    }
-
-    #[Computed]
-    public function farePaymentModeSplit()
-    {
-        $cardFares = CardTransaction::where('transaction_type', 'fare_earning')
-            ->where('source', 'cashier')
-            ->where('status', 'success')
-            ->whereDate('transaction_time', today())
-            ->sum('amount');
-
-        $cashFares = CashTransaction::where('status', 'success')
-            ->where('reference_no', 'like', 'FARECASH-%')
-            ->whereDate('created_at', today())
-            ->sum('amount');
-
-        $labels = [];
-        $data = [];
-
-        if ($cardFares > 0) {
-            $labels[] = 'Card';
-            $data[] = (float) $cardFares;
+        #[Computed]
+        public function queueFeeRevenueToday()
+        {
+            // Was: today's queue count x *today's current* configured rate —
+            // which silently misreports the past if a rate is changed mid-day.
+            // Now the same real, transaction-level figure as "Revenue Today".
+            return $this->todayRevenue;
         }
 
-        if ($cashFares > 0) {
-            $labels[] = 'Cash';
-            $data[] = (float) $cashFares;
+        #[Computed]
+        public function cardAdoptionRate()
+        {
+            $totalUsers = $this->totalUsers ?: 1;
+
+            // Distinct cardholders, not raw card rows. A lost/damaged card
+            // replacement (admin/card-reports.blade.php -> approveReport())
+            // creates a brand-new Card row and only suspends the old one, so
+            // counting rows double-counts every replacement against the same
+            // user and lets this rate drift past 100% over time.
+            $cardHolders = Card::distinct('user_id')->count('user_id');
+
+            return round(($cardHolders / $totalUsers) * 100, 1);
         }
 
-        return ['labels' => $labels, 'data' => $data];
-    }
-
-    #[Computed]
-    public function tripsByDestination()
-    {
-        $days = max(1, (int) $this->range);
-
-        $counts = TravelRecord::whereBetween('created_at', [today()->subDays($days - 1)->startOfDay(), today()->endOfDay()])
-            ->selectRaw('destination, count(*) as total')
-            ->groupBy('destination')
-            ->orderByDesc('total')
-            ->limit(8)
-            ->pluck('total', 'destination');
-
-        return [
-            'labels' => $counts->keys()->values()->toArray(),
-            'data' => $counts->values()->toArray(),
-        ];
-    }
-
-    #[Computed]
-    public function tripsByDestinationTrend()
-    {
-        return $this->trendPercent(TravelRecord::class, 'created_at');
-    }
-
-    // ===================== NEW: QUEUE PAYMENT MODE SPLIT =====================
-
-    #[Computed]
-    public function queuePaymentModeSplit()
-    {
-        // Card payments for queue fees today
-        $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
-            ->where('status', 'success')
-            ->whereDate('transaction_time', today())
-            ->sum('amount');
-
-        // Cash payments for queue fees today
-        $cashFees = CashTransaction::whereDate('created_at', today())
-            ->where('status', 'success')
-            ->sum('amount');
-
-        $labels = [];
-        $data = [];
-
-        if ($cardFees > 0) {
-            $labels[] = 'Card';
-            $data[] = (float) $cardFees;
+        #[Computed]
+        public function failedTransactionsCount()
+        {
+            return CardTransaction::whereIn('status', ['failed', 'insufficient_balance'])
+                ->whereDate('created_at', today())
+                ->count();
         }
 
-        if ($cashFees > 0) {
-            $labels[] = 'Cash';
-            $data[] = (float) $cashFees;
+        #[Computed]
+        public function totalWithdrawn()
+        {
+            return CardTransaction::where('transaction_type', 'admin_withdrawal')
+                ->whereIn('status', ['pending', 'success'])
+                ->sum('amount');
         }
 
-        if (empty($labels)) {
-            return ['labels' => [], 'data' => []];
+        #[Computed]
+        public function pendingWithdrawals()
+        {
+            return CardTransaction::where('transaction_type', 'admin_withdrawal')
+                ->where('status', 'pending')
+                ->count();
         }
 
-        return [
-            'labels' => $labels,
-            'data' => $data,
-        ];
-    }
-
-    // ===================== PEAK QUEUEING TIME (by vehicle type) =====================
-
-    #[Computed]
-    public function vehicleTypeOptions()
-    {
-        return Vehicle::query()->whereNotNull('vehicle_type')->distinct()->orderBy('vehicle_type')->pluck('vehicle_type');
-    }
-
-    #[Computed]
-    public function peakVehicleType()
-    {
-        return $this->peakVehicleType ?? 'all';
-    }
-
-    #[Computed]
-    public function peakTimeByVehicleType()
-    {
-        $days = max(1, (int) $this->range);
-        $start = today()->subDays($days - 1)->startOfDay();
-        $end = today()->endOfDay();
-
-        $hourExpr = match (\Illuminate\Support\Facades\DB::connection()->getDriverName()) {
-            'pgsql' => 'EXTRACT(HOUR FROM time_queued)',
-            default => 'HOUR(time_queued)',
-        };
-
-        $counts = Queue::whereBetween('time_queued', [$start, $end])
-            ->when($this->peakVehicleType !== 'all', fn ($q) => $q->where('vehicle_type', $this->peakVehicleType))
-            ->selectRaw("{$hourExpr} as hour, count(*) as total")
-            ->groupBy('hour')
-            ->pluck('total', 'hour');
-
-        $labels = [];
-        $data = [];
-
-        for ($hour = 0; $hour < 24; $hour++) {
-            $labels[] = \Carbon\Carbon::createFromTime($hour)->format('g A');
-            $data[] = (int) ($counts[(int) $hour] ?? 0);
+        #[Computed]
+        public function withdrawnToday()
+        {
+            return CardTransaction::where('transaction_type', 'admin_withdrawal')
+                ->whereIn('status', ['pending', 'success'])
+                ->whereDate('transaction_time', today())
+                ->sum('amount');
         }
 
-        return compact('labels', 'data');
-    }
+        // ===================== CHARTS =====================
 
-    /**
-     * Get the peak hour of the day.
-     */
-    #[Computed]
-    public function peakHour()
-    {
-        $chart = $this->peakTimeByVehicleType;
-        $max = max($chart['data']);
+        #[Computed]
+        public function roleSplit()
+        {
+            $counts = User::whereIn('role', ['operator', 'commuter'])
+                ->selectRaw('role, count(*) as total')
+                ->groupBy('role')
+                ->pluck('total', 'role');
 
-        if ($max <= 0) {
-            return null;
+            return [
+                'labels' => $counts->keys()->map(fn ($r) => ucfirst($r))->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
         }
 
-        return [
-            'time' => $chart['labels'][array_search($max, $chart['data'])],
-            'count' => $max,
-        ];
-    }
+        #[Computed]
+        public function commuterTypeSplit()
+        {
+            $counts = User::where('role', 'commuter')
+                ->whereNotNull('commuter_type')
+                ->selectRaw('commuter_type, count(*) as total')
+                ->groupBy('commuter_type')
+                ->pluck('total', 'commuter_type');
 
-    public function updatedPeakVehicleType()
-    {
-        $this->dispatch('peak-time-chart-updated', chart: $this->peakTimeByVehicleType);
-    }
-
-    // ===================== OPERATOR FRANCHISE EXPIRY =====================
-
-    #[Computed]
-    public function expiringOperatorDocs()
-    {
-        $soon = today()->addDays(30)->endOfDay();
-
-        return Vehicle::with('user:id,name,phone_number')
-            ->whereNotNull('franchise_expiry_date')
-            ->where('franchise_expiry_date', '<=', $soon)
-            ->orderBy('franchise_expiry_date', 'asc')
-            ->limit(8)
-            ->get(['id', 'user_id', 'plate_number', 'vehicle_type', 'franchise_expiry_date']);
-    }
-
-    // ===================== TREND (REAL DATA — REPLACES "LIVE") =====================
-
-    private function trendPercent(string $modelClass, string $dateColumn, ?\Closure $scope = null, ?string $sumColumn = null, ?int $windowDays = null): ?float
-    {
-        $days = $windowDays ?? max(1, (int) $this->range);
-
-        $currentStart = today()->subDays($days - 1)->startOfDay();
-        $currentEnd = today()->endOfDay();
-        $previousStart = today()->subDays(($days * 2) - 1)->startOfDay();
-        $previousEnd = today()->subDays($days)->endOfDay();
-
-        $build = function ($start, $end) use ($modelClass, $dateColumn, $scope) {
-            $query = $modelClass::query()->whereBetween($dateColumn, [$start, $end]);
-
-            return $scope ? $scope($query) : $query;
-        };
-
-        $current = $sumColumn ? $build($currentStart, $currentEnd)->sum($sumColumn) : $build($currentStart, $currentEnd)->count();
-        $previous = $sumColumn ? $build($previousStart, $previousEnd)->sum($sumColumn) : $build($previousStart, $previousEnd)->count();
-
-        if ($previous == 0) {
-            return $current > 0 ? 100.0 : null;
+            return [
+                'labels' => $counts->keys()->map(fn ($t) => ucwords(str_replace('_', ' ', $t)))->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
         }
 
-        return round((($current - $previous) / $previous) * 100, 1);
-    }
+        #[Computed]
+        public function registrationsChart()
+        {
+            $days = max(1, (int) $this->range);
+            $start = today()->subDays($days - 1);
+            $end = today();
 
-    #[Computed]
-    public function totalUsersTrend()
-    {
-        $current = $this->totalUsers;
-        $previous = User::whereIn('role', ['operator', 'commuter'])->where('created_at', '<=', today()->subDays(7))->count();
+            $counts = User::whereIn('role', ['operator', 'commuter'])
+                ->whereBetween('created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+                ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
+                ->groupBy('day')
+                ->pluck('total', 'day');
 
-        if ($previous == 0) {
-            return $current > 0 ? 100.0 : null;
+            $labels = [];
+            $data = [];
+
+            for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
+                $key = $cursor->format('Y-m-d');
+                $labels[] = $cursor->format('M j');
+                $data[] = (int) ($counts[$key] ?? 0);
+            }
+
+            return compact('labels', 'data');
         }
 
-        return round((($current - $previous) / $previous) * 100, 1);
-    }
+        #[Computed]
+        public function revenueByPaymentMethod()
+        {
+            $days = max(1, (int) $this->range);
 
-    #[Computed]
-    public function totalVehiclesTrend()
-    {
-        $current = $this->totalVehicles;
-        $previous = Vehicle::where('created_at', '<=', today()->subDays(7))->count();
+            $counts = TopUpTransaction::where('status', 'paid')
+                ->whereBetween('created_at', [today()->subDays($days - 1)->startOfDay(), today()->endOfDay()])
+                ->selectRaw('payment_method, SUM(amount_paid) as total')
+                ->groupBy('payment_method')
+                ->pluck('total', 'payment_method');
 
-        if ($previous == 0) {
-            return $current > 0 ? 100.0 : null;
+            return [
+                'labels' => $counts->keys()->map(fn ($m) => $m ? ucfirst($m) : 'Unknown')->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
         }
 
-        return round((($current - $previous) / $previous) * 100, 1);
-    }
+        #[Computed]
+        public function queueStatusBreakdown()
+        {
+            $counts = Queue::whereDate('time_queued', today())
+                ->selectRaw('status, count(*) as total')
+                ->groupBy('status')
+                ->pluck('total', 'status');
 
-    #[Computed]
-    public function registeredTodayTrend()
-    {
-        return $this->trendPercent(User::class, 'created_at', fn ($q) => $q->whereIn('role', ['operator', 'commuter']), null, 1);
-    }
-
-    #[Computed]
-    public function queueingNowTrend()
-    {
-        $current = $this->vehiclesQueueingNow;
-        $cutoff = now()->subDay();
-
-        $previous = Queue::whereIn('status', ['staging', 'loading'])
-            ->whereDate('time_queued', $cutoff->toDateString())
-            ->whereTime('time_queued', '<=', $cutoff->format('H:i:s'))
-            ->count();
-
-        if ($previous == 0) {
-            return $current > 0 ? 100.0 : null;
+            return [
+                'labels' => $counts->keys()->map(fn ($s) => ucfirst($s))->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
         }
 
-        return round((($current - $previous) / $previous) * 100, 1);
-    }
+        #[Computed]
+        public function queueVolumeByVehicleType()
+        {
+            $days = max(1, (int) $this->range);
 
-    #[Computed]
-    public function revenueTodayTrend()
-    {
-        // Was: trendPercent() over TopUpTransaction (card top-ups) — an
-        // unrelated revenue stream from the queueing-fee figure this pill
-        // sits next to in the live status strip. Now compares the same
-        // queueing-fee metric, today vs yesterday.
-        return $this->dayOverDayTrend(
-            $this->todayRevenue,
-            $this->queueFeeRevenueForDate(today()->subDay())
-        );
-    }
+            $counts = Queue::whereBetween('time_queued', [today()->subDays($days - 1)->startOfDay(), today()->endOfDay()])
+                ->selectRaw('vehicle_type, count(*) as total')
+                ->groupBy('vehicle_type')
+                ->pluck('total', 'vehicle_type');
 
-    #[Computed]
-    public function queueFeeRevenueTrend()
-    {
-        return $this->revenueTodayTrend;
-    }
-
-    #[Computed]
-    public function failedTransactionsTrend()
-    {
-        return $this->trendPercent(CardTransaction::class, 'created_at', fn ($q) => $q->whereIn('status', ['failed', 'insufficient_balance']), null, 1);
-    }
-
-    #[Computed]
-    public function cardAdoptionTrend()
-    {
-        $current = $this->cardAdoptionRate;
-
-        $usersAWeekAgo = User::whereIn('role', ['operator', 'commuter'])->where('created_at', '<=', today()->subDays(7))->count() ?: 1;
-        $cardHoldersAWeekAgo = Card::where('created_at', '<=', today()->subDays(7))->distinct('user_id')->count('user_id');
-        $previous = round(($cardHoldersAWeekAgo / $usersAWeekAgo) * 100, 1);
-
-        if ($previous == 0) {
-            return $current > 0 ? 100.0 : null;
+            return [
+                'labels' => $counts->keys()->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
         }
 
-        return round((($current - $previous) / $previous) * 100, 1);
-    }
+        #[Computed]
+        public function postsByRole()
+        {
+            $days = max(1, (int) $this->range);
 
-    #[Computed]
-    public function registrationsTrend()
-    {
-        return $this->trendPercent(User::class, 'created_at', fn ($q) => $q->whereIn('role', ['operator', 'commuter']));
-    }
+            $counts = Post::query()
+                ->join('users', 'posts.user_id', '=', 'users.id')
+                ->where('posts.type', 'rental')
+                ->whereIn('users.role', ['operator', 'commuter'])
+                ->whereDate('posts.created_at', '>=', today()->subDays($days - 1))
+                ->selectRaw('users.role as role, count(*) as total')
+                ->groupBy('users.role')
+                ->pluck('total', 'role');
 
-    #[Computed]
-    public function revenueTrend()
-    {
-        return $this->trendPercent(TopUpTransaction::class, 'created_at', fn ($q) => $q->where('status', 'paid'), 'amount_paid');
-    }
+            return [
+                'labels' => $counts->keys()->map(fn ($r) => ucfirst($r))->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
+        }
 
-    #[Computed]
-    public function queueVolumeTrend()
-    {
-        return $this->trendPercent(Queue::class, 'time_queued');
-    }
+        #[Computed]
+        public function rentTransactionFunnel()
+        {
+            $counts = RentTransaction::selectRaw('status, count(*) as total')
+                ->groupBy('status')
+                ->pluck('total', 'status');
 
-    #[Computed]
-    public function postsTrend()
-    {
-        return $this->trendPercent(
-            Post::class,
-            'created_at',
-            fn ($q) => $q->where('type', 'rental')->whereHas('user', fn ($u) => $u->whereIn('role', ['operator', 'commuter']))
-        );
-    }
+            return [
+                'labels' => $counts->keys()->map(fn ($s) => ucfirst($s))->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
+        }
 
-    #[Computed]
-    public function auditTrend()
-    {
-        return $this->trendPercent(AuditLog::class, 'created_at');
-    }
+        #[Computed]
+        public function tripRequestStatusSplit()
+        {
+            $counts = TripRequest::selectRaw('status, count(*) as total')
+                ->groupBy('status')
+                ->pluck('total', 'status');
+
+            return [
+                'labels' => $counts->keys()->map(fn ($s) => ucfirst($s))->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
+        }
+
+        #[Computed]
+        public function cardsByStatus()
+        {
+            $counts = Card::selectRaw('status, count(*) as total')
+                ->groupBy('status')
+                ->pluck('total', 'status');
+
+            return [
+                'labels' => $counts->keys()->map(fn ($s) => ucfirst($s))->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
+        }
+
+        #[Computed]
+        public function auditActionVolume()
+        {
+            $days = max(1, (int) $this->range);
+
+            $counts = AuditLog::whereBetween('created_at', [today()->subDays($days - 1)->startOfDay(), today()->endOfDay()])
+                ->selectRaw('action, count(*) as total')
+                ->groupBy('action')
+                ->orderByDesc('total')
+                ->limit(8)
+                ->pluck('total', 'action');
+
+            return [
+                'labels' => $counts->keys()->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
+        }
+
+        #[Computed]
+        public function recentAuditEntries()
+        {
+            return AuditLog::with('user:id,name')
+                ->latest()
+                ->limit(5)
+                ->get(['id', 'user_id', 'action', 'subject', 'channel', 'created_at']);
+        }
+
+        private function fareRevenueForDate(\Carbon\Carbon $date): float
+        {
+            $cardFares = CardTransaction::where('transaction_type', 'fare_earning')
+                ->where('source', 'cashier')
+                ->where('status', 'success')
+                ->whereDate('transaction_time', $date)
+                ->sum('amount');
+
+            $cashFares = CashTransaction::where('status', 'success')
+                ->where('reference_no', 'like', 'FARECASH-%')
+                ->whereDate('created_at', $date)
+                ->sum('amount');
+
+            return (float) ($cardFares + $cashFares);
+        }
+
+        #[Computed]
+        public function tripsToday()
+        {
+            return TravelRecord::whereDate('created_at', today())->count();
+        }
+
+        #[Computed]
+        public function tripsTodayTrend()
+        {
+            $today = $this->tripsToday;
+            $yesterday = TravelRecord::whereDate('created_at', today()->subDay())->count();
+
+            if ($yesterday == 0) {
+                return $today > 0 ? 100.0 : null;
+            }
+
+            return round((($today - $yesterday) / $yesterday) * 100, 1);
+        }
+
+        #[Computed]
+        public function faresCollectedToday()
+        {
+            return $this->fareRevenueForDate(today());
+        }
+
+        #[Computed]
+        public function faresCollectedTrend()
+        {
+            return $this->dayOverDayTrend(
+                $this->faresCollectedToday,
+                $this->fareRevenueForDate(today()->subDay())
+            );
+        }
+
+        #[Computed]
+        public function farePaymentModeSplit()
+        {
+            $cardFares = CardTransaction::where('transaction_type', 'fare_earning')
+                ->where('source', 'cashier')
+                ->where('status', 'success')
+                ->whereDate('transaction_time', today())
+                ->sum('amount');
+
+            $cashFares = CashTransaction::where('status', 'success')
+                ->where('reference_no', 'like', 'FARECASH-%')
+                ->whereDate('created_at', today())
+                ->sum('amount');
+
+            $labels = [];
+            $data = [];
+
+            if ($cardFares > 0) {
+                $labels[] = 'Card';
+                $data[] = (float) $cardFares;
+            }
+
+            if ($cashFares > 0) {
+                $labels[] = 'Cash';
+                $data[] = (float) $cashFares;
+            }
+
+            return ['labels' => $labels, 'data' => $data];
+        }
+
+        #[Computed]
+        public function tripsByDestination()
+        {
+            $days = max(1, (int) $this->range);
+
+            $counts = TravelRecord::whereBetween('created_at', [today()->subDays($days - 1)->startOfDay(), today()->endOfDay()])
+                ->selectRaw('destination, count(*) as total')
+                ->groupBy('destination')
+                ->orderByDesc('total')
+                ->limit(8)
+                ->pluck('total', 'destination');
+
+            return [
+                'labels' => $counts->keys()->values()->toArray(),
+                'data' => $counts->values()->toArray(),
+            ];
+        }
+
+        #[Computed]
+        public function tripsByDestinationTrend()
+        {
+            return $this->trendPercent(TravelRecord::class, 'created_at');
+        }
+
+        // ===================== NEW: QUEUE PAYMENT MODE SPLIT =====================
+
+        #[Computed]
+        public function queuePaymentModeSplit()
+        {
+            // Card payments for queue fees today
+            $cardFees = CardTransaction::where('transaction_type', 'queueing_fee')
+                ->where('status', 'success')
+                ->whereDate('transaction_time', today())
+                ->sum('amount');
+
+            // Cash payments for queue fees today
+            $cashFees = CashTransaction::whereDate('created_at', today())
+                ->where('status', 'success')
+                ->sum('amount');
+
+            $labels = [];
+            $data = [];
+
+            if ($cardFees > 0) {
+                $labels[] = 'Card';
+                $data[] = (float) $cardFees;
+            }
+
+            if ($cashFees > 0) {
+                $labels[] = 'Cash';
+                $data[] = (float) $cashFees;
+            }
+
+            if (empty($labels)) {
+                return ['labels' => [], 'data' => []];
+            }
+
+            return [
+                'labels' => $labels,
+                'data' => $data,
+            ];
+        }
+
+        // ===================== PEAK QUEUEING TIME (by vehicle type) =====================
+
+        #[Computed]
+        public function vehicleTypeOptions()
+        {
+            return Vehicle::query()->whereNotNull('vehicle_type')->distinct()->orderBy('vehicle_type')->pluck('vehicle_type');
+        }
+
+        #[Computed]
+        public function peakVehicleType()
+        {
+            return $this->peakVehicleType ?? 'all';
+        }
+
+        #[Computed]
+        public function peakTimeByVehicleType()
+        {
+            $days = max(1, (int) $this->range);
+            $start = today()->subDays($days - 1)->startOfDay();
+            $end = today()->endOfDay();
+
+            $hourExpr = match (\Illuminate\Support\Facades\DB::connection()->getDriverName()) {
+                'pgsql' => 'EXTRACT(HOUR FROM time_queued)',
+                default => 'HOUR(time_queued)',
+            };
+
+            $counts = Queue::whereBetween('time_queued', [$start, $end])
+                ->when($this->peakVehicleType !== 'all', fn ($q) => $q->where('vehicle_type', $this->peakVehicleType))
+                ->selectRaw("{$hourExpr} as hour, count(*) as total")
+                ->groupBy('hour')
+                ->pluck('total', 'hour');
+
+            $labels = [];
+            $data = [];
+
+            for ($hour = 0; $hour < 24; $hour++) {
+                $labels[] = \Carbon\Carbon::createFromTime($hour)->format('g A');
+                $data[] = (int) ($counts[(int) $hour] ?? 0);
+            }
+
+            return compact('labels', 'data');
+        }
+
+        /**
+         * Get the peak hour of the day.
+         */
+        #[Computed]
+        public function peakHour()
+        {
+            $chart = $this->peakTimeByVehicleType;
+            $max = max($chart['data']);
+
+            if ($max <= 0) {
+                return null;
+            }
+
+            return [
+                'time' => $chart['labels'][array_search($max, $chart['data'])],
+                'count' => $max,
+            ];
+        }
+
+        public function updatedPeakVehicleType()
+        {
+            $this->dispatch('peak-time-chart-updated', chart: $this->peakTimeByVehicleType);
+        }
+
+        // ===================== OPERATOR FRANCHISE EXPIRY =====================
+
+        #[Computed]
+        public function expiringOperatorDocs()
+        {
+            $soon = today()->addDays(30)->endOfDay();
+
+            return Vehicle::with('user:id,name,phone_number')
+                ->whereNotNull('franchise_expiry_date')
+                ->where('franchise_expiry_date', '<=', $soon)
+                ->orderBy('franchise_expiry_date', 'asc')
+                ->limit(8)
+                ->get(['id', 'user_id', 'plate_number', 'vehicle_type', 'franchise_expiry_date']);
+        }
+
+        // ===================== TREND (REAL DATA — REPLACES "LIVE") =====================
+
+        private function trendPercent(string $modelClass, string $dateColumn, ?\Closure $scope = null, ?string $sumColumn = null, ?int $windowDays = null): ?float
+        {
+            $days = $windowDays ?? max(1, (int) $this->range);
+
+            $currentStart = today()->subDays($days - 1)->startOfDay();
+            $currentEnd = today()->endOfDay();
+            $previousStart = today()->subDays(($days * 2) - 1)->startOfDay();
+            $previousEnd = today()->subDays($days)->endOfDay();
+
+            $build = function ($start, $end) use ($modelClass, $dateColumn, $scope) {
+                $query = $modelClass::query()->whereBetween($dateColumn, [$start, $end]);
+
+                return $scope ? $scope($query) : $query;
+            };
+
+            $current = $sumColumn ? $build($currentStart, $currentEnd)->sum($sumColumn) : $build($currentStart, $currentEnd)->count();
+            $previous = $sumColumn ? $build($previousStart, $previousEnd)->sum($sumColumn) : $build($previousStart, $previousEnd)->count();
+
+            if ($previous == 0) {
+                return $current > 0 ? 100.0 : null;
+            }
+
+            return round((($current - $previous) / $previous) * 100, 1);
+        }
+
+        #[Computed]
+        public function totalUsersTrend()
+        {
+            $current = $this->totalUsers;
+            $previous = User::whereIn('role', ['operator', 'commuter'])->where('created_at', '<=', today()->subDays(7))->count();
+
+            if ($previous == 0) {
+                return $current > 0 ? 100.0 : null;
+            }
+
+            return round((($current - $previous) / $previous) * 100, 1);
+        }
+
+        #[Computed]
+        public function totalVehiclesTrend()
+        {
+            $current = $this->totalVehicles;
+            $previous = Vehicle::where('created_at', '<=', today()->subDays(7))->count();
+
+            if ($previous == 0) {
+                return $current > 0 ? 100.0 : null;
+            }
+
+            return round((($current - $previous) / $previous) * 100, 1);
+        }
+
+        #[Computed]
+        public function registeredTodayTrend()
+        {
+            return $this->trendPercent(User::class, 'created_at', fn ($q) => $q->whereIn('role', ['operator', 'commuter']), null, 1);
+        }
+
+        #[Computed]
+        public function queueingNowTrend()
+        {
+            $current = $this->vehiclesQueueingNow;
+            $cutoff = now()->subDay();
+
+            $previous = Queue::whereIn('status', ['staging', 'loading'])
+                ->whereDate('time_queued', $cutoff->toDateString())
+                ->whereTime('time_queued', '<=', $cutoff->format('H:i:s'))
+                ->count();
+
+            if ($previous == 0) {
+                return $current > 0 ? 100.0 : null;
+            }
+
+            return round((($current - $previous) / $previous) * 100, 1);
+        }
+
+        #[Computed]
+        public function revenueTodayTrend()
+        {
+            // Was: trendPercent() over TopUpTransaction (card top-ups) — an
+            // unrelated revenue stream from the queueing-fee figure this pill
+            // sits next to in the live status strip. Now compares the same
+            // queueing-fee metric, today vs yesterday.
+            return $this->dayOverDayTrend(
+                $this->todayRevenue,
+                $this->queueFeeRevenueForDate(today()->subDay())
+            );
+        }
+
+        #[Computed]
+        public function queueFeeRevenueTrend()
+        {
+            return $this->revenueTodayTrend;
+        }
+
+        #[Computed]
+        public function failedTransactionsTrend()
+        {
+            return $this->trendPercent(CardTransaction::class, 'created_at', fn ($q) => $q->whereIn('status', ['failed', 'insufficient_balance']), null, 1);
+        }
+
+        #[Computed]
+        public function cardAdoptionTrend()
+        {
+            $current = $this->cardAdoptionRate;
+
+            $usersAWeekAgo = User::whereIn('role', ['operator', 'commuter'])->where('created_at', '<=', today()->subDays(7))->count() ?: 1;
+            $cardHoldersAWeekAgo = Card::where('created_at', '<=', today()->subDays(7))->distinct('user_id')->count('user_id');
+            $previous = round(($cardHoldersAWeekAgo / $usersAWeekAgo) * 100, 1);
+
+            if ($previous == 0) {
+                return $current > 0 ? 100.0 : null;
+            }
+
+            return round((($current - $previous) / $previous) * 100, 1);
+        }
+
+        #[Computed]
+        public function registrationsTrend()
+        {
+            return $this->trendPercent(User::class, 'created_at', fn ($q) => $q->whereIn('role', ['operator', 'commuter']));
+        }
+
+        #[Computed]
+        public function revenueTrend()
+        {
+            return $this->trendPercent(TopUpTransaction::class, 'created_at', fn ($q) => $q->where('status', 'paid'), 'amount_paid');
+        }
+
+        #[Computed]
+        public function queueVolumeTrend()
+        {
+            return $this->trendPercent(Queue::class, 'time_queued');
+        }
+
+        #[Computed]
+        public function postsTrend()
+        {
+            return $this->trendPercent(
+                Post::class,
+                'created_at',
+                fn ($q) => $q->where('type', 'rental')->whereHas('user', fn ($u) => $u->whereIn('role', ['operator', 'commuter']))
+            );
+        }
+
+        #[Computed]
+        public function auditTrend()
+        {
+            return $this->trendPercent(AuditLog::class, 'created_at');
+        }
 
 
-    public function updatedRange()
-    {
-        $this->dispatch('registrations-chart-updated', chart: $this->registrationsChart);
-        $this->dispatch('revenue-chart-updated', chart: $this->revenueByPaymentMethod);
-        $this->dispatch('queue-volume-chart-updated', chart: $this->queueVolumeByVehicleType);
-        $this->dispatch('posts-by-role-chart-updated', chart: $this->postsByRole);
-        $this->dispatch('audit-action-chart-updated', chart: $this->auditActionVolume);
-        $this->dispatch('queue-payment-mode-updated', chart: $this->queuePaymentModeSplit);
-        $this->dispatch('peak-time-chart-updated', chart: $this->peakTimeByVehicleType);
-        $this->dispatch('trips-destination-chart-updated', chart: $this->tripsByDestination);
-    }
+        public function updatedRange()
+        {
+            $this->dispatch('registrations-chart-updated', chart: $this->registrationsChart);
+            $this->dispatch('revenue-chart-updated', chart: $this->revenueByPaymentMethod);
+            $this->dispatch('queue-volume-chart-updated', chart: $this->queueVolumeByVehicleType);
+            $this->dispatch('posts-by-role-chart-updated', chart: $this->postsByRole);
+            $this->dispatch('audit-action-chart-updated', chart: $this->auditActionVolume);
+            $this->dispatch('queue-payment-mode-updated', chart: $this->queuePaymentModeSplit);
+            $this->dispatch('peak-time-chart-updated', chart: $this->peakTimeByVehicleType);
+            $this->dispatch('trips-destination-chart-updated', chart: $this->tripsByDestination);
+        }
 
 
-    #[On('echo:user-info-updated,.UserInfoUpdated')]
-    #[On('echo:vehicle-queue,.QueuedVehicleEvent')]
-    public function refreshDashboard()
-    {
-        unset(
-            $this->totalUsers,
-            $this->totalVehicles,
-            $this->registeredToday,
-            $this->vehiclesQueueingNow,
-            $this->todayRevenue,
-            $this->queueFeeRevenueToday,
-            $this->cardAdoptionRate,
-            $this->failedTransactionsCount,
-            $this->totalWithdrawn,
-            $this->pendingWithdrawals,
-            $this->withdrawnToday,
-            $this->roleSplit,
-            $this->commuterTypeSplit,
-            $this->registrationsChart,
-            $this->revenueByPaymentMethod,
-            $this->queueStatusBreakdown,
-            $this->queueVolumeByVehicleType,
-            $this->postsByRole,
-            $this->rentTransactionFunnel,
-            $this->tripRequestStatusSplit,
-            $this->cardsByStatus,
-            $this->auditActionVolume,
-            $this->recentAuditEntries,
-            $this->queuePaymentModeSplit,
-            $this->peakTimeByVehicleType,
-            $this->peakHour,
-            $this->expiringOperatorDocs,
-            $this->tripsToday,
-            $this->tripsTodayTrend,
-            $this->faresCollectedToday,
-            $this->faresCollectedTrend,
-            $this->farePaymentModeSplit,
-            $this->tripsByDestination,
-            $this->tripsByDestinationTrend,
-            $this->totalUsersTrend,
-            $this->totalVehiclesTrend,
-            $this->registeredTodayTrend,
-            $this->queueingNowTrend,
-            $this->revenueTodayTrend,
-            $this->queueFeeRevenueTrend,
-            $this->failedTransactionsTrend,
-            $this->cardAdoptionTrend,
-            $this->registrationsTrend,
-            $this->revenueTrend,
-            $this->queueVolumeTrend,
-            $this->postsTrend,
-            $this->auditTrend,
-        );
+        #[On('echo:user-info-updated,.UserInfoUpdated')]
+        #[On('echo:vehicle-queue,.QueuedVehicleEvent')]
+        public function refreshDashboard()
+        {
+            unset(
+                $this->totalUsers,
+                $this->totalVehicles,
+                $this->registeredToday,
+                $this->vehiclesQueueingNow,
+                $this->todayRevenue,
+                $this->queueFeeRevenueToday,
+                $this->cardAdoptionRate,
+                $this->failedTransactionsCount,
+                $this->totalWithdrawn,
+                $this->pendingWithdrawals,
+                $this->withdrawnToday,
+                $this->roleSplit,
+                $this->commuterTypeSplit,
+                $this->registrationsChart,
+                $this->revenueByPaymentMethod,
+                $this->queueStatusBreakdown,
+                $this->queueVolumeByVehicleType,
+                $this->postsByRole,
+                $this->rentTransactionFunnel,
+                $this->tripRequestStatusSplit,
+                $this->cardsByStatus,
+                $this->auditActionVolume,
+                $this->recentAuditEntries,
+                $this->queuePaymentModeSplit,
+                $this->peakTimeByVehicleType,
+                $this->peakHour,
+                $this->expiringOperatorDocs,
+                $this->tripsToday,
+                $this->tripsTodayTrend,
+                $this->faresCollectedToday,
+                $this->faresCollectedTrend,
+                $this->farePaymentModeSplit,
+                $this->tripsByDestination,
+                $this->tripsByDestinationTrend,
+                $this->totalUsersTrend,
+                $this->totalVehiclesTrend,
+                $this->registeredTodayTrend,
+                $this->queueingNowTrend,
+                $this->revenueTodayTrend,
+                $this->queueFeeRevenueTrend,
+                $this->failedTransactionsTrend,
+                $this->cardAdoptionTrend,
+                $this->registrationsTrend,
+                $this->revenueTrend,
+                $this->queueVolumeTrend,
+                $this->postsTrend,
+                $this->auditTrend,
+            );
 
-        $this->dispatch('peak-time-chart-updated', chart: $this->peakTimeByVehicleType);
-        $this->dispatch('role-chart-updated', chart: $this->roleSplit);
-        $this->dispatch('commuter-type-chart-updated', chart: $this->commuterTypeSplit);
-        $this->dispatch('registrations-chart-updated', chart: $this->registrationsChart);
-        $this->dispatch('revenue-chart-updated', chart: $this->revenueByPaymentMethod);
-        $this->dispatch('queue-status-chart-updated', chart: $this->queueStatusBreakdown);
-        $this->dispatch('queue-volume-chart-updated', chart: $this->queueVolumeByVehicleType);
-        $this->dispatch('posts-by-role-chart-updated', chart: $this->postsByRole);
-        $this->dispatch('rent-funnel-chart-updated', chart: $this->rentTransactionFunnel);
-        $this->dispatch('trip-request-chart-updated', chart: $this->tripRequestStatusSplit);
-        $this->dispatch('cards-status-chart-updated', chart: $this->cardsByStatus);
-        $this->dispatch('audit-action-chart-updated', chart: $this->auditActionVolume);
-        $this->dispatch('queue-payment-mode-updated', chart: $this->queuePaymentModeSplit);
-        $this->dispatch('fare-payment-mode-updated', chart: $this->farePaymentModeSplit);
-        $this->dispatch('trips-destination-chart-updated', chart: $this->tripsByDestination);
-        $this->dispatch('status-strip-updated', queueing: $this->vehiclesQueueingNow, revenue: $this->todayRevenue);
-    }
+            $this->dispatch('peak-time-chart-updated', chart: $this->peakTimeByVehicleType);
+            $this->dispatch('role-chart-updated', chart: $this->roleSplit);
+            $this->dispatch('commuter-type-chart-updated', chart: $this->commuterTypeSplit);
+            $this->dispatch('registrations-chart-updated', chart: $this->registrationsChart);
+            $this->dispatch('revenue-chart-updated', chart: $this->revenueByPaymentMethod);
+            $this->dispatch('queue-status-chart-updated', chart: $this->queueStatusBreakdown);
+            $this->dispatch('queue-volume-chart-updated', chart: $this->queueVolumeByVehicleType);
+            $this->dispatch('posts-by-role-chart-updated', chart: $this->postsByRole);
+            $this->dispatch('rent-funnel-chart-updated', chart: $this->rentTransactionFunnel);
+            $this->dispatch('trip-request-chart-updated', chart: $this->tripRequestStatusSplit);
+            $this->dispatch('cards-status-chart-updated', chart: $this->cardsByStatus);
+            $this->dispatch('audit-action-chart-updated', chart: $this->auditActionVolume);
+            $this->dispatch('queue-payment-mode-updated', chart: $this->queuePaymentModeSplit);
+            $this->dispatch('fare-payment-mode-updated', chart: $this->farePaymentModeSplit);
+            $this->dispatch('trips-destination-chart-updated', chart: $this->tripsByDestination);
+            $this->dispatch('status-strip-updated', queueing: $this->vehiclesQueueingNow, revenue: $this->todayRevenue);
+        }
 };
 ?>
 
@@ -859,6 +926,15 @@ public function todayRevenue()
                         1
                     </span>
                 @endif
+            </button>
+        </flux:modal.trigger>
+        <flux:modal.trigger name="announcement">
+            <button
+                type="button"
+                class="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 h-8 sm:h-9 rounded-lg bg-primary text-white border-0 hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover transition font-secondary text-xs sm:text-table-row shrink-0"
+            >
+                <flux:icon.megaphone class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white dark:text-[var(--color-dark-primary)]" />
+                <span class="hidden sm:inline">Announcement</span>
             </button>
         </flux:modal.trigger>
     </x-page-header>
@@ -901,6 +977,46 @@ public function todayRevenue()
                 </flux:modal.close>
             </div>
         </div>
+    </flux:modal>
+
+    {{-- ===================== ANNOUNCEMENT MODAL ===================== --}}
+    <flux:modal name="announcement" class="md:w-[28rem]">
+        <form wire:submit="sendAnnouncement" class="space-y-6">
+            <div>
+                <flux:heading size="lg" class="font-primary">New announcement</flux:heading>
+                <flux:subheading class="font-secondary">
+                    This will appear in the notifications of every user.
+                </flux:subheading>
+            </div>
+
+            <div class="space-y-4">
+                <flux:input
+                    wire:model="announcementTitle"
+                    label="Title"
+                    placeholder="e.g. Scheduled maintenance on Saturday"
+                    maxlength="255"
+                />
+
+                <flux:textarea
+                    wire:model="announcementMessage"
+                    label="Message"
+                    placeholder="Write the announcement..."
+                    rows="5"
+                    maxlength="2000"
+                />
+            </div>
+
+            <div class="flex gap-2">
+                <flux:spacer />
+                <flux:modal.close>
+                    <flux:button type="button" variant="ghost" class="font-secondary">Cancel</flux:button>
+                </flux:modal.close>
+                <flux:button type="submit" variant="primary" class="font-secondary" wire:loading.attr="disabled" wire:target="sendAnnouncement">
+                    <span wire:loading.remove wire:target="sendAnnouncement">Send announcement</span>
+                    <span wire:loading wire:target="sendAnnouncement">Sending...</span>
+                </flux:button>
+            </div>
+        </form>
     </flux:modal>
 
     {{-- ===================== LIVE STATUS STRIP ===================== --}}

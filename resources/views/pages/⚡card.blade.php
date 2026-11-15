@@ -6,7 +6,6 @@ use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
 use App\Models\Card;
 use App\Services\CheckoutSessionService;
-use App\Models\CardReport;
 use App\Models\CardTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -43,7 +42,6 @@ new class extends Component
             'all'           => 'All activity',
             'fare_activity' => $role === 'operator' ? 'Queue fee payment' : 'Fare payment',
             'top_up'        => 'Top-ups',
-            'report'        => 'Reports',
         ];
     }
 
@@ -88,17 +86,6 @@ new class extends Component
             // nothing happened yet, so there's nothing to show the commuter.
             ->where('status', '!=', 'pending');
 
-        $reports = DB::table('card_reports')
-            ->select([
-                DB::raw("CONCAT('cr-', id) as activity_id"),
-                DB::raw("'report' as category"),
-                DB::raw("CONCAT('Card reported ', reason) as description"),
-                DB::raw('NULL as amount'),
-                'status',
-                'created_at as activity_date',
-            ])
-            ->where('card_id', $cardId);
-
         // Only union in the sources the current filter actually needs
 
         $sources = [];
@@ -108,9 +95,6 @@ new class extends Component
         }
         if (in_array($this->activityTypeFilter, ['all', 'top_up'])) {
             $sources[] = $topUps;
-        }
-        if (in_array($this->activityTypeFilter, ['all', 'report'])) {
-            $sources[] = $reports;
         }
 
         if (empty($sources)) {
@@ -157,6 +141,11 @@ new class extends Component
             return;
         }
 
+        if ($card->isSuspended()) {
+            $this->addError('payment_error', 'This card is blocked and can no longer be topped up.');
+            return;
+        }
+
         try {
             $checkoutUrl = $checkoutSession->createCheckoutSession(auth()->user(), $card, (float) $this->amount);
             return redirect()->away($checkoutUrl);
@@ -165,15 +154,6 @@ new class extends Component
             Log::error('Card top-up checkout session failed', ['error' => $e->getMessage(), 'user_id' => auth()->id()]);
             $this->addError('payment_error', 'We couldn\'t start your payment right now. Please try again in a moment.');
         }
-    }
-
-    #[Computed]
-    public function existingPendingReport(): bool
-    {
-        if (!$this->userCard) return false;
-        return CardReport::where('card_id', $this->userCard->id)
-            ->where('status', 'pending')
-            ->exists();
     }
 
     public function render()
@@ -194,6 +174,20 @@ new class extends Component
     </x-page-header>
 
     @if ($this->userCard)
+        {{-- Blocked card notice --}}
+        @if ($this->userCard->isSuspended())
+            <div class="mb-5 rounded-lg bg-danger/10 dark:bg-dark-danger/20 border border-danger/30 dark:border-dark-danger/30 px-4 py-3 flex items-start gap-3">
+                <flux:icon name="lock-closed" class="w-5 h-5 text-danger dark:text-dark-danger shrink-0 mt-0.5" />
+                <div>
+                    <p class="text-sm font-medium text-danger dark:text-dark-danger">This card is blocked</p>
+                    <p class="text-xs text-danger/80 dark:text-dark-danger/80 mt-0.5">
+                        It can no longer be used for payments or top-ups{{ $this->userCard->suspended_at ? ' (blocked ' . $this->userCard->suspended_at->format('M d, Y') . ')' : '' }}.
+                        Visit the terminal and avail a new ICCT card from the cashier to complete the replacement.
+                    </p>
+                </div>
+            </div>
+        @endif
+
         {{-- Removed sticky wrapper – cards now flow naturally --}}
         <div class="mb-5">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
@@ -203,6 +197,12 @@ new class extends Component
                     class="relative rounded-2xl shadow-xl overflow-hidden aspect-[579/371] w-full text-white"
                     style="background-image: url('{{ asset('images/card_front.svg') }}'); background-size: cover; background-position: center;"
                 >
+                    @if ($this->userCard->isSuspended())
+                        <div class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1">
+                            <flux:icon name="lock-closed" class="w-8 h-8 text-white" />
+                            <span class="font-primary text-sm font-bold uppercase tracking-widest">Card Blocked</span>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Balance card – now includes card details below balance --}}
@@ -258,37 +258,29 @@ new class extends Component
                                 {{ auth()->user()->role }}
                             </x-text>
                         </div>
+                        <div class="flex justify-between items-center">
+                            <x-text class="text-sm font-medium text-light-txt-muted dark:text-dark-txt-muted">Status</x-text>
+                            @if ($this->userCard->isSuspended())
+                                <flux:badge color="red" size="sm" icon="lock-closed">Blocked</flux:badge>
+                            @else
+                                <flux:badge color="green" size="sm">Active</flux:badge>
+                            @endif
+                        </div>
                     </div>
 
                     <div class="mt-auto pt-3.5">
-                        {{-- Pending report notice --}}
-                        @if ($this->existingPendingReport)
-                            <div class="mb-3 rounded-lg bg-warning/10 dark:bg-dark-warning/20 border border-warning/30 dark:border-dark-warning/30 px-3 py-2 flex items-center gap-2">
-                                <flux:icon name="clock" class="w-4 h-4 text-warning dark:text-dark-warning shrink-0" />
-                                <x-text class="text-xs text-warning dark:text-dark-warning">
-                                    You have a pending lost card report. Visit the terminal to complete the replacement.
-                                </x-text>
-                            </div>
-                        @endif
-
                         <div class="flex gap-2 pt-3 border-t border-light-bd-default dark:border-dark-bd-default">
-                            <flux:button x-on:click="$flux.modal('top-up-modal').show()" size="sm" class="flex-1 font-secondary justify-center" icon="plus" variant="primary">
-                                Top up
-                            </flux:button>
-
-                            {{-- Report Lost button --}}
-                            @if ($this->existingPendingReport)
-                                <flux:button
-                                    href="{{ route('user.card.report') }}"
-                                    wire:navigate
-                                    size="sm"
-                                    variant="ghost"
-                                    class="flex-1 font-secondary justify-center"
-                                    icon="clock"
-                                >
-                                    Report pending
+                            @if ($this->userCard->isSuspended())
+                                <flux:button size="sm" class="flex-1 font-secondary justify-center" icon="plus" variant="primary" disabled>
+                                    Top up
+                                </flux:button>
+                                <flux:button size="sm" variant="ghost" class="flex-1 font-secondary justify-center" icon="lock-closed" disabled>
+                                    Card blocked
                                 </flux:button>
                             @else
+                                <flux:button x-on:click="$flux.modal('top-up-modal').show()" size="sm" class="flex-1 font-secondary justify-center" icon="plus" variant="primary">
+                                    Top up
+                                </flux:button>
                                 <flux:button
                                     href="{{ route('user.card.report') }}"
                                     wire:navigate
@@ -297,7 +289,7 @@ new class extends Component
                                     class="flex-1 font-secondary justify-center"
                                     icon="exclamation-triangle"
                                 >
-                                    Report lost
+                                    Block card
                                 </flux:button>
                             @endif
                         </div>
@@ -307,7 +299,7 @@ new class extends Component
             </div>
         </div>
 
-        {{-- Card activity history – filters + pagination, unifies card_transactions, top-ups, and card reports --}}
+        {{-- Card activity history – filters + pagination, unifies card_transactions and top-ups --}}
         <div>
             <div class="flex items-center gap-2.5 text-light-txt-primary dark:text-dark-txt-primary mb-3">
                 <span class="w-1 h-[1.1rem] rounded-sm bg-primary dark:bg-dark-txt-primary"></span>
@@ -331,7 +323,6 @@ new class extends Component
                 @forelse ($this->cardActivityHistory as $activity)
                     @php
                         $isCredit = $activity->category === 'top_up' && $activity->status === 'paid';
-                        $isReport = $activity->category === 'report';
                     @endphp
                     <flux:card size="sm" class="flex items-center gap-3 justify-between !p-3 dark:bg-dark-secondary dark:border-dark-bd-default">
                         <div>
@@ -351,15 +342,9 @@ new class extends Component
                                 {{ \Illuminate\Support\Carbon::parse($activity->activity_date)->diffForHumans() }}
                             </x-text>
                         </div>
-                        @if (!$isReport)
-                            <x-text size="sm" class="font-medium tabular-nums {{ $isCredit ? 'text-success dark:text-dark-success' : 'text-light-txt-body dark:text-dark-txt-primary' }}">
-                                {{ $isCredit ? '+' : '-' }} ₱{{ number_format(abs($activity->amount), 2) }}
-                            </x-text>
-                        @else
-                            <flux:badge size="sm" color="{{ $activity->status === 'pending' ? 'yellow' : ($activity->status === 'approved' ? 'green' : 'red') }}">
-                                {{ ucfirst($activity->status) }}
-                            </flux:badge>
-                        @endif
+                        <x-text size="sm" class="font-medium tabular-nums {{ $isCredit ? 'text-success dark:text-dark-success' : 'text-light-txt-body dark:text-dark-txt-primary' }}">
+                            {{ $isCredit ? '+' : '-' }} ₱{{ number_format(abs($activity->amount), 2) }}
+                        </x-text>
                     </flux:card>
                 @empty
                     <flux:card class="px-6 py-10 text-center dark:bg-dark-secondary dark:border-dark-bd-default">
