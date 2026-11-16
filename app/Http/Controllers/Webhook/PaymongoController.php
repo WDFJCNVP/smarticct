@@ -96,21 +96,50 @@ class PaymongoController extends Controller
                             'paymongo_event_id' => $eventId,
                         ]);
 
-                        $card = Card::where('id', $transaction->card_id)->lockForUpdate()->first();
-                        
+                        $card = Card::with('user')->where('id', $transaction->card_id)->lockForUpdate()->first();
+                        $balanceAfter = null;
+
                         if ($card) {
                             $card->increment('balance', $confirmedAmountPesos);
-                            Log::info("Credited PHP {$transaction->points_credited} to Card ID {$card->id}");
+                            $balanceAfter = (float) $card->fresh()->balance;
+                            Log::info("Credited PHP {$confirmedAmountPesos} to Card ID {$card->id}");
+                        } else {
+                            Log::error('WEBHOOK: paid top-up but card not found, balance NOT credited.', [
+                                'transaction_id'      => $transaction->id,
+                                'checkout_session_id' => $checkoutSessionId,
+                            ]);
                         }
 
                         if ($transaction->user_id) {
+                            $method      = $this->paymentMethodLabel($paymentMethod);
+                            $amountText  = '₱' . number_format($confirmedAmountPesos, 2);
+                            $isCommuter  = $card?->user?->role === 'commuter';
+                            $ref         = $this->topUpReference($checkoutSessionId);
+
+                            if ($card) {
+                                $title = 'Top-up successful';
+                                $message = $isCommuter
+                                    ? "Your {$amountText} payment via {$method} was received. "
+                                      . number_format($confirmedAmountPesos, 2) . " points were added to your card. "
+                                      . "Your new balance is " . number_format($balanceAfter, 2) . " pts. Ref: {$ref}"
+                                    : "Your {$amountText} payment via {$method} was received and added to your card. "
+                                      . "Your new balance is ₱" . number_format($balanceAfter, 2) . ". Ref: {$ref}";
+                            } else {
+                                $title = 'Top-up needs attention';
+                                $message = "We received your {$amountText} payment via {$method}, but we couldn't add it to your card automatically. "
+                                         . "Please contact support and give them this reference: {$ref}";
+                            }
+
                             $notification = Notification::create([
                                 'type'    => 'TopUp',
-                                'title'   => 'Top-up successful',
-                                'message' => "₱" . number_format($confirmedAmountPesos, 2) . " has been added to your card.",
+                                'title'   => $title,
+                                'message' => $message,
                                 'metadata' => [
-                                    'amount'               => $confirmedAmountPesos,
-                                    'checkout_session_id'  => $checkoutSessionId,
+                                    'amount'              => $confirmedAmountPesos,
+                                    'payment_method'      => $paymentMethod,
+                                    'balance_after'       => $balanceAfter,
+                                    'checkout_session_id' => $checkoutSessionId,
+                                    'status'              => $card ? 'success' : 'needs_review',
                                 ],
                             ]);
 
@@ -146,26 +175,48 @@ class PaymongoController extends Controller
                             return; // Don't downgrade a transaction that already succeeded
                         }
 
-                        $reason = $type === 'checkout_session.payment.expired'
+                        $isExpired = $type === 'checkout_session.payment.expired';
+
+                        // Already settled as this same outcome (webhook retry): don't notify twice.
+                        if ($transaction->status === ($isExpired ? 'expired' : 'failed')) {
+                            return;
+                        }
+
+                        $reason = $isExpired
                             ? 'Checkout session expired unpaid.'
                             : 'Payment failed at PayMongo.';
 
                         $transaction->update([
-                            'status' => $type === 'checkout_session.payment.expired' ? 'expired' : 'failed',
-                            'failure_reason' => $reason,
+                            'status'            => $isExpired ? 'expired' : 'failed',
+                            'failure_reason'    => $reason,
                             'paymongo_event_id' => $eventId,
                         ]);
                         Log::info("TopUpTransaction {$transaction->id} marked {$transaction->status} ({$type}).");
 
                         if ($transaction->user_id) {
+                            $amountText = '₱' . number_format($transaction->amount_paid, 2);
+                            $ref        = $this->topUpReference($checkoutSessionId);
+
+                            if ($isExpired) {
+                                $title   = 'Top-up expired';
+                                $message = "Your {$amountText} top-up wasn't completed because the payment session expired before you paid. "
+                                         . "You were not charged and no balance was added. You can start a new top-up anytime. Ref: {$ref}";
+                            } else {
+                                $title   = 'Top-up failed';
+                                $message = "Your {$amountText} top-up payment didn't go through, so no balance was added to your card. "
+                                         . "Please try again or use a different payment method. "
+                                         . "If money was taken from your account, contact support and give them this reference: {$ref}";
+                            }
+
                             $notification = Notification::create([
                                 'type'    => 'TopUp',
-                                'title'   => 'Top-up ' . $transaction->status,
-                                'message' => "Your ₱" . number_format($transaction->amount_paid, 2) . " top-up did not go through. No balance was added.",
+                                'title'   => $title,
+                                'message' => $message,
                                 'metadata' => [
                                     'amount'              => $transaction->amount_paid,
                                     'checkout_session_id' => $checkoutSessionId,
                                     'reason'              => $transaction->status,
+                                    'status'              => $transaction->status,
                                 ],
                             ]);
 
@@ -478,5 +529,21 @@ class PaymongoController extends Controller
             str_contains($e, 'timeout')      => 'the receiving bank or e-wallet was temporarily unavailable',
             default                          => 'the receiving bank or e-wallet rejected the transfer',
         };
+    }
+
+    private function paymentMethodLabel(?string $method): string
+    {
+        return match (strtolower((string) $method)) {
+            'gcash'   => 'GCash',
+            'paymaya' => 'Maya',
+            'card'    => 'credit/debit card',
+            'qrph'    => 'QR Ph',
+            default   => 'online payment',
+        };
+    }
+
+    private function topUpReference(string $checkoutSessionId): string
+    {
+        return $checkoutSessionId;
     }
 }
