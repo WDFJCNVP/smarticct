@@ -265,6 +265,8 @@ class PaymongoController extends Controller
 
                     $balanceAfter = null;
 
+                    // Balance decrement Admin and Operator
+
                     if ($transaction->card_id) {
 
                         // Operator withdrawal
@@ -296,13 +298,36 @@ class PaymongoController extends Controller
                     }
 
                     if ($transaction->processed_by) {
+                        $s = $this->withdrawalSummary($transaction);
+
+                        $message = "₱" . number_format($s['requested'], 2) . " was sent to {$s['destination']}"
+                            . ($s['provider'] ? " via {$s['provider']}" : '') . ".";
+
+                        if ($s['fee'] > 0) {
+                            $message .= " A ₱" . number_format($s['fee'], 2) . " transfer fee applied, for a total deduction of ₱"
+                                . number_format($s['total'], 2) . ".";
+                        }
+
+                        if ($balanceAfter !== null) {
+                            $message .= " Your new " . ($isAdminWithdrawal ? 'terminal' : 'card') . " balance is ₱"
+                                . number_format($balanceAfter, 2) . ".";
+                        }
+
+                        $message .= " Ref: {$transaction->reference_no}";
+
                         $notification = Notification::create([
                             'type'    => 'Withdrawal',
-                            'title'   => 'Withdrawal completed',
-                            'message' => "Your ₱" . number_format($transaction->amount, 2) . " withdrawal has been sent.",
+                            'title'   => $s['institution'] ? "Withdrawal sent to {$s['institution']}" : 'Withdrawal completed',
+                            'message' => $message,
                             'metadata' => [
-                                'amount'       => $transaction->amount,
-                                'reference_no' => $transaction->reference_no,
+                                'amount'           => $s['requested'],
+                                'fee'              => $s['fee'],
+                                'total_deducted'   => $s['total'],
+                                'provider'         => $s['provider'],
+                                'institution_name' => $s['institution'],
+                                'balance_after'    => $balanceAfter,
+                                'reference_no'     => $transaction->reference_no,
+                                'status'           => 'success',
                             ],
                         ]);
 
@@ -338,13 +363,24 @@ class PaymongoController extends Controller
                     ]);
 
                     if ($transaction->processed_by) {
+                        $s = $this->withdrawalSummary($transaction);
+
                         $notification = Notification::create([
                             'type'    => 'Withdrawal',
-                            'title'   => 'Withdrawal failed',
-                            'message' => "Your ₱" . number_format($transaction->amount, 2) . " withdrawal failed",
+                            'title'   => $s['institution'] ? "Withdrawal to {$s['institution']} failed" : 'Withdrawal failed',
+                            'message' => "Your ₱" . number_format($s['requested'], 2) . " withdrawal to {$s['destination']}"
+                                . ($s['provider'] ? " via {$s['provider']}" : '')
+                                . " could not be completed because " . $this->friendlyFailureReason($providerError) . "."
+                                . " No money was deducted from your balance. Please check your account details and try again."
+                                . " Ref: {$transaction->reference_no}",
                             'metadata' => [
-                                'amount'       => $transaction->amount,
-                                'reference_no' => $transaction->reference_no,
+                                'amount'           => $s['requested'],
+                                'fee'              => $s['fee'],
+                                'provider'         => $s['provider'],
+                                'institution_name' => $s['institution'],
+                                'reference_no'     => $transaction->reference_no,
+                                'status'           => 'failed',
+                                'provider_code'    => $providerCode,
                             ],
                         ]);
 
@@ -403,5 +439,44 @@ class PaymongoController extends Controller
         }
 
         return response()->json(['message' => 'ok']);
+    }
+
+    private function withdrawalSummary(CardTransaction $transaction): array
+    {
+        $meta = (array) $transaction->metadata;
+
+        $total     = (float) $transaction->amount;
+        $fee       = (float) ($meta['fee'] ?? 0);
+        $requested = (float) ($meta['requested_amount'] ?? ($total - $fee));
+
+        $provider = match ($meta['provider'] ?? null) {
+            'instapay' => 'InstaPay',
+            'pesonet'  => 'PESONet',
+            default    => null,
+        };
+
+        $institution = $meta['institution_name'] ?? null;
+        $last4       = $meta['account_last4'] ?? null;
+
+        $destination = $institution
+            ? $institution . ($last4 ? " (account ending {$last4})" : '')
+            : 'your account';
+
+        return compact('total', 'fee', 'requested', 'provider', 'institution', 'destination');
+    }
+
+    private function friendlyFailureReason(?string $providerError): string
+    {
+        $e = strtolower((string) $providerError);
+
+        return match (true) {
+            str_contains($e, 'invalid account'),
+            str_contains($e, 'not found')    => 'the receiving account could not be found or verified',
+            str_contains($e, 'name')         => 'the account name did not match the receiving account',
+            str_contains($e, 'limit')        => 'the transfer exceeded the receiving account\'s limit',
+            str_contains($e, 'unavailable'),
+            str_contains($e, 'timeout')      => 'the receiving bank or e-wallet was temporarily unavailable',
+            default                          => 'the receiving bank or e-wallet rejected the transfer',
+        };
     }
 }

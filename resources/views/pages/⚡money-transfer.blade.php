@@ -199,7 +199,14 @@ new class extends Component
                     'transaction_time' => now(),
                     'source'           => $isAdmin ? 'admin_withdraw_page' : 'operator_withdraw_page',
                     'message'          => "Withdrawal via {$validated['provider']} to {$institutionName} ({$validated['accountNumber']})",
-                    'metadata'         => ['requested_amount' => (float) $validated['withdrawAmount'], 'fee' => $this->fee],
+                    'metadata' => [
+                            'requested_amount' => (float) $validated['withdrawAmount'],
+                            'fee'              => $this->fee,
+                            'provider'         => $validated['provider'],
+                            'institution_name' => $institutionName,
+                            'account_name'     => $validated['accountName'],
+                            'account_last4'    => substr(preg_replace('/\D/', '', $validated['accountNumber']), -4),
+                        ],
                 ]);
             });
         } catch (\RuntimeException $e) {
