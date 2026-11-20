@@ -10,26 +10,26 @@ use App\Services\QueueManagementService;
 use App\Services\DocumentExpiryNotificationService;
 
 Schedule::command('app:notify-expiring-franchises')
-    ->dailyAt('08:00')
+    ->dailyAt('00:00')
     ->appendOutputTo(storage_path('logs/schedule.log'));
 
 Schedule::command('app:generate-daily-schedule')->dailyAt('00:00');
 
 Schedule::call(function () {
     app(DocumentExpiryNotificationService::class)->notifyExpiringDocuments(30);
-})->cron('0 8 * * 1,4');
+})->dailyAt('00:00');
 
-Schedule::call(function () {
-    Post::onlyTrashed()
-        ->where('deleted_at', '<=', now()->subDays(30))
-        ->each(function (Post $post) {
-            foreach (($post->metadata['attachments'] ?? []) as $attachmentPath) {
-                Storage::disk('public')->delete($attachmentPath);
-            }
+// Schedule::call(function () {
+//     Post::onlyTrashed()
+//         ->where('deleted_at', '<=', now()->subDays(30))
+//         ->each(function (Post $post) {
+//             foreach (($post->metadata['attachments'] ?? []) as $attachmentPath) {
+//                 Storage::disk('public')->delete($attachmentPath);
+//             }
 
-            $post->forceDelete();
-        });
-})->daily();
+//             $post->forceDelete();
+//         });
+// })->daily();
 
 // Artisan::command('inspire', function () {
 //     $this->comment(Inspiring::quote());
