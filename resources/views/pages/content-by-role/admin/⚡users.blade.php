@@ -13,15 +13,20 @@ use Illuminate\Support\Carbon;
 use App\Jobs\ProcessAfterDepart;
 use App\Models\Queue;
 use App\Models\Vehicle;
+use App\Services\OperatorImportService;
+use Livewire\WithFileUploads;
+use Livewire\Attributes\Locked;
+use Flux\Flux;
 
 
 
 new  #[Layout('layouts.admin-layout')] class extends Component
 {
-    use WithPagination;
+    use WithPagination, WithFileUploads;
 
     public $filtered_role = "";
     public $filtered_status = "";
+    public $filtered_account = "";
     public $search = "";
     public $selectedUserId = null;
 
@@ -74,6 +79,106 @@ new  #[Layout('layouts.admin-layout')] class extends Component
         return Vehicle::query()->distinct()->pluck('vehicle_type');
     }
 
+    // ===================== IMPORT OPERATORS MODAL =====================
+    // The parsing, validation and saving live in OperatorImportService.
+    // Imported operators are saved without an account ("No account").
+
+    public $importFile;
+
+    // Locked: the browser must not be able to edit the previewed rows before confirming.
+    #[Locked]
+    public array $importRows = [];
+
+    public function prepareImportModal(): void
+    {
+        $this->reset(['importFile', 'importRows']);
+        $this->resetValidation();
+    }
+
+    public function downloadImportTemplate()
+    {
+        $service = app(OperatorImportService::class);
+
+        return response()->streamDownload(function () use ($service) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, OperatorImportService::COLUMNS);
+            foreach ($service->templateRows() as $row) {
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        }, 'operators-import-template.csv');
+    }
+
+    public function updatedImportFile(): void
+    {
+        $this->reset('importRows');
+
+        $this->validate([
+            'importFile' => 'required|file|mimes:xlsx,csv,txt|max:5120',
+        ]);
+
+        try {
+            $this->importRows = app(OperatorImportService::class)->parse($this->importFile->getRealPath());
+        } catch (\Throwable $e) {
+            report($e);
+            $this->addError('importFile', 'This file could not be read. Please use the template.');
+        }
+    }
+
+    #[Computed]
+    public function importValidCount(): int
+    {
+        return collect($this->importRows)->filter(fn ($r) => empty($r['errors']))->count();
+    }
+
+    #[Computed]
+    public function importInvalidCount(): int
+    {
+        return count($this->importRows) - $this->importValidCount;
+    }
+
+    #[Computed]
+    public function importNewOperatorCount(): int
+    {
+        return collect($this->importRows)
+            ->filter(fn ($r) => empty($r['errors']) && empty($r['data']['operator_id']))
+            ->pluck('data.operator_key')
+            ->unique()
+            ->count();
+    }
+
+    public function confirmImport(): void
+    {
+        if ($this->importValidCount === 0) {
+            return;
+        }
+
+        $invalid = $this->importInvalidCount;
+        $result  = app(OperatorImportService::class)->commit($this->importRows);
+
+        $this->reset(['importFile', 'importRows']);
+        unset(
+            $this->getUsers,
+            $this->withCardCount,
+            $this->noAccountOperatorCount,
+            $this->importValidCount,
+            $this->importInvalidCount,
+            $this->importNewOperatorCount
+        );
+
+        Flux::modal('import-operators')->close();
+
+        $skipped = $invalid + $result['skipped'];
+
+        Flux::toast(
+            variant: 'success',
+            duration: 6000,
+            heading: 'Import complete.',
+            text: "{$result['operators']} new operator(s) without an account and {$result['vehicles']} vehicle(s) added."
+                . ($skipped ? " {$skipped} row(s) skipped." : '')
+        );
+    }
+
     public function mount() {
 
         app(QueueManagementService::class)->generateSchedule(today());
@@ -89,6 +194,10 @@ new  #[Layout('layouts.admin-layout')] class extends Component
     }
 
     public function updatedFilteredStatus() {
+        $this->resetPage();
+    }
+
+    public function updatedFilteredAccount() {
         $this->resetPage();
     }
 
@@ -118,6 +227,11 @@ new  #[Layout('layouts.admin-layout')] class extends Component
         return User::with('card', 'userStatus', 'vehicles')
             ->whereIn('role', ['operator', 'commuter'])
             ->when($this->filtered_role, fn($q) => $q->where('role', $this->filtered_role))
+            ->when($this->filtered_account, fn ($q) => match ($this->filtered_account) {
+                'with_account'    => $q->withAccount(),
+                'without_account' => $q->withoutAccount(),
+                default           => $q,
+            })
             ->when($this->filtered_status, function ($q) {
                 match ($this->filtered_status) {
                     'active' => $q->whereDoesntHave('userStatus', function ($s) {
@@ -135,6 +249,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
             ->when($this->search, fn($q) => $q->where(function ($q2) {
                 $q2->where('name', 'like', '%' . $this->search . '%')
                 ->orWhere('email_address', 'like', '%' . $this->search . '%')
+                ->orWhere('phone_number', 'like', '%' . $this->search . '%')
                 ->orWhere('user_code', 'like', '%' . $this->search . '%');
             }))
             ->paginate(10);
@@ -149,11 +264,18 @@ new  #[Layout('layouts.admin-layout')] class extends Component
 
 
 
+    #[Computed]
+    public function noAccountOperatorCount(): int
+    {
+        return User::where('role', 'operator')->withoutAccount()->count();
+    }
+
     #[On('echo:user-info-updated,.UserInfoUpdated')]
     public function refreshUserInfo() {
 
         unset($this->getUsers);
         unset($this->withCardCount);
+        unset($this->noAccountOperatorCount);
     }
 
 
@@ -166,6 +288,17 @@ new  #[Layout('layouts.admin-layout')] class extends Component
         description="Registered Users"
         class="mb-4"
     >
+        <div class="flex items-center gap-2">
+        <flux:modal.trigger name="import-operators" wire:click="prepareImportModal">
+            <flux:button
+                icon="arrow-up-tray"
+                size="sm"
+                variant="outline"
+                class="font-secondary justify-center"
+            >
+                Import Operators
+            </flux:button>
+        </flux:modal.trigger>
         <flux:modal.trigger name="export-operators" wire:click="prepareExportModal">
             <flux:button
                 icon="arrow-down-tray"
@@ -175,6 +308,7 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                 Export Operators
             </flux:button>
         </flux:modal.trigger>
+        </div>
     </x-page-header>
 
     <div class="hidden sm:flex sm:items-center sm:justify-between gap-3 mb-6">
@@ -205,6 +339,16 @@ new  #[Layout('layouts.admin-layout')] class extends Component
         </div>
 
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto shrink-0">
+            <flux:modal.trigger name="import-operators" wire:click="prepareImportModal">
+                <flux:button
+                    icon="arrow-up-tray"
+                    size="sm"
+                    variant="outline"
+                    class="font-secondary w-full sm:w-auto justify-center"
+                >
+                    Import Operators
+                </flux:button>
+            </flux:modal.trigger>
             <flux:modal.trigger name="export-operators" wire:click="prepareExportModal">
                 <flux:button
                     icon="arrow-down-tray"
@@ -337,6 +481,119 @@ new  #[Layout('layouts.admin-layout')] class extends Component
         </div>
     </flux:modal>
 
+    {{-- ===================== IMPORT OPERATORS MODAL ===================== --}}
+    <flux:modal
+        name="import-operators"
+        :closable="false"
+        class="w-[calc(100%-2rem)] sm:max-w-lg md:max-w-3xl mx-auto rounded-xl overflow-hidden"
+    >
+        <div class="flex flex-col p-4 sm:p-6 !pr-4 sm:!pr-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            <div class="flex items-start justify-between">
+                <div>
+                    <flux:heading size="xl" class="!font-primary !font-bold text-light-txt-primary dark:text-dark-txt-primary">
+                        Import operators
+                    </flux:heading>
+                    <flux:text class="mt-1 font-secondary text-sm text-light-txt-muted dark:text-dark-txt-muted">
+                        Upload an Excel (.xlsx) or CSV file with one row per vehicle. Rows sharing a phone number (or email, or name) are added to the same operator.
+                        Imported operators are saved without an account.
+                    </flux:text>
+                </div>
+                <flux:modal.close>
+                    <button type="button" class="p-1 rounded-full hover:bg-light-subtle dark:hover:bg-dark-subtle text-light-txt-muted dark:text-dark-txt-muted -mt-1">
+                        <flux:icon name="x-mark" class="w-5 h-5" />
+                    </button>
+                </flux:modal.close>
+            </div>
+
+            <flux:field>
+                <div class="flex items-center justify-between">
+                    <flux:label class="font-secondary text-table-row font-medium text-light-txt-body dark:text-dark-txt-primary">Spreadsheet file</flux:label>
+                    <flux:button type="button" variant="ghost" size="xs" icon="arrow-down-tray" wire:click="downloadImportTemplate" class="font-secondary">
+                        Download template
+                    </flux:button>
+                </div>
+                <flux:input type="file" wire:model="importFile" accept=".xlsx,.csv" />
+                <flux:error name="importFile" />
+                <div wire:loading wire:target="importFile" class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted mt-1">
+                    Reading file…
+                </div>
+            </flux:field>
+
+            @if (count($importRows))
+                <div class="flex flex-wrap items-center gap-2">
+                    <flux:badge color="green" size="sm">{{ $this->importValidCount }} ready</flux:badge>
+                    @if ($this->importNewOperatorCount)
+                        <flux:badge color="amber" size="sm">{{ $this->importNewOperatorCount }} new operator(s), no account</flux:badge>
+                    @endif
+                    @if ($this->importInvalidCount)
+                        <flux:badge color="red" size="sm">{{ $this->importInvalidCount }} with errors (will be skipped)</flux:badge>
+                    @endif
+                </div>
+
+                <div class="border border-light-bd-default dark:border-dark-bd-default rounded-lg overflow-hidden">
+                    <div class="overflow-auto max-h-64">
+                        <table class="w-full text-left font-secondary text-xs">
+                            <thead class="sticky top-0 bg-light-subtle dark:bg-dark-secondary text-light-txt-muted dark:text-dark-txt-muted">
+                                <tr>
+                                    <th class="px-3 py-2">Row</th>
+                                    <th class="px-3 py-2">Operator</th>
+                                    <th class="px-3 py-2">Plate</th>
+                                    <th class="px-3 py-2">Type</th>
+                                    <th class="px-3 py-2">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-light-bd-default dark:divide-dark-bd-default text-light-txt-body dark:text-dark-txt-primary">
+                                @foreach ($importRows as $row)
+                                    <tr wire:key="import-row-{{ $row['line'] }}">
+                                        <td class="px-3 py-2 align-top">{{ $row['line'] }}</td>
+                                        <td class="px-3 py-2 align-top">{{ $row['data']['operator_name'] ?: '—' }}</td>
+                                        <td class="px-3 py-2 align-top">{{ $row['data']['plate_number'] ?: '—' }}</td>
+                                        <td class="px-3 py-2 align-top">{{ $row['data']['vehicle_type'] ?: '—' }}</td>
+                                        <td class="px-3 py-2 align-top">
+                                            @if (empty($row['errors']))
+                                                <span class="text-success dark:text-dark-success">
+                                                    OK · {{ $row['data']['operator_id'] ? 'existing operator' : 'new operator' }}
+                                                </span>
+                                            @else
+                                                <ul class="text-danger dark:text-dark-danger list-disc pl-4 space-y-0.5">
+                                                    @foreach ($row['errors'] as $error)
+                                                        <li>{{ $error }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 pt-2 border-t border-light-bd-default dark:border-dark-bd-default">
+                <flux:modal.close class="w-full sm:w-auto">
+                    <flux:button type="button" variant="ghost" class="w-full sm:w-auto justify-center font-secondary">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+
+                {{-- Only rendered when there is something valid to import --}}
+                @if (count($importRows) && $this->importValidCount > 0)
+                    <flux:button
+                        type="button"
+                        icon="arrow-up-tray"
+                        wire:click="confirmImport"
+                        wire:loading.attr="disabled"
+                        wire:target="confirmImport"
+                        class="font-secondary w-full sm:w-auto justify-center bg-primary text-white hover:bg-primary-hover dark:bg-secondary dark:text-[var(--color-dark-primary)] dark:hover:bg-secondary-hover"
+                    >
+                        Import {{ $this->importValidCount }} valid row(s)
+                    </flux:button>
+                @endif
+            </div>
+        </div>
+    </flux:modal>
+
     {{-- Stat cards --}}
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5">
         <flux:card class="p-3 sm:p-4">
@@ -369,7 +626,11 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                 {{ User::where('role', 'operator')->count() }}
             </x-text>
             <x-text class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted">
-                vehicle owners &amp; drivers
+                @if ($this->noAccountOperatorCount > 0)
+                    {{ $this->noAccountOperatorCount }} without an account
+                @else
+                    vehicle owners &amp; drivers
+                @endif
             </x-text>
         </flux:card>
 
@@ -440,12 +701,21 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                 <flux:select.option value="suspended">Suspended</flux:select.option>
                 <flux:select.option value="deleted">Deleted</flux:select.option>
             </flux:select>
+            <flux:select
+                wire:model.live="filtered_account"
+                placeholder="All accounts"
+                class="w-full sm:w-44 font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
+            >
+                <flux:select.option value="">All accounts</flux:select.option>
+                <flux:select.option value="with_account">With account</flux:select.option>
+                <flux:select.option value="without_account">No account</flux:select.option>
+            </flux:select>
 
             <div class="w-full sm:flex-1 sm:max-w-md">
                 <flux:input
                     type="text"
                     wire:model.live.debounce.300ms="search"
-                    placeholder="Search name, ID or email"
+                    placeholder="Search name, ID, email or phone"
                     class="w-full font-secondary text-table-row dark:bg-dark-secondary dark:border-dark-bd-default dark:text-dark-txt-primary"
                     icon="magnifying-glass"
                 />
@@ -485,9 +755,12 @@ new  #[Layout('layouts.admin-layout')] class extends Component
                                             @elseif ($docStatus === 'expiring')
                                                 <flux:badge color="orange" size="sm" class="font-secondary text-badge text-xs">Docs Expiring</flux:badge>
                                             @endif
+                                            @if (! $user->hasAccount())
+                                                <flux:badge color="amber" size="sm" class="font-secondary text-badge text-xs">No account</flux:badge>
+                                            @endif
                                         </span>
                                         <span class="font-secondary text-xs text-light-txt-muted dark:text-dark-txt-muted truncate">
-                                            {{ $user->email_address }}
+                                            {{ $user->email_address ?: 'No email on record' }}
                                         </span>
                                     </div>
                                 </div>

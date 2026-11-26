@@ -31,7 +31,11 @@ class UserService
 
         return DB::transaction(function () use ($userBasicInformation, $cardInformation, $vehicles) {
 
-            $userBasicInformation['password'] = Hash::make($userBasicInformation['password']);
+            // Operators imported from old records are created without an account,
+            // so the password is optional. (null stays null in the "hashed" cast.)
+            $userBasicInformation['password'] = ! empty($userBasicInformation['password'])
+                ? Hash::make($userBasicInformation['password'])
+                : null;
 
             $user = User::create($userBasicInformation);
 
@@ -136,24 +140,27 @@ class UserService
 
             }
 
-            if ($byAdmin) {
-                $notification = Notification::create([
-                    'type'    => 'Update',
-                    'title'   => 'Profile Updated',
-                    'message' => 'Your account details were successfully updated by an administrator on ' . now()->format('F d, Y') . '.',
-                ]);
-            } else {
-                $notification = Notification::create([
-                    'type'    => 'Update',
-                    'title'   => 'Profile Updated',
-                    'message' => 'Your account details were successfully updated on ' . now()->format('F d, Y') . '.',
+            // A no-account operator can never read notifications, so don't create orphan rows.
+            if ($user->hasAccount()) {
+                if ($byAdmin) {
+                    $notification = Notification::create([
+                        'type'    => 'Update',
+                        'title'   => 'Profile Updated',
+                        'message' => 'Your account details were successfully updated by an administrator on ' . now()->format('F d, Y') . '.',
+                    ]);
+                } else {
+                    $notification = Notification::create([
+                        'type'    => 'Update',
+                        'title'   => 'Profile Updated',
+                        'message' => 'Your account details were successfully updated on ' . now()->format('F d, Y') . '.',
+                    ]);
+                }
+
+                UserNotification::create([
+                    'notification_id' => $notification->id,
+                    'user_id' => $user->id,
                 ]);
             }
-
-            UserNotification::create([
-                'notification_id' => $notification->id,
-                'user_id' => $user->id,
-            ]);
 
             broadcast(new NotificationEvent());
 

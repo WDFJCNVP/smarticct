@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -65,6 +66,27 @@ class User extends Authenticatable
     public function userStatus()
     {
         return $this->hasOne(UserStatus::class);
+    }
+
+    /**
+     * An operator imported from the terminal's old records has no account:
+     * no password was ever set, so they cannot log in. This is the single
+     * source of truth for the "No account" label and for blocking login.
+     * (Needs the password column to be loaded on the model.)
+     */
+    public function hasAccount(): bool
+    {
+        return filled($this->password);
+    }
+
+    public function scopeWithAccount(Builder $query): Builder
+    {
+        return $query->whereNotNull('password');
+    }
+
+    public function scopeWithoutAccount(Builder $query): Builder
+    {
+        return $query->whereNull('password');
     }
 
     public function isSuspended(): bool

@@ -76,6 +76,15 @@ new #[Layout('layouts.public-account-setup')] class extends Component
         $lockout = app(LoginLockoutService::class);
         $user = User::where('email_address', $this->email_address)->first();
 
+        // A record without a password is a no-account operator (imported from the
+        // terminal's old records). Reject it like any wrong credential: reveal
+        // nothing about the record and don't count it toward the lockout.
+        if ($user && ! $user->hasAccount()) {
+            throw ValidationException::withMessages([
+                'email_address' => 'Sorry, those credentials do not match.',
+            ]);
+        }
+
         // Check lock/block BEFORE Auth::attempt, so even a correct password is rejected
         if ($user && $lockout->isBlocked($user)) {
             $this->logLockoutAttempt('login_blocked_locked', 'Login attempt on a blocked account.');

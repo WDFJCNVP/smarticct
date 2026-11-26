@@ -22,6 +22,7 @@ class Vehicle extends Model
         'engine_number',
         'body_number',
         'chassis_number',
+        'driver_name',
         'has_franchise',
         'franchise_expiry_date',
         'last_notified_status',
