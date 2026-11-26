@@ -655,7 +655,10 @@ new class extends Component
                 $isQueued    = $this->isVehicleQueued($vehicle->id);
             @endphp
 
-            <flux:card class="mb-3 sm:mb-4 !p-3 sm:!p-4" wire:key="vehicle-container-{{ $vehicle->id }}">
+            {{-- One keyed root per vehicle: card + delete modal + edit modal move together on re-render --}}
+            <div wire:key="vehicle-{{ $vehicle->id }}">
+
+            <flux:card class="mb-3 sm:mb-4 !p-3 sm:!p-4">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2 sm:gap-3 min-w-0">
                         <flux:badge size="sm" class="shrink-0 bg-primary">{{ $index + 1 }}</flux:badge>
@@ -873,5 +876,7 @@ new class extends Component
                 </div>
             </flux:modal>
             @endunless
+
+            </div>{{-- /wire:key="vehicle-{{ $vehicle->id }}" --}}
         @endforeach
 </div>
